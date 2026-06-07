@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 40 20% 97%;
+        --foreground: 30 10% 12%;
+        --card: 40 25% 99%;
+        --card-foreground: 30 10% 12%;
+        --primary: 30 8% 18%;
+        --primary-foreground: 40 20% 97%;
+        --muted: 35 12% 93%;
+        --muted-foreground: 30 6% 46%;
+        --accent: 35 14% 92%;
+        --accent-foreground: 30 10% 12%;
+        --border: 35 10% 88%;
+        --radius: 0.5rem;
+    }
+
+    .dark {
+        --background: 30 6% 12%;
+        --foreground: 35 15% 92%;
+        --card: 30 5% 14%;
+        --card-foreground: 35 15% 92%;
+        --primary: 35 15% 92%;
+        --primary-foreground: 30 6% 12%;
+        --muted: 30 5% 20%;
+        --muted-foreground: 35 8% 60%;
+        --accent: 30 5% 18%;
+        --accent-foreground: 35 15% 92%;
+        --border: 30 5% 22%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+.scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+}
+
+@keyframes slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.animate-slide-in {
+    animation: slide-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.15s ease-out;
+}
+
+@keyframes msg-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-msg-in {
+    animation: msg-in 0.2s ease-out;
+}

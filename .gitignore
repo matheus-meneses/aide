@@ -1,0 +1,29 @@
+# binaries
+bin/
+cli/aide
+
+# databases and runtime data
+data/*.db
+data/.chat_history
+*.db
+
+# secrets and sessions
+scrapers/.sessions/
+config.yaml
+bin/config.yaml
+
+# python
+scrapers/.venv/
+**/__pycache__/
+**/*.pyc
+
+# node / frontend build
+cli/internal/agent/frontend/node_modules/
+cli/internal/agent/frontend/dist/
+
+# embedded (generated at build time)
+cli/internal/scrapers/embedded/
+
+# ide
+*.iml
+.idea/

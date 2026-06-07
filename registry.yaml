@@ -1,0 +1,90 @@
+sources:
+  jira:
+    description: "Jira issue tracker - tasks, approvals, metrics"
+    categories: [ task, metric ]
+    fields:
+      - key: base_url
+        label: "Jira URL"
+        hint: "Your organization's Jira instance"
+        required: true
+        default: "https://jira-inter.atlassian.net"
+      - key: queries
+        label: "JQL Queries"
+        hint: "JSON array of {name, jql, mode} objects"
+        required: false
+        type: json
+        default: '[{"name":"My Open Tickets","jql":"assignee = currentUser() AND resolution = Unresolved","mode":"items"}]'
+    credentials:
+      - key: email
+        label: "Email"
+        hint: "Your Jira account email"
+      - key: token
+        label: "API Token"
+        hint: "Generate at https://id.atlassian.com/manage-profile/security/api-tokens"
+        secret: true
+
+  gitlab:
+    description: "GitLab merge requests and reviews"
+    categories: [ task ]
+    fields:
+      - key: base_url
+        label: "GitLab URL"
+        required: true
+        default: "https://gitlab.sharedservices.local"
+    credentials:
+      - key: token
+        label: "Personal Access Token"
+        hint: "Generate at GitLab > Preferences > Access Tokens"
+        secret: true
+
+  rh_portal:
+    description: "Portal RH - approvals and absences"
+    categories: [ approval, absence ]
+    fields:
+      - key: base_url
+        label: "Portal RH URL"
+        required: true
+        default: "https://portalrh.bancointer.com.br"
+    credentials:
+      - key: username
+        label: "Username"
+        hint: "Your network login (e.g. BI001189)"
+      - key: password
+        label: "Password"
+        secret: true
+
+  outlook:
+    description: "Outlook calendar - meetings and events"
+    categories: [ event, metric ]
+    fields:
+      - key: calendar_days_ahead
+        label: "Days ahead to fetch"
+        required: false
+        default: "7"
+      - key: calendars
+        label: "Calendar names"
+        hint: "Comma-separated (leave empty for all)"
+        required: false
+        type: list
+        default: "Calendário"
+    credentials: [ ]
+
+  sailpoint:
+    description: "SailPoint identity approvals"
+    categories: [ approval, task ]
+    fields:
+      - key: base_url
+        label: "SailPoint URL"
+        required: true
+        default: "https://bancointer.identitynow.com/ui/d/approvals"
+    credentials: [ ]
+
+  rh_management_portal:
+    description: "RH Gestao - absences, events, tasks"
+    categories: [ absence, event, task ]
+    fields:
+      - key: base_url
+        label: "Portal Gestao URL"
+        required: true
+        default: "https://rhgestao.guardianrh.com.br/inter/#/start"
+    credentials: [ ]
