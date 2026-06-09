@@ -1,6 +1,8 @@
 package runner
 
-import "encoding/json"
+import (
+	"aide/cli/internal/plugin"
+)
 
 type ScraperEntry struct {
 	Source    string         `json:"source"`
@@ -32,6 +34,7 @@ type SourceResult struct {
 	Source      string
 	Entries     []ScraperEntry
 	TeamMembers []TeamMemberRaw
+	PluginResp  *plugin.Response
 	Error       error
 	DurationMs  int64
 	Stderr      string
@@ -44,12 +47,4 @@ type RunResult struct {
 	SourcesOK     int
 	SourcesFailed int
 	Results       []SourceResult
-}
-
-func parseScraperOutput(data []byte) (ScraperPayload, error) {
-	var payload ScraperPayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return ScraperPayload{}, err
-	}
-	return payload, nil
 }

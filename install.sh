@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-NEXUS_URL="${AIDE_NEXUS_URL:-https://nexus.sharedservices.local/repository/aide}"
+GITHUB_REPO="${AIDE_GITHUB_REPO:-matheus-meneses/aide}"
+RELEASE_URL="${AIDE_RELEASE_URL:-https://github.com/${GITHUB_REPO}/releases/latest/download}"
 VERSION="${AIDE_VERSION:-latest}"
 INSTALL_DIR="${HOME}/.local/bin"
 
@@ -14,28 +15,23 @@ case "$ARCH" in
     *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-if [ "$OS" != "darwin" ]; then
-    echo "Unsupported OS: $OS (only macOS is supported)"
-    exit 1
+case "$OS" in
+    darwin|linux) ;;
+    *) echo "Unsupported OS: $OS"; exit 1 ;;
+esac
+
+BINARY="aide_${OS}_${ARCH}"
+
+if [ "$VERSION" != "latest" ]; then
+    RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}"
 fi
 
-BINARY="aide-${OS}-${ARCH}"
-
-if [ "$VERSION" = "latest" ]; then
-    echo "Fetching latest version..."
-    VERSION=$(curl -sfL "${NEXUS_URL}/VERSION" 2>/dev/null || echo "1.0.0")
-fi
-
-echo "Installing aide ${VERSION} (${OS}/${ARCH})..."
+echo "Installing aide (${OS}/${ARCH})..."
 
 mkdir -p "$INSTALL_DIR"
 
-curl -fL "${NEXUS_URL}/${VERSION}/${BINARY}" -o "${INSTALL_DIR}/aide"
+curl -fL "${RELEASE_URL}/${BINARY}" -o "${INSTALL_DIR}/aide"
 chmod +x "${INSTALL_DIR}/aide"
-
-mkdir -p "${HOME}/.aide"
-echo "Downloading source registry..."
-curl -fsSL "${NEXUS_URL}/${VERSION}/registry.yaml" -o "${HOME}/.aide/registry.yaml" 2>/dev/null || true
 
 add_to_path() {
     local profile="$1"
@@ -66,6 +62,6 @@ if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
-echo "aide ${VERSION} installed to ${INSTALL_DIR}/aide"
+echo "aide installed to ${INSTALL_DIR}/aide"
 echo ""
 echo "Run 'aide init' to complete setup."

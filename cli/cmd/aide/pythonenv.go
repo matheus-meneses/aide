@@ -1,13 +1,12 @@
 package main
 
 import (
+	"aide/cli/internal/updater"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-
-	"aide/cli/internal/updater"
 )
 
 const (
@@ -15,51 +14,6 @@ const (
 	pythonRelease = "20241016"
 	pythonBaseURL = "https://github.com/indygreg/python-build-standalone/releases/download/" + pythonRelease
 )
-
-func setupScraperVenv(base, scrapersDir string) error {
-	venvDir := filepath.Join(scrapersDir, ".venv")
-
-	pythonPath, err := ensurePython(base)
-	if err != nil {
-		return fmt.Errorf("setting up python: %w", err)
-	}
-
-	if _, err := os.Stat(venvDir); err == nil {
-		fmt.Println("  [~] Removing old venv...")
-		os.RemoveAll(venvDir)
-	}
-
-	fmt.Println("  [+] Creating Python venv...")
-	if err := execCmd(pythonPath, "-m", "venv", venvDir); err != nil {
-		return fmt.Errorf("creating venv: %w", err)
-	}
-
-	pipBin := filepath.Join(venvDir, "bin", "pip")
-	if runtime.GOOS == "windows" {
-		pipBin = filepath.Join(venvDir, "Scripts", "pip.exe")
-	}
-
-	fmt.Println("  [+] Installing Python dependencies...")
-	reqFile := filepath.Join(scrapersDir, "requirements.txt")
-	if err := execCmd(pipBin, "install", "--upgrade", "pip"); err != nil {
-		return fmt.Errorf("upgrading pip: %w", err)
-	}
-	if err := execCmd(pipBin, "install", "-r", reqFile); err != nil {
-		return fmt.Errorf("installing requirements: %w", err)
-	}
-
-	pythonBin := filepath.Join(venvDir, "bin", "python")
-	if runtime.GOOS == "windows" {
-		pythonBin = filepath.Join(venvDir, "Scripts", "python.exe")
-	}
-
-	fmt.Println("  [+] Installing Playwright chromium...")
-	if err := execCmd(pythonBin, "-m", "playwright", "install", "chromium"); err != nil {
-		fmt.Printf("  [!] Playwright install failed (non-fatal): %v\n", err)
-	}
-
-	return nil
-}
 
 func ensurePython(base string) (string, error) {
 	pythonDir := filepath.Join(base, "python")
@@ -132,18 +86,6 @@ func pythonTarballName() (string, error) {
 	}
 
 	return fmt.Sprintf("cpython-%s+%s-%s-%s-install_only.tar.gz", pythonVersion, pythonRelease, arch, platform), nil
-}
-
-func execCmd(name string, args ...string) error {
-	c := exec.Command(name, args...)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	c.Env = append(os.Environ(),
-		"NODE_TLS_REJECT_UNAUTHORIZED=0",
-		"PYTHONHTTPSVERIFY=0",
-		"PIP_TRUSTED_HOST=pypi.org files.pythonhosted.org pypi.python.org",
-	)
-	return c.Run()
 }
 
 func execCmdSilent(name string, args ...string) error {

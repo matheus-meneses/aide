@@ -1,22 +1,28 @@
 package main
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/plugin"
 	"fmt"
 	"sort"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/registry"
 )
 
-func sourceListExecute(cmd *cobra.Command, args []string) error {
+func sourceListExecute(_ *cobra.Command, _ []string) error {
 	cfg, err := config.LoadRaw(cfgFile)
 	if err != nil {
 		return err
 	}
 
-	reg := registry.Load()
+	mgr := plugin.NewManager()
+	manifests, _ := mgr.List()
+
+	manifestMap := make(map[string]*plugin.Manifest)
+	for _, m := range manifests {
+		manifestMap[m.Name] = m
+	}
+
 	configuredSet := make(map[string]bool)
 
 	if len(cfg.Sources) > 0 {
@@ -34,25 +40,26 @@ func sourceListExecute(cmd *cobra.Command, args []string) error {
 				status = "enabled"
 			}
 			desc := ""
-			if def := reg.GetSource(name); def != nil {
-				desc = " - " + def.Description
+			if m, ok := manifestMap[name]; ok && m.Description != "" {
+				desc = " - " + m.Description
 			}
 			fmt.Printf("  %-22s [%s]%s\n", name, status, desc)
 		}
 	}
 
-	names := reg.ListSources()
 	var unconfigured []string
-	for _, name := range names {
-		if !configuredSet[name] {
-			unconfigured = append(unconfigured, name)
+	for _, m := range manifests {
+		if !configuredSet[m.Name] {
+			unconfigured = append(unconfigured, m.Name)
 		}
 	}
+	sort.Strings(unconfigured)
+
 	if len(unconfigured) > 0 {
-		fmt.Println("\nAvailable:")
+		fmt.Println("\nInstalled (not yet configured):")
 		for _, name := range unconfigured {
-			def := reg.GetSource(name)
-			fmt.Printf("  %-22s %s\n", name, def.Description)
+			m := manifestMap[name]
+			fmt.Printf("  %-22s %s\n", name, m.Description)
 		}
 		fmt.Println("\nRun 'aide config source add' to set up a source.")
 	}

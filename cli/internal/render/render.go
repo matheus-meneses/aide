@@ -1,6 +1,7 @@
 package render
 
 import (
+	"aide/cli/internal/store"
 	"fmt"
 	"io"
 	"math"
@@ -8,8 +9,6 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
-
-	"aide/cli/internal/store"
 )
 
 var out io.Writer = os.Stdout
@@ -72,22 +71,22 @@ func buildSparkline(data []store.DailyCount) string {
 		return ""
 	}
 	blocks := []rune("▁▂▃▄▅▆▇█")
-	min, max := data[0].Count, data[0].Count
+	minVal, maxVal := data[0].Count, data[0].Count
 	for _, d := range data {
-		if d.Count < min {
-			min = d.Count
+		if d.Count < minVal {
+			minVal = d.Count
 		}
-		if d.Count > max {
-			max = d.Count
+		if d.Count > maxVal {
+			maxVal = d.Count
 		}
 	}
 
 	var sb strings.Builder
-	spread := max - min
+	spread := maxVal - minVal
 	for _, d := range data {
 		idx := 0
 		if spread > 0 {
-			idx = int(math.Round(float64(d.Count-min) / float64(spread) * float64(len(blocks)-1)))
+			idx = int(math.Round(float64(d.Count-minVal) / float64(spread) * float64(len(blocks)-1)))
 		}
 		sb.WriteRune(blocks[idx])
 	}
@@ -99,22 +98,22 @@ func buildMetricSparkline(data []store.DailyMetric) string {
 		return ""
 	}
 	blocks := []rune("▁▂▃▄▅▆▇█")
-	min, max := data[0].Value, data[0].Value
+	minVal, maxVal := data[0].Value, data[0].Value
 	for _, d := range data {
-		if d.Value < min {
-			min = d.Value
+		if d.Value < minVal {
+			minVal = d.Value
 		}
-		if d.Value > max {
-			max = d.Value
+		if d.Value > maxVal {
+			maxVal = d.Value
 		}
 	}
 
 	var sb strings.Builder
-	spread := max - min
+	spread := maxVal - minVal
 	for _, d := range data {
 		idx := 0
 		if spread > 0 {
-			idx = int(math.Round((d.Value - min) / spread * float64(len(blocks)-1)))
+			idx = int(math.Round((d.Value - minVal) / spread * float64(len(blocks)-1)))
 		}
 		sb.WriteRune(blocks[idx])
 	}

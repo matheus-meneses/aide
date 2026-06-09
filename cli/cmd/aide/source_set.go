@@ -1,19 +1,18 @@
 package main
 
 import (
+	"aide/cli/internal/config"
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
 )
 
-func sourceEnableExecute(cmd *cobra.Command, args []string) error {
+func sourceEnableExecute(_ *cobra.Command, args []string) error {
 	return toggleSource(args[0], true)
 }
 
-func sourceDisableExecute(cmd *cobra.Command, args []string) error {
+func sourceDisableExecute(_ *cobra.Command, args []string) error {
 	return toggleSource(args[0], false)
 }
 
@@ -43,7 +42,7 @@ func toggleSource(name string, enabled bool) error {
 	return nil
 }
 
-func sourceSetExecute(cmd *cobra.Command, args []string) error {
+func sourceSetExecute(_ *cobra.Command, args []string) error {
 	name, key, value := args[0], args[1], args[2]
 
 	cfg, err := config.LoadRaw(cfgFile)

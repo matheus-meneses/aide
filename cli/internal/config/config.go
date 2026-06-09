@@ -1,6 +1,8 @@
 package config
 
 import (
+	"aide/cli/internal/xdg"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,10 +13,11 @@ import (
 )
 
 type Config struct {
-	Settings Settings          `yaml:"settings"`
-	Team     []TeamMember      `yaml:"team"`
-	Sources  map[string]Source `yaml:"sources"`
-	Agent    AgentConfig       `yaml:"agent"`
+	Settings   Settings          `yaml:"settings"`
+	Team       []TeamMember      `yaml:"team"`
+	Sources    map[string]Source `yaml:"sources"`
+	Agent      AgentConfig       `yaml:"agent"`
+	Registries []string          `yaml:"registries,omitempty"`
 }
 
 type AgentConfig struct {
@@ -37,8 +40,6 @@ type Settings struct {
 	Concurrency    int    `yaml:"concurrency"`
 	TimeoutSeconds int    `yaml:"timeout_seconds"`
 	DataDir        string `yaml:"data_dir"`
-	ScrapersDir    string `yaml:"scrapers_dir"`
-	PythonBin      string `yaml:"python_bin"`
 }
 
 type TeamMember struct {
@@ -53,8 +54,9 @@ type TeamMember struct {
 }
 
 type Source struct {
+	Plugin  string         `yaml:"plugin,omitempty"`
 	Enabled bool           `yaml:"enabled"`
-	Config  map[string]any `yaml:"config"`
+	Config  map[string]any `yaml:"config,omitempty"`
 }
 
 func Load(path string) (*Config, error) {
@@ -68,22 +70,16 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("reading config file %s: %w", absPath, err)
 	}
 
-	home, _ := os.UserHomeDir()
-	aideHome := filepath.Join(home, ".aide")
-
+	aideHome := xdg.AideHome()
 	cfg := &Config{
 		Settings: Settings{
 			Concurrency:    5,
 			TimeoutSeconds: 120,
 			DataDir:        filepath.Join(aideHome, "data"),
-			ScrapersDir:    filepath.Join(aideHome, "scrapers"),
-			PythonBin:      filepath.Join(aideHome, "scrapers", ".venv", "bin", "python"),
 		},
 		Agent: AgentConfig{
 			RunInterval:   "30m",
 			BriefingTimes: []string{"08:00"},
-			LLMModel:      "AWS_ANTHROPIC-CLAUDE-SONNET-4.6",
-			LLMURL:        "https://inter.genai.local/api/v1",
 		},
 	}
 
@@ -122,8 +118,6 @@ func (c *Config) ResolvePaths(basedir string) {
 		return filepath.Join(basedir, p)
 	}
 	c.Settings.DataDir = resolve(c.Settings.DataDir)
-	c.Settings.ScrapersDir = resolve(c.Settings.ScrapersDir)
-	c.Settings.PythonBin = resolve(c.Settings.PythonBin)
 }
 
 func (c *Config) EnabledSources() map[string]Source {
@@ -151,8 +145,7 @@ func (c *Config) ResolveMember(alias string) string {
 }
 
 func DefaultConfigPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".aide", "config.yaml")
+	return filepath.Join(xdg.AideHome(), "config.yaml")
 }
 
 func LoadRaw(path string) (*Config, error) {
@@ -180,10 +173,12 @@ func (c *Config) Save(path string) error {
 		return fmt.Errorf("resolving config path: %w", err)
 	}
 
-	data, err := yaml.Marshal(c)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(c); err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
 
-	return os.WriteFile(absPath, data, 0o644)
+	return os.WriteFile(absPath, buf.Bytes(), 0o600)
 }

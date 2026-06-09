@@ -24,15 +24,18 @@ func (a *Agent) Serve(ctx context.Context, port int) error {
 	handler := corsMiddleware(mux)
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf("127.0.0.1:%d", port),
-		Handler: handler,
+		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	go func() {
+	go func() { //nolint:gosec // G118: this goroutine handles graceful shutdown and intentionally creates a fresh timeout context
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		server.Shutdown(shutdownCtx)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("agent server shutdown: %v", err)
+		}
 	}()
 
 	url := fmt.Sprintf("http://localhost:%d", port)
@@ -69,9 +72,9 @@ func openBrowser(url string) {
 		if focusExistingChromeTab(url) {
 			return
 		}
-		exec.Command("open", url).Start()
+		exec.Command("open", url).Start() //nolint:errcheck // fire-and-forget browser open
 	case "linux":
-		exec.Command("xdg-open", url).Start()
+		exec.Command("xdg-open", url).Start() //nolint:errcheck // fire-and-forget browser open
 	}
 }
 

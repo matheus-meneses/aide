@@ -1,14 +1,13 @@
 package main
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/keychain"
+	"aide/cli/internal/plugin"
 	"fmt"
 	"sort"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/registry"
 )
 
 func sortedSourceNames(sources map[string]config.Source) []string {
@@ -43,13 +42,13 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 }
 
-func configShowExecute(cmd *cobra.Command, args []string) error {
+func configShowExecute(_ *cobra.Command, _ []string) error {
 	cfg, err := config.LoadRaw(cfgFile)
 	if err != nil {
 		return err
 	}
 
-	reg := registry.Load()
+	mgr := plugin.NewManager()
 
 	fmt.Println("╭─ Agent ─────────────────────────────────╮")
 	fmt.Printf("│  run_interval:   %-24s│\n", cfg.Agent.RunInterval)
@@ -69,8 +68,8 @@ func configShowExecute(cmd *cobra.Command, args []string) error {
 			status = " ON"
 		}
 		desc := ""
-		if def := reg.GetSource(name); def != nil {
-			desc = def.Description
+		if m, err := mgr.Get(name); err == nil && m.Description != "" {
+			desc = m.Description
 		}
 		fmt.Printf("│  [%s] %-15s %s\n", status, name, desc)
 	}
@@ -87,21 +86,21 @@ func configShowExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func configCheckExecute(cmd *cobra.Command, args []string) error {
+func configCheckExecute(_ *cobra.Command, _ []string) error {
 	cfg, err := config.LoadRaw(cfgFile)
 	if err != nil {
 		return fmt.Errorf("config load failed: %w", err)
 	}
 
-	reg := registry.Load()
+	mgr := plugin.NewManager()
 	issues := 0
 
 	fmt.Print("Checking sources...\n\n")
 	for _, name := range sortedSourceNames(cfg.Sources) {
 		src := cfg.Sources[name]
-		def := reg.GetSource(name)
-		if def == nil {
-			fmt.Printf("  [WARN] %s - not in registry\n", name)
+		m, pluginErr := mgr.Get(name)
+		if pluginErr != nil {
+			fmt.Printf("  [WARN] %s - plugin not installed (run: aide plugin install %s)\n", name, name)
 			issues++
 			continue
 		}
@@ -113,7 +112,7 @@ func configCheckExecute(cmd *cobra.Command, args []string) error {
 
 		sourceOK := true
 
-		if len(def.Credentials) > 0 {
+		if len(m.Credentials) > 0 {
 			_, credErr := keychain.GetAll(name)
 			if credErr != nil {
 				fmt.Printf("  [WARN] %s - credentials missing (run: aide credential set %s)\n", name, name)
@@ -123,9 +122,9 @@ func configCheckExecute(cmd *cobra.Command, args []string) error {
 		}
 
 		if sourceOK {
-			for _, field := range def.Fields {
+			for _, field := range m.Config {
 				if field.Required {
-					val, _ := src.Config[field.Key]
+					val := src.Config[field.Key]
 					if val == nil || val == "" {
 						fmt.Printf("  [WARN] %s - missing required field '%s'\n", name, field.Key)
 						issues++
@@ -140,12 +139,11 @@ func configCheckExecute(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if issues == 0 {
-		fmt.Println("\n  All checks passed.")
-	} else {
+	if issues != 0 {
 		fmt.Printf("\n  %d issue(s) found.\n", issues)
 		return fmt.Errorf("%d configuration issue(s) found", issues)
 	}
 
+	fmt.Println("\n  All checks passed.")
 	return nil
 }

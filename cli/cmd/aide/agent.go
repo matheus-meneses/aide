@@ -1,6 +1,10 @@
 package main
 
 import (
+	"aide/cli/internal/agent"
+	"aide/cli/internal/config"
+	"aide/cli/internal/runner"
+	"aide/cli/internal/store"
 	"context"
 	"fmt"
 	"os/signal"
@@ -8,11 +12,6 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/agent"
-	"aide/cli/internal/config"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
 )
 
 var startPort int
@@ -60,7 +59,7 @@ func newAgent(cfg *config.Config) (*agent.Agent, *store.Store, error) {
 	return a, s, nil
 }
 
-func agentStartExecute(cmd *cobra.Command, args []string) error {
+func agentStartExecute(_ *cobra.Command, _ []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -80,7 +79,7 @@ func agentStartExecute(cmd *cobra.Command, args []string) error {
 	return a.StartAutonomous(ctx, startPort)
 }
 
-func agentStatusExecute(cmd *cobra.Command, args []string) error {
+func agentStatusExecute(_ *cobra.Command, _ []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
@@ -102,12 +101,11 @@ func agentStatusExecute(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Run interval: %s\n", result.RunInterval)
 	fmt.Printf("Briefings:    %s\n", result.Briefings)
 	fmt.Println()
-	if result.LLMReachable {
-		fmt.Println("LLM: OK")
-	} else {
+	if !result.LLMReachable {
 		fmt.Printf("LLM: UNREACHABLE (%s)\n", result.LLMError)
 		return fmt.Errorf("LLM unreachable: %s", result.LLMError)
 	}
+	fmt.Println("LLM: OK")
 	return nil
 }
 

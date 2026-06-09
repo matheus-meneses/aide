@@ -1,73 +1,59 @@
-.PHONY: setup build web install run test-go test-py clean copy-scrapers deploy
-
-VERSION := $(shell cat VERSION)
-PYTHON_VENV := scrapers/.venv
-PYTHON_BIN := $(PYTHON_VENV)/bin/python
-BIN_DIR := bin
+BINARY     := aide
+CLI_DIR    := cli
+BIN_DIR    := bin
+SANDBOX    := $(HOME)/.aide-sandbox
+SDK_PATH   := $(CURDIR)/sdk/python
+SDK_DIR    := sdk/python
 FRONTEND_DIR := cli/internal/agent/frontend
-INSTALL_DIR := $(HOME)/.local/bin
-SCRAPERS_EMBED := cli/internal/scrapers/embedded
-LDFLAGS := -X main.version=$(VERSION) -X aide/cli/internal/agent.Version=$(VERSION)
 
-NEXUS_URL ?= https://nexus.sharedservices.local/repository/aide
+.PHONY: build dev clean verify go-lint go-test go-vuln py-lint py-type py-test fe-lint fmt
 
-setup: setup-go setup-web
+build:
+	cd $(CLI_DIR) && go build -ldflags="-s -w" -o ../$(BIN_DIR)/$(BINARY) ./cmd/aide
 
-setup-go:
-	cd cli && go mod download
-
-setup-web:
-	cd $(FRONTEND_DIR) && npm install
-
-copy-scrapers:
-	rm -rf $(SCRAPERS_EMBED)
-	mkdir -p $(SCRAPERS_EMBED)
-	rsync -a --exclude='.venv' --exclude='.sessions' --exclude='__pycache__' scrapers/ $(SCRAPERS_EMBED)/
-	cp registry.yaml $(SCRAPERS_EMBED)/registry.yaml
-
-build: copy-scrapers
-	cd $(FRONTEND_DIR) && npm run build
-	cd cli && go build -ldflags "$(LDFLAGS)" -o ../$(BIN_DIR)/aide ./cmd/aide
-
-install: build
-	@mkdir -p $(INSTALL_DIR)
-	cp $(BIN_DIR)/aide $(INSTALL_DIR)/aide
-	@echo "Installed aide to $(INSTALL_DIR)/aide"
-	@echo "Run 'aide init' to setup ~/.aide/ directory structure"
-
-run: build
-	./$(BIN_DIR)/aide run
-
-serve: build
-	./$(BIN_DIR)/aide agent start
-
-report: build
-	./$(BIN_DIR)/aide report
-
-sources: build
-	./$(BIN_DIR)/aide sources
-
-test-go:
-	cd cli && go test ./...
-
-test-py:
-	cd scrapers && .venv/bin/python -m pytest
-
-deploy: copy-scrapers
-	cd $(FRONTEND_DIR) && npm run build
-	cd cli && GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o ../$(BIN_DIR)/aide-darwin-arm64 ./cmd/aide
-	cd cli && GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ../$(BIN_DIR)/aide-darwin-amd64 ./cmd/aide
-	@NUSER=$(NEXUS_USER); NPASS=$(NEXUS_PASSWORD); \
-	if [ -z "$$NUSER" ]; then printf "Nexus user: "; read NUSER; fi; \
-	if [ -z "$$NPASS" ]; then printf "Nexus password: "; stty -echo; read NPASS; stty echo; echo; fi; \
-	curl -u "$$NUSER:$$NPASS" --upload-file $(BIN_DIR)/aide-darwin-arm64 $(NEXUS_URL)/$(VERSION)/aide-darwin-arm64 && \
-	curl -u "$$NUSER:$$NPASS" --upload-file $(BIN_DIR)/aide-darwin-amd64 $(NEXUS_URL)/$(VERSION)/aide-darwin-amd64 && \
-	curl -u "$$NUSER:$$NPASS" --upload-file registry.yaml $(NEXUS_URL)/$(VERSION)/registry.yaml && \
-	curl -u "$$NUSER:$$NPASS" --upload-file VERSION $(NEXUS_URL)/VERSION && \
-	curl -u "$$NUSER:$$NPASS" --upload-file install.sh $(NEXUS_URL)/install.sh && \
-	echo "Deployed aide $(VERSION) to Nexus"
+dev: build
+	@mkdir -p $(SANDBOX)/bin $(SANDBOX)/plugins $(SANDBOX)/data
+	@cp $(BIN_DIR)/$(BINARY) $(SANDBOX)/bin/$(BINARY)
+	@printf '#!/bin/sh\nexport AIDE_HOME="$(SANDBOX)"\nexport AIDE_SDK_PATH="$(SDK_PATH)"\nexec "$(SANDBOX)/bin/$(BINARY)" "$$@"\n' > $(SANDBOX)/bin/aide-dev
+	@chmod +x $(SANDBOX)/bin/aide-dev
+	@if [ ! -f $(SANDBOX)/config.yaml ]; then \
+		AIDE_HOME=$(SANDBOX) $(SANDBOX)/bin/$(BINARY) init 2>/dev/null || true; \
+	fi
+	@echo ""
+	@echo "  Sandbox ready: $(SANDBOX)"
+	@echo "  Run:  AIDE_HOME=$(SANDBOX) AIDE_SDK_PATH=$(SDK_PATH) $(SANDBOX)/bin/$(BINARY) <command>"
+	@echo "  Or:   $(SANDBOX)/bin/aide-dev <command>   (env pre-set)"
+	@echo ""
 
 clean:
-	rm -rf $(BIN_DIR)
-	rm -rf $(SCRAPERS_EMBED)
-	rm -f data/aide.db
+	rm -f $(BIN_DIR)/$(BINARY)
+
+fmt:
+	cd $(CLI_DIR) && gofumpt -w .
+	cd $(SDK_DIR) && ruff format .
+	cd $(FRONTEND_DIR) && npx prettier --write src
+
+go-lint:
+	cd $(CLI_DIR) && golangci-lint run ./...
+
+go-test:
+	cd $(CLI_DIR) && go test -race ./...
+
+go-vuln:
+	cd $(CLI_DIR) && govulncheck ./...
+
+py-lint:
+	cd $(SDK_DIR) && ruff check .
+
+py-type:
+	cd $(SDK_DIR) && mypy aide_sdk
+
+py-test:
+	cd $(SDK_DIR) && .venv/bin/pytest
+
+fe-lint:
+	cd $(FRONTEND_DIR) && npm run typecheck
+	cd $(FRONTEND_DIR) && npm run lint
+
+verify: go-lint go-test py-lint py-type fe-lint
+	@echo "verify passed"

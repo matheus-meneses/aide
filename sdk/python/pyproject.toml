@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aide-sdk"
+version = "0.1.0"
+description = "SDK for writing aide plugins"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aide_sdk*"]
+exclude = ["build*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aide_sdk"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+exclude = ["build/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

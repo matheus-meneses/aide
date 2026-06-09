@@ -7,7 +7,7 @@ sources:
         label: "Jira URL"
         hint: "Your organization's Jira instance"
         required: true
-        default: "https://jira-inter.atlassian.net"
+        default: "https://jira.example.com"
       - key: queries
         label: "JQL Queries"
         hint: "JSON array of {name, jql, mode} objects"
@@ -30,7 +30,7 @@ sources:
       - key: base_url
         label: "GitLab URL"
         required: true
-        default: "https://gitlab.sharedservices.local"
+        default: "https://gitlab.example.com"
     credentials:
       - key: token
         label: "Personal Access Token"
@@ -44,7 +44,7 @@ sources:
       - key: base_url
         label: "Portal RH URL"
         required: true
-        default: "https://portalrh.bancointer.com.br"
+        default: "https://your-rh-portal.example.com"
     credentials:
       - key: username
         label: "Username"
@@ -76,7 +76,7 @@ sources:
       - key: base_url
         label: "SailPoint URL"
         required: true
-        default: "https://bancointer.identitynow.com/ui/d/approvals"
+        default: "https://your-sailpoint.identitynow.com/ui/d/approvals"
     credentials: [ ]
 
   rh_management_portal:
@@ -86,5 +86,5 @@ sources:
       - key: base_url
         label: "Portal Gestao URL"
         required: true
-        default: "https://rhgestao.guardianrh.com.br/inter/#/start"
+        default: "https://your-rh-gestao.example.com/start"
     credentials: [ ]

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
 	"aide/cli/internal/render"
-	"aide/cli/internal/store"
+
+	"github.com/spf13/cobra"
 )
 
 var sourcesCmd = &cobra.Command{
@@ -18,8 +16,6 @@ func init() {
 	rootCmd.AddCommand(sourcesCmd)
 }
 
-func sourcesExecute(cmd *cobra.Command, args []string) error {
-	return withStore(func(cfg *config.Config, s *store.Store) error {
-		return render.PrintSources(cfg, s)
-	})
+func sourcesExecute(_ *cobra.Command, _ []string) error {
+	return withStore(render.PrintSources)
 }

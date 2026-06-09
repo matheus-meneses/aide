@@ -22,7 +22,7 @@ func (a *Agent) handleItems(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
-func (a *Agent) handleToday(w http.ResponseWriter, r *http.Request) {
+func (a *Agent) handleToday(w http.ResponseWriter, _ *http.Request) {
 	events, err := a.store.Items.TodayEvents()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -31,7 +31,7 @@ func (a *Agent) handleToday(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, events)
 }
 
-func (a *Agent) handleStatus(w http.ResponseWriter, r *http.Request) {
+func (a *Agent) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	counts, _ := a.store.Items.CountOpenBySource()
 	health, _ := a.store.Runs.AllHealth()
 	metrics, _ := a.store.Metrics.Latest("")

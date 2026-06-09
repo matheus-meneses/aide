@@ -1,13 +1,12 @@
 package render
 
 import (
+	"aide/cli/internal/store"
 	"fmt"
 	"strings"
-
-	"aide/cli/internal/store"
 )
 
-func printStatsReport(openItems []store.Item, resolvedCounts map[string]int, history []store.DailyCount, avgResAge float64, days int, latestMetrics []store.Metric, metricHistories map[string][]store.DailyMetric) {
+func printStatsReport(openItems []store.Item, resolvedCounts map[string]int, history []store.DailyCount, avgResAge float64, days int, latestMetrics []store.Metric, metricHistories map[string][]store.DailyMetric, pluginMap map[string]string) {
 	fprintf("\n Stats (last %d days)\n", days)
 
 	if len(latestMetrics) > 0 {
@@ -25,11 +24,12 @@ func printStatsReport(openItems []store.Item, resolvedCounts map[string]int, his
 				first := hist[0].Value
 				last := hist[len(hist)-1].Value
 				d := last - first
-				if d > 0 {
+				switch {
+				case d > 0:
 					deltaStr = fmt.Sprintf("+%.0f", d)
-				} else if d < 0 {
+				case d < 0:
 					deltaStr = fmt.Sprintf("%.0f", d)
-				} else {
+				default:
 					deltaStr = "="
 				}
 			}
@@ -49,7 +49,7 @@ func printStatsReport(openItems []store.Item, resolvedCounts map[string]int, his
 	var ageOrder []string
 
 	for _, item := range openItems {
-		plugin := pluginFor(item.Source)
+		plugin := pluginFor(item.Source, pluginMap)
 		heading := plugin.Classify(item)
 		key := strings.ToUpper(item.Source) + " / " + heading
 		if _, exists := ageMap[key]; !exists {

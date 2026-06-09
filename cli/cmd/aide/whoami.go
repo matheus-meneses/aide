@@ -1,15 +1,14 @@
 package main
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/store"
 	"bufio"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
 )
 
 var whoamiSet bool
@@ -25,8 +24,8 @@ func init() {
 	rootCmd.AddCommand(whoamiCmd)
 }
 
-func whoamiExecute(cmd *cobra.Command, args []string) error {
-	return withStore(func(cfg *config.Config, s *store.Store) error {
+func whoamiExecute(_ *cobra.Command, _ []string) error {
+	return withStore(func(_ *config.Config, s *store.Store) error {
 		if !whoamiSet {
 			profile, err := s.Profile.All()
 			if err == nil && len(profile) > 0 {

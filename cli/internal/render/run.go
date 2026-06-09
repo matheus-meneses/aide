@@ -1,9 +1,8 @@
 package render
 
 import (
-	"fmt"
-
 	"aide/cli/internal/runner"
+	"fmt"
 )
 
 func printRunSummaryTable(result *runner.RunResult) {

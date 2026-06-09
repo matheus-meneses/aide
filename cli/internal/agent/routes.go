@@ -28,7 +28,7 @@ func (a *Agent) registerRoutes(mux *http.ServeMux) {
 func (a *Agent) registerStaticRoutes(mux *http.ServeMux) {
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
 	if err != nil {
-		mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
 			fmt.Fprint(w, "<h1>Aide</h1><p>Frontend not built. Run: cd cli/internal/agent/frontend && npm run build</p>")
 		})

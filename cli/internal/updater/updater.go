@@ -1,7 +1,7 @@
 package updater
 
 import (
-	"crypto/tls"
+	"aide/cli/internal/xdg"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,22 +13,27 @@ import (
 )
 
 const (
-	NexusBaseURL   = "https://nexus.sharedservices.local/repository/aide"
-	throttleFile   = ".last_version_check"
-	throttleWindow = 12 * time.Hour
+	defaultReleaseBaseURL = "https://github.com/matheus-meneses/aide/releases/latest/download"
+	throttleFile          = ".last_version_check"
+	throttleWindow        = 12 * time.Hour
 )
 
+func releaseBaseURL() string {
+	if v := os.Getenv("AIDE_RELEASE_URL"); v != "" {
+		return v
+	}
+	return defaultReleaseBaseURL
+}
+
 var httpClient = &http.Client{
-	Timeout: 3 * time.Second,
+	Timeout: 5 * time.Second,
 	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		Proxy:           http.ProxyFromEnvironment,
+		Proxy: http.ProxyFromEnvironment,
 	},
 }
 
 func aideHome() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".aide")
+	return xdg.AideHome()
 }
 
 func CheckOnce(currentVersion string) {
@@ -67,12 +72,12 @@ func shouldCheck() bool {
 
 func markChecked() {
 	path := filepath.Join(aideHome(), throttleFile)
-	os.MkdirAll(filepath.Dir(path), 0o755)
-	os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o644)
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	_ = os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o600)
 }
 
 func fetchLatestVersion() (string, error) {
-	resp, err := httpClient.Get(NexusBaseURL + "/VERSION")
+	resp, err := httpClient.Get(releaseBaseURL() + "/VERSION")
 	if err != nil {
 		return "", err
 	}
@@ -90,16 +95,22 @@ func fetchLatestVersion() (string, error) {
 }
 
 func printUpdateBanner(current, latest string) {
-	fmt.Fprintf(os.Stderr, "\n╭─────────────────────────────────────────────────────╮\n")
-	fmt.Fprintf(os.Stderr, "│  A new version of aide is available: %-15s │\n", latest)
-	fmt.Fprintf(os.Stderr, "│  Current: %-42s│\n", current)
-	fmt.Fprintf(os.Stderr, "│                                                     │\n")
-	fmt.Fprintf(os.Stderr, "│  curl -fsSL %s/install.sh | bash  │\n", NexusBaseURL)
-	fmt.Fprintf(os.Stderr, "╰─────────────────────────────────────────────────────╯\n\n")
+	installURL := "https://raw.githubusercontent.com/matheus-meneses/aide/main/install.sh"
+	fmt.Fprintf(os.Stderr, "\n╭──────────────────────────────────────────────────────────────╮\n")
+	fmt.Fprintf(os.Stderr, "│  A new version of aide is available: %-15s        │\n", latest)
+	fmt.Fprintf(os.Stderr, "│  Current: %-52s│\n", current)
+	fmt.Fprintf(os.Stderr, "│                                                              │\n")
+	fmt.Fprintf(os.Stderr, "│  curl -fsSL %s | bash  │\n", installURL)
+	fmt.Fprintf(os.Stderr, "╰──────────────────────────────────────────────────────────────╯\n\n")
 }
 
 func DownloadFile(url string, dest *os.File, showProgress bool) error {
-	resp, err := httpClient.Get(url)
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+		},
+	}
+	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
@@ -142,7 +153,9 @@ func DownloadFile(url string, dest *os.File, showProgress bool) error {
 }
 
 func DownloadToPath(url, destPath string) error {
-	os.MkdirAll(filepath.Dir(destPath), 0o755)
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+		return fmt.Errorf("creating parent dirs: %w", err)
+	}
 	f, err := os.Create(destPath)
 	if err != nil {
 		return err

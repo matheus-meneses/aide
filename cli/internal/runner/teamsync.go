@@ -1,10 +1,9 @@
 package runner
 
 import (
-	"encoding/json"
-
 	"aide/cli/internal/config"
 	"aide/cli/internal/store"
+	"encoding/json"
 )
 
 func SyncTeamFromConfig(cfg *config.Config, s *store.Store) error {

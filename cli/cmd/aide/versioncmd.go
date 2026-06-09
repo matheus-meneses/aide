@@ -12,7 +12,7 @@ var version = "dev"
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print aide version",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Println("╭───────────────────────────────────────╮")
 		fmt.Printf("│  aide %-33s│\n", version)
 		fmt.Printf("│  platform: %-28s│\n", runtime.GOOS+"/"+runtime.GOARCH)

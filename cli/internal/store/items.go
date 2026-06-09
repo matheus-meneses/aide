@@ -18,7 +18,7 @@ func (r *ItemRepo) Upsert(source string, items []Item) (newCount, updatedCount i
 	if err != nil {
 		return 0, 0, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // rollback on defer is a no-op after Commit and safe to ignore
 
 	upsertStmt, err := tx.Prepare(`
 		INSERT INTO items (fingerprint, source, member, category, title, detail, entry_date, priority, link, status, first_seen_at, last_seen_at)

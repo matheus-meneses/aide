@@ -1,14 +1,13 @@
 package main
 
 import (
-	"fmt"
-
-	"github.com/spf13/cobra"
-
 	"aide/cli/internal/config"
 	"aide/cli/internal/render"
 	"aide/cli/internal/runner"
 	"aide/cli/internal/store"
+	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
 var runCmd = &cobra.Command{
@@ -23,7 +22,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 }
 
-func runExecute(cmd *cobra.Command, args []string) error {
+func runExecute(cmd *cobra.Command, _ []string) error {
 	sources, _ := cmd.Flags().GetStringSlice("source")
 	concurrency, _ := cmd.Flags().GetInt("concurrency")
 

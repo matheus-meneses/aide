@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-
-	"aide/cli/internal/updater"
 )
 
-func (a *Agent) handleMemory(w http.ResponseWriter, r *http.Request) {
+func (a *Agent) handleMemory(w http.ResponseWriter, _ *http.Request) {
 	mem, err := a.store.Memory.LoadLast()
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no memory stored yet"})
@@ -36,7 +34,7 @@ func (a *Agent) handleExec(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (a *Agent) handleStats(w http.ResponseWriter, r *http.Request) {
+func (a *Agent) handleStats(w http.ResponseWriter, _ *http.Request) {
 	summary, err := a.store.Tokens.Stats()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -68,7 +66,7 @@ func (a *Agent) handleAck(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "acknowledged"})
 }
 
-func (a *Agent) handleWhoami(w http.ResponseWriter, r *http.Request) {
+func (a *Agent) handleWhoami(w http.ResponseWriter, _ *http.Request) {
 	profile, err := a.store.Profile.All()
 	if err != nil || len(profile) == 0 {
 		writeJSON(w, http.StatusOK, map[string]string{})
@@ -94,16 +92,16 @@ func (a *Agent) handleNotifications(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleVersion(w http.ResponseWriter, r *http.Request) {
+func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"current":    Version,
-		"update_url": updater.NexusBaseURL + "/install.sh",
+		"update_url": "https://raw.githubusercontent.com/matheus-meneses/aide/main/install.sh",
 	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }

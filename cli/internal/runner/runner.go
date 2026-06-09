@@ -1,21 +1,16 @@
 package runner
 
 import (
-	"bytes"
+	"aide/cli/internal/config"
+	"aide/cli/internal/plugin"
+	"aide/cli/internal/store"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/store"
 
 	"github.com/google/uuid"
 )
@@ -92,7 +87,15 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 			health.Status = "ok"
 			health.EntriesCount = len(result.Entries)
 
-			items, metrics := r.partitionEntries(result)
+			var items []store.Item
+			var metrics []metricEntry
+			var members []store.Member
+
+			if result.PluginResp != nil {
+				items, metrics, members = r.normalizeResponse(result.Source, result.PluginResp)
+			} else {
+				items, metrics = r.partitionEntries(result)
+			}
 
 			newCount, _, upsertErr := r.store.Items.Upsert(result.Source, items)
 			if upsertErr != nil {
@@ -110,10 +113,14 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 				}
 			}
 
-			if len(result.TeamMembers) > 0 {
-				members := make([]store.Member, 0, len(result.TeamMembers))
+			if len(members) > 0 {
+				if err := r.store.Team.Upsert(members); err != nil {
+					r.logf("[%s] team upsert error: %v", result.Source, err)
+				}
+			} else if len(result.TeamMembers) > 0 {
+				legacy := make([]store.Member, 0, len(result.TeamMembers))
 				for _, raw := range result.TeamMembers {
-					members = append(members, store.Member{
+					legacy = append(legacy, store.Member{
 						Name:         raw.Name,
 						Email:        raw.Email,
 						Role:         raw.Role,
@@ -124,7 +131,7 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 						Source:       result.Source,
 					})
 				}
-				if err := r.store.Team.Upsert(members); err != nil {
+				if err := r.store.Team.Upsert(legacy); err != nil {
 					r.logf("[%s] team upsert error: %v", result.Source, err)
 				}
 			}
@@ -191,81 +198,99 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 
 	start := time.Now()
 
-	configJSON, err := json.Marshal(src.Config)
+	mgr := plugin.NewManager()
+	pluginName := src.Plugin
+	if pluginName == "" {
+		pluginName = name
+	}
+	m, err := mgr.Get(pluginName)
 	if err != nil {
 		return SourceResult{
 			Source:     name,
-			Error:      fmt.Errorf("marshaling config: %w", err),
+			Error:      fmt.Errorf("plugin %q not installed: %w", pluginName, err),
 			DurationMs: time.Since(start).Milliseconds(),
 		}
 	}
 
-	cmd := exec.CommandContext(ctx,
-		r.cfg.Settings.PythonBin,
-		"-m", "framework.runner",
-		name,
-		"--config", string(configJSON),
-	)
-	cmd.Dir = r.cfg.Settings.ScrapersDir
-	cmd.Env = os.Environ()
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		if cmd.Process != nil {
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
-		return nil
+	secrets, _ := plugin.ScopedSecrets(name, m)
+
+	req := &plugin.Request{
+		Action:  "scrape",
+		Config:  src.Config,
+		Secrets: secrets,
+		Context: map[string]any{
+			"data_dir": r.cfg.Settings.DataDir,
+		},
 	}
 
-	if prefix, ok := src.Config["credentials_env"].(string); ok && prefix != "" {
-		cred, credErr := keychain.GetAll(name)
-		if credErr == nil && cred != nil {
-			for key, val := range cred.Fields {
-				envKey := prefix + "_" + strings.ToUpper(key)
-				cmd.Env = append(cmd.Env, envKey+"="+val)
-			}
-		}
+	resp, stderr, err := plugin.Execute(ctx, m, req)
+	if stderr != "" {
+		r.streamStderr(name, stderr)
 	}
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			r.streamStderr(name, stderr.String())
-		}
-		errMsg := err.Error()
-		if stderr.Len() > 0 {
-			errMsg = stderr.String()
-		}
-		return SourceResult{
-			Source:     name,
-			Error:      fmt.Errorf("%s", errMsg),
-			DurationMs: time.Since(start).Milliseconds(),
-			Stderr:     stderr.String(),
-		}
-	}
-
-	if stderr.Len() > 0 {
-		r.streamStderr(name, stderr.String())
-	}
-
-	entries, err := parseScraperOutput(stdout.Bytes())
 	if err != nil {
 		return SourceResult{
 			Source:     name,
-			Error:      fmt.Errorf("parsing output: %w", err),
+			Error:      err,
 			DurationMs: time.Since(start).Milliseconds(),
-			Stderr:     stderr.String(),
+			Stderr:     stderr,
 		}
+	}
+	if !resp.OK {
+		msg := resp.Error
+		if msg == "" {
+			msg = "plugin returned ok=false"
+		}
+		return SourceResult{
+			Source:     name,
+			Error:      fmt.Errorf("%s", msg),
+			DurationMs: time.Since(start).Milliseconds(),
+			Stderr:     stderr,
+		}
+	}
+
+	entries := make([]ScraperEntry, 0, len(resp.Entries))
+	for _, e := range resp.Entries {
+		entries = append(entries, ScraperEntry{
+			Source:    name,
+			Member:    e.Member,
+			Category:  e.Category,
+			Title:     e.Title,
+			Detail:    e.Detail,
+			EntryDate: e.EntryDate,
+			Priority:  e.Priority,
+			Metadata:  e.Metadata,
+		})
+	}
+
+	for _, met := range resp.Metrics {
+		entries = append(entries, ScraperEntry{
+			Source:   name,
+			Category: "metric",
+			Title:    met.Name,
+			Metadata: map[string]any{"mode": "metric", "metric_value": met.Value},
+		})
+	}
+
+	teamMembers := make([]TeamMemberRaw, 0, len(resp.TeamMembers))
+	for _, t := range resp.TeamMembers {
+		teamMembers = append(teamMembers, TeamMemberRaw{
+			Name:                t.Name,
+			Email:               t.Email,
+			Role:                t.Role,
+			Department:          t.Department,
+			Branch:              t.Branch,
+			Registration:        t.Registration,
+			ManagerRegistration: t.ManagerRegistration,
+		})
 	}
 
 	return SourceResult{
 		Source:      name,
-		Entries:     entries.Entries,
-		TeamMembers: entries.TeamMembers,
+		Entries:     entries,
+		TeamMembers: teamMembers,
+		PluginResp:  resp,
 		DurationMs:  time.Since(start).Milliseconds(),
-		Stderr:      stderr.String(),
+		Stderr:      stderr,
 	}
 }
 

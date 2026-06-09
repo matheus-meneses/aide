@@ -38,7 +38,7 @@ func (r *TeamRepo) Upsert(members []Member) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // rollback on defer is a no-op after Commit and safe to ignore
 
 	for i := range members {
 		if members[i].Fingerprint == "" {
@@ -49,7 +49,8 @@ func (r *TeamRepo) Upsert(members []Member) error {
 		}
 		members[i].LastSeenAt = now
 
-		_, err := tx.Exec(`
+		_, err := tx.Exec(
+			`
 			INSERT INTO team_members (fingerprint, name, email, aliases, role, department, branch, registration, manager_id, manager_registration, source, first_seen_at, last_seen_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
 			ON CONFLICT(fingerprint) DO UPDATE SET
@@ -121,7 +122,7 @@ func (r *TeamRepo) Upsert(members []Member) error {
 			args = append(args, fp)
 		}
 		if _, err := tx.Exec(
-			`UPDATE team_members SET last_seen_at = ?
+			`UPDATE team_members SET last_seen_at = ?, manager_id = NULL
 			 WHERE source = ? AND fingerprint NOT IN (`+placeholders+`)`,
 			args...,
 		); err != nil {
@@ -189,7 +190,7 @@ func (r *TeamRepo) ReresolveManagers() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck // rollback on defer is a no-op after Commit and safe to ignore
 
 	var updated int
 	for _, p := range batch {

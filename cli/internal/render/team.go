@@ -1,10 +1,9 @@
 package render
 
 import (
+	"aide/cli/internal/store"
 	"fmt"
 	"strings"
-
-	"aide/cli/internal/store"
 )
 
 func PrintTeamList(members []store.Member, view string) {

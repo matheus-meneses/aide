@@ -38,7 +38,7 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 
 - Many commands repeat `config.Load` + `store.Open` + `defer Close` boilerplate — could be extracted to a helper in the future.
 - `version` var is set via `-ldflags` at build time; defaults to `"dev"`.
-- `initcmd` relies on network access to Nexus for Python standalone and registry; has fallback for registry.
+- `initcmd` uses network access to download the registry; defaults to GitHub releases. Override with `AIDE_RELEASE_URL` env var.
 - `source add` surfaces a user-friendly message when all sources are configured (not a usage error).
 
 ## Relations

@@ -1,13 +1,12 @@
 package main
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/store"
 	"fmt"
 	"sort"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
 )
 
 var statsCmd = &cobra.Command{
@@ -20,8 +19,8 @@ func init() {
 	rootCmd.AddCommand(statsCmd)
 }
 
-func statsExecute(cmd *cobra.Command, args []string) error {
-	return withStore(func(cfg *config.Config, s *store.Store) error {
+func statsExecute(_ *cobra.Command, _ []string) error {
+	return withStore(func(_ *config.Config, s *store.Store) error {
 		summary, err := s.Tokens.Stats()
 		if err != nil {
 			return fmt.Errorf("querying stats: %w", err)

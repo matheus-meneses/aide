@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
-
 	"aide/cli/internal/config"
 	"aide/cli/internal/render"
 	"aide/cli/internal/store"
+
+	"github.com/spf13/cobra"
 )
 
 var reportCmd = &cobra.Command{
@@ -20,11 +20,11 @@ func init() {
 	rootCmd.AddCommand(reportCmd)
 }
 
-func reportExecute(cmd *cobra.Command, args []string) error {
+func reportExecute(cmd *cobra.Command, _ []string) error {
 	member, _ := cmd.Flags().GetString("member")
 	category, _ := cmd.Flags().GetString("category")
 
 	return withStore(func(cfg *config.Config, s *store.Store) error {
-		return render.PrintReport(s, member, category)
+		return render.PrintReport(s, cfg, member, category)
 	})
 }

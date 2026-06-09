@@ -1,10 +1,9 @@
 package render
 
 import (
+	"aide/cli/internal/store"
 	"fmt"
 	"time"
-
-	"aide/cli/internal/store"
 )
 
 func formatDuration(d time.Duration) string {

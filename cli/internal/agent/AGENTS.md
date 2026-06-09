@@ -7,7 +7,7 @@ Autonomous AI agent that runs on a timer, uses LLM tool-calling to decide what a
 ## Key Types
 
 - `Agent` — Central orchestrator: holds config, store, runner, LLM client, notifier, event bus, tool registry.
-- `LLMClient` — HTTP streaming client for the corporate LLM API (SSE format).
+- `LLMClient` — HTTP streaming client for the configured LLM API (SSE format); endpoint set via `agent.llm` config or `AIDE_LLM_URL` env var.
 - `EventBus` — In-memory pub/sub for SSE events with subscriber channels.
 - `Event` — SSE event with type, data (JSON string), and timestamp.
 - `ToolRegistry` / `Tool` — Agent's available actions (scrape, diff, notify_user, send_message, check_items, check_today, check_health, done).
@@ -48,7 +48,7 @@ Timer tick → runAgentCycle → build context → LLM → parse tool calls → 
 - EventBus channel capacity is 64; Publish drops events (with `default` case) when full.
 - Max 10 tool calls per agent cycle (`maxActionsPerCycle`).
 - Agent memory is saved to store after each cycle.
-- `notify_user` publishes one SSE event (with fingerprint); `BusNotifier` is for macOS only.
+- `notify_user` publishes one SSE event (with fingerprint); `MacNotifier` is macOS-only (`osascript`); `BusNotifier` publishes to the event bus for web UI delivery on all platforms.
 - Chat sessions use `"web-default"` as the persistent session ID.
 - Acknowledged alerts (24h window) are included in LLM context to prevent re-notification.
 

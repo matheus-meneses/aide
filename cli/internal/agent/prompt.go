@@ -14,7 +14,7 @@ func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
 	prompt.WriteString(agentSystemPrompt)
 
 	if profile, err := a.store.Profile.All(); err == nil && len(profile) > 0 {
-		prompt.WriteString(fmt.Sprintf("\n\nYou are assisting %s (%s).", profile["preferred_name"], profile["email"]))
+		fmt.Fprintf(&prompt, "\n\nYou are assisting %s (%s).", profile["preferred_name"], profile["email"])
 	}
 
 	if mem := a.getLastMemory(); mem != "" {
@@ -23,7 +23,7 @@ func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
 		prompt.WriteString("\n")
 	}
 
-	prompt.WriteString(fmt.Sprintf("\n\n## TODAY IS %s, time now %s\n", state.Today, state.Time))
+	fmt.Fprintf(&prompt, "\n\n## TODAY IS %s, time now %s\n", state.Today, state.Time)
 	prompt.WriteString("Items show dates in these same formats. An item whose date equals " + time.Now().Format("2006-01-02") + " (or is labeled TODAY) is happening today. Any other date is NOT today.\n")
 
 	prompt.WriteString("\n## Current State\n")

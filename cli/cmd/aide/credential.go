@@ -1,16 +1,14 @@
 package main
 
 import (
+	"aide/cli/internal/keychain"
 	"bufio"
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-
-	"aide/cli/internal/keychain"
 )
 
 var credentialCmd = &cobra.Command{
@@ -59,7 +57,7 @@ func init() {
 	rootCmd.AddCommand(credentialCmd)
 }
 
-func credentialSetExecute(cmd *cobra.Command, args []string) error {
+func credentialSetExecute(_ *cobra.Command, args []string) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	var source string
@@ -81,7 +79,7 @@ func credentialSetExecute(cmd *cobra.Command, args []string) error {
 			value = args[2]
 		} else {
 			fmt.Printf("Value for %s (hidden): ", key)
-			valueBytes, err := term.ReadPassword(int(syscall.Stdin))
+			valueBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {
 				return fmt.Errorf("reading value: %w", err)
 			}
@@ -111,7 +109,7 @@ func credentialSetExecute(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("Value for %s (hidden): ", fieldName)
-		valueBytes, err := term.ReadPassword(int(syscall.Stdin))
+		valueBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return fmt.Errorf("reading value: %w", err)
 		}
@@ -126,7 +124,7 @@ func credentialSetExecute(cmd *cobra.Command, args []string) error {
 	cred, err := keychain.GetAll(source)
 	if err != nil {
 		fmt.Println("Done.")
-		return nil
+		return nil //nolint:nilerr // credential summary after set is best-effort; keychain may lag
 	}
 	fmt.Printf("\nCredentials for %s: %d field(s) stored\n", source, len(cred.Fields))
 	return nil
@@ -152,7 +150,7 @@ func credentialShowExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func credentialDeleteExecute(cmd *cobra.Command, args []string) error {
+func credentialDeleteExecute(_ *cobra.Command, args []string) error {
 	source := args[0]
 
 	if len(args) == 2 {
@@ -178,7 +176,7 @@ func credentialDeleteExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func credentialListExecute(cmd *cobra.Command, args []string) error {
+func credentialListExecute(_ *cobra.Command, _ []string) error {
 	sources, err := keychain.List()
 	if err != nil {
 		return err

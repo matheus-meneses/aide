@@ -1,6 +1,6 @@
 module aide/cli
 
-go 1.26.3
+go 1.26
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7

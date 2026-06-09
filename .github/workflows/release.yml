@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            suffix: ""
+          - goos: darwin
+            goarch: arm64
+            suffix: ""
+          - goos: linux
+            goarch: amd64
+            suffix: ""
+          - goos: linux
+            goarch: arm64
+            suffix: ""
+          - goos: windows
+            goarch: amd64
+            suffix: ".exe"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+        working-directory: cli
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BINARY="aide_${{ matrix.goos }}_${{ matrix.goarch }}${{ matrix.suffix }}"
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o "../dist/${BINARY}" ./cmd/aide
+          echo "BINARY=${BINARY}" >> $GITHUB_ENV
+
+      - name: Checksum
+        run: |
+          cd dist
+          sha256sum "${{ env.BINARY }}" > "${{ env.BINARY }}.sha256"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/${{ env.BINARY }}
+            dist/${{ env.BINARY }}.sha256
