@@ -35,6 +35,7 @@ def serve(scraper_class: type) -> None:
     secrets: dict[str, Any] = request.get("secrets") or {}
     context: dict[str, Any] = request.get("context") or {}
     scraper = scraper_class()
+    scraper.context = context
     scraper.log = Logger.from_context(context, scope=getattr(scraper, "name", "") or "")
 
     if action == "describe":

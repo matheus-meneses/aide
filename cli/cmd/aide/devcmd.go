@@ -296,6 +296,7 @@ func devTestExecute(cmd *cobra.Command, args []string) error {
 		Context: map[string]any{
 			"log_level":  logLevel(),
 			"log_format": logFormatValue(),
+			"verify_ssl": verifySSLValue(),
 		},
 	}
 

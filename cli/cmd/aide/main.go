@@ -14,6 +14,7 @@ var cfgFile string
 var (
 	verbose   bool
 	logFormat string
+	verifySSL bool
 )
 
 func logLevel() string {
@@ -28,6 +29,10 @@ func logFormatValue() string {
 		return "json"
 	}
 	return "text"
+}
+
+func verifySSLValue() bool {
+	return verifySSL
 }
 
 var rootCmd = &cobra.Command{
@@ -51,6 +56,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", config.DefaultConfigPath(), "config file path")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug-level logging")
 	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "text", "log output format: text or json")
+	rootCmd.PersistentFlags().BoolVar(&verifySSL, "verify-ssl", true, "verify TLS certificates for plugin network requests")
 }
 
 func main() {

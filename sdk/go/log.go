@@ -69,3 +69,13 @@ func stringFromContext(ctx map[string]any, key string) string {
 	}
 	return ""
 }
+
+func boolFromContext(ctx map[string]any, key string, def bool) bool {
+	if ctx == nil {
+		return def
+	}
+	if v, ok := ctx[key].(bool); ok {
+		return v
+	}
+	return def
+}

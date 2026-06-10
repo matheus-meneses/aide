@@ -39,7 +39,8 @@ The runner sends a JSON object on stdin via `plugin.Execute`:
   "context": {
     "data_dir": "/path/to/data",
     "log_level": "info",
-    "log_format": "text"
+    "log_format": "text",
+    "verify_ssl": true
   }
 }
 ```
@@ -51,6 +52,7 @@ The runner sends a JSON object on stdin via `plugin.Execute`:
 | `data_dir` | path string | from config | plugin working directory |
 | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | logging threshold; set to `debug` by `-v` |
 | `log_format` | `text` \| `json` | `text` | log line format; set by `--log-format` |
+| `verify_ssl` | `true` \| `false` | `true` | verify TLS certificates for plugin network requests; set by `--verify-ssl` |
 
 The plugin replies with **one JSON object** on stdout:
 

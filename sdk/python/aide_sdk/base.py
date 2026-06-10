@@ -14,6 +14,11 @@ class BaseScraper(ABC):
 
     def __init__(self) -> None:
         self.log = Logger()
+        self.context: dict[str, Any] = {}
+
+    @property
+    def verify_ssl(self) -> bool:
+        return bool(self.context.get("verify_ssl", True))
 
     @abstractmethod
     def scrape(self, config: dict[str, Any], secrets: dict[str, Any]) -> list[ScraperEntry]: ...

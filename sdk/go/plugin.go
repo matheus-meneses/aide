@@ -8,6 +8,8 @@ import (
 
 const ProtocolVersion = "1"
 
+var VerifySSL = true
+
 type Request struct {
 	ProtocolVersion string            `json:"protocol_version"`
 	Action          string            `json:"action"`
@@ -48,6 +50,7 @@ func Serve(h Handler) {
 		stringFromContext(req.Context, "log_format"),
 		"",
 	)
+	VerifySSL = boolFromContext(req.Context, "verify_ssl", true)
 
 	resp, err := h.Handle(&req)
 	if err != nil {

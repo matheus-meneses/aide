@@ -22,18 +22,20 @@ type Runner struct {
 	log       io.Writer
 	logLevel  string
 	logFormat string
+	verifySSL bool
 }
 
 func New(cfg *config.Config, s *store.Store) *Runner {
-	return &Runner{cfg: cfg, store: s, log: os.Stderr, logLevel: "info", logFormat: "text"}
+	return &Runner{cfg: cfg, store: s, log: os.Stderr, logLevel: "info", logFormat: "text", verifySSL: true}
 }
 
 func NewWithLogger(cfg *config.Config, s *store.Store, log io.Writer) *Runner {
-	return &Runner{cfg: cfg, store: s, log: log, logLevel: "info", logFormat: "text"}
+	return &Runner{cfg: cfg, store: s, log: log, logLevel: "info", logFormat: "text", verifySSL: true}
 }
 
 func (r *Runner) SetLogLevel(level string)   { r.logLevel = level }
 func (r *Runner) SetLogFormat(format string) { r.logFormat = format }
+func (r *Runner) SetVerifySSL(verify bool)   { r.verifySSL = verify }
 
 func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, error) {
 	sources := r.resolveSources(filterSources)
@@ -264,6 +266,7 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 			"data_dir":   r.cfg.Settings.DataDir,
 			"log_level":  r.logLevel,
 			"log_format": r.logFormat,
+			"verify_ssl": r.verifySSL,
 		},
 	}
 
