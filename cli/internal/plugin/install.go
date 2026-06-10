@@ -165,6 +165,49 @@ func Remove(name string) error {
 	return os.RemoveAll(dir)
 }
 
+// EnsureRuntime prepares a plugin directory so it can be executed in place:
+// a Python plugin gets a .venv (built if missing), a Go plugin is compiled to
+// bin/<binary>. It is used by `aide dev test` to run uninstalled plugins.
+func EnsureRuntime(ctx context.Context, m *Manifest) error {
+	switch m.Runtime {
+	case "python":
+		venvDir := filepath.Join(m.Dir, ".venv")
+		if info, err := os.Stat(venvDir); err == nil && info.IsDir() {
+			return nil
+		}
+		if m.Requirements == "" {
+			return fmt.Errorf("python plugin %s: no requirements file declared", m.Name)
+		}
+		return buildVenv(m.Dir, filepath.Join(m.Dir, m.Requirements))
+	case "go":
+		return buildGoBinary(ctx, m)
+	default:
+		return fmt.Errorf("unsupported runtime %q", m.Runtime)
+	}
+}
+
+func buildGoBinary(ctx context.Context, m *Manifest) error {
+	binary := m.Entrypoint.Go.Binary
+	if binary == "" {
+		return fmt.Errorf("go plugin %s: entrypoint.go.binary is required", m.Name)
+	}
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
+	}
+	binDir := filepath.Join(m.Dir, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return fmt.Errorf("creating bin dir: %w", err)
+	}
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", filepath.Join(binDir, binary), ".")
+	cmd.Dir = m.Dir
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go build: %w", err)
+	}
+	return nil
+}
+
 func buildVenv(pluginDir, reqFile string) error {
 	pythonBin := filepath.Join(xdg.AideHome(), "python", "bin", "python3")
 	if runtime.GOOS == "windows" {

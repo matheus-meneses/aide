@@ -1,9 +1,9 @@
 package main
 
 import (
+	"aide/cli/internal/clog"
 	"aide/cli/internal/config"
 	"aide/cli/internal/updater"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,9 +31,14 @@ func logFormatValue() string {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "aide",
-	Short: "Aide - your personal work assistant",
-	Long:  "Aide orchestrates data collection, provides insights, and assists with daily work management.",
+	Use:           "aide",
+	Short:         "Aide - your personal work assistant",
+	Long:          "Aide orchestrates data collection, provides insights, and assists with daily work management.",
+	SilenceErrors: true,
+	SilenceUsage:  true,
+	PersistentPreRun: func(_ *cobra.Command, _ []string) {
+		clog.Configure(logLevel(), logFormatValue())
+	},
 	PersistentPostRun: func(cmd *cobra.Command, _ []string) {
 		if cmd.Name() == "version" || cmd.Name() == "init" {
 			return
@@ -50,7 +55,7 @@ func init() {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		clog.Error("%s", err)
 		os.Exit(1)
 	}
 }

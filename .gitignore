@@ -8,6 +8,7 @@ data/.chat_history
 *.db
 
 # secrets and sessions
+data/
 config.yaml
 bin/config.yaml
 

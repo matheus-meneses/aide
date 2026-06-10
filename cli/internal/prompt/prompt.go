@@ -5,7 +5,6 @@ import (
 	"aide/cli/internal/keychain"
 	"aide/cli/internal/plugin"
 	"fmt"
-	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 )
@@ -16,18 +15,16 @@ func PickPlugin(mgr *plugin.Manager, configured map[string]config.Source) (strin
 		return "", fmt.Errorf("listing plugins: %w", err)
 	}
 
-	var available []string
+	var names []string
+	var choices []Choice
 	for _, m := range manifests {
 		if _, exists := configured[m.Name]; !exists {
-			label := m.Name
-			if m.Description != "" {
-				label += " - " + m.Description
-			}
-			available = append(available, label)
+			names = append(names, m.Name)
+			choices = append(choices, Choice{Title: m.Name, Desc: m.Description})
 		}
 	}
 
-	if len(available) == 0 {
+	if len(choices) == 0 {
 		fmt.Println("All installed plugins are already configured.")
 		fmt.Println("\nYour configured sources:")
 		for name := range configured {
@@ -38,16 +35,11 @@ func PickPlugin(mgr *plugin.Manager, configured map[string]config.Source) (strin
 		return "", fmt.Errorf("nothing to add")
 	}
 
-	var choice string
-	err = survey.AskOne(&survey.Select{
-		Message: "Select a plugin to configure:",
-		Options: available,
-	}, &choice)
+	i, err := Select("Select a plugin to configure", choices)
 	if err != nil {
 		return "", err
 	}
-
-	return strings.SplitN(choice, " - ", 2)[0], nil
+	return names[i], nil
 }
 
 func ConfigurePlugin(m *plugin.Manifest) (map[string]any, error) {

@@ -32,8 +32,9 @@ type Index struct {
 }
 
 type PluginEntry struct {
-	Latest   string         `yaml:"latest"`
-	Versions []VersionEntry `yaml:"versions"`
+	Latest      string         `yaml:"latest"`
+	Description string         `yaml:"description,omitempty"`
+	Versions    []VersionEntry `yaml:"versions"`
 }
 
 type VersionEntry struct {

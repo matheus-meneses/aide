@@ -177,6 +177,11 @@ Body: wrap at 72 chars. Reference issues/PRs with `Closes #N` or `Refs #N`.
 - Go: stdlib `testing` + `-race` flag. Prefer table-driven tests. Mock at interface boundaries.
 - Python: `pytest` under `sdk/python/tests/`. Validate pydantic models with edge cases.
 - React: (not yet wired) — add `vitest` tests alongside components as the UI grows.
+- Plugins: `aide dev test <path>` runs a plugin's `scrape` action in place without installing it
+  (builds the venv / Go binary on demand). Use `--json` for a machine-readable
+  `{ok, entries, ..., logs, exit_code}` result and `-v` for debug logs. `aide dev validate <path>`
+  checks the manifest. These are flag-driven and `--json`-capable for autonomous agent loops, and
+  replace the old `aide scrape` flow.
 
 ---
 

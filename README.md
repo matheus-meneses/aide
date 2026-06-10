@@ -123,6 +123,16 @@ aide run
 
 **Prefer Go?** Plugins can also be written in Go. The host speaks the same JSON protocol to any runtime, so a Go plugin just sets `runtime: go` and ships a compiled binary instead of a venv. Use the Go SDK in [sdk/go](sdk/go) (`plugin.Serve` + a `Handler`); see [AGENTS.md](AGENTS.md) for the contract.
 
+The `aide dev` toolkit makes this a tight loop — and it's built for AI agents too: every subcommand is flag-driven and speaks `--json`.
+
+```sh
+aide dev new my-source            # scaffold a Python or Go plugin
+aide dev validate my-source       # check the manifest and layout
+aide dev test my-source           # run it locally and print the entries (no install)
+aide dev package my-source        # build the release artifact + registry entry
+aide dev schema                   # print the plugin.yaml JSON Schema
+```
+
 See [aide-plugins](https://github.com/matheus-meneses/aide-plugins) for builtin plugins and [AGENTS.md](AGENTS.md) for the
 full authoring contract.
 
@@ -199,7 +209,8 @@ Then set yourself up:
 
 ```sh
 aide init                      # creates ~/.aide, installs a Python runtime, fetches the registry
-aide plugin install <name>     # add a source plugin
+aide plugin install            # no name? browse and pick from the registry interactively
+aide plugin install <name>     # or install a known plugin directly
 aide config source add <name>  # interactive setup wizard
 aide run && aide report        # collect and view
 ```

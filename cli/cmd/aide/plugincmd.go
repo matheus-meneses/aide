@@ -1,10 +1,13 @@
 package main
 
 import (
+	"aide/cli/internal/clog"
 	"aide/cli/internal/config"
 	"aide/cli/internal/keychain"
 	"aide/cli/internal/plugin"
+	"aide/cli/internal/prompt"
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -170,10 +173,6 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		nameVersion = args[0]
 	}
-	if nameVersion == "" {
-		return fmt.Errorf("provide a plugin name or use --local <path>")
-	}
-	name, version, _ := strings.Cut(nameVersion, "@")
 
 	cfg, cfgErr := loadConfig()
 	if cfgErr != nil {
@@ -185,14 +184,25 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 		extraRegistries = append(extraRegistries, pluginRegistryURL)
 	}
 
-	fmt.Println("Fetching registry...")
+	clog.Info("fetching registry")
 	idx, idxErr := plugin.MergedIndex(extraRegistries)
 	if idxErr != nil {
-		fmt.Printf("warning: registry fetch failed (%v), trying cache\n", idxErr)
+		clog.Warn("registry fetch failed (%v), trying cache", idxErr)
 		idx, idxErr = plugin.LoadCachedIndex()
 		if idxErr != nil {
 			return fmt.Errorf("registry unavailable and no cache: %w", idxErr)
 		}
+	}
+
+	var name, version string
+	if nameVersion == "" {
+		selected, selErr := selectPluginInteractive(idx)
+		if selErr != nil {
+			return selErr
+		}
+		name = selected
+	} else {
+		name, version, _ = strings.Cut(nameVersion, "@")
 	}
 
 	consent := func(m *plugin.Manifest) bool {
@@ -223,6 +233,51 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 		return err
 	}
 	return runConfigWizard(m)
+}
+
+func selectPluginInteractive(idx *plugin.Index) (string, error) {
+	if idx == nil || len(idx.Plugins) == 0 {
+		return "", fmt.Errorf("no plugins available — run 'aide plugin update' to refresh the registry")
+	}
+	if !isInteractive() {
+		return "", fmt.Errorf("no plugin name given; pass a name (e.g. 'aide plugin install jira') or run in a terminal")
+	}
+
+	installed := map[string]bool{}
+	if list, err := plugin.NewManager().List(); err == nil {
+		for _, m := range list {
+			installed[m.Name] = true
+		}
+	}
+
+	names := make([]string, 0, len(idx.Plugins))
+	for n := range idx.Plugins {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+
+	choices := make([]prompt.Choice, len(names))
+	for i, n := range names {
+		entry := idx.Plugins[n]
+		desc := entry.Latest
+		if entry.Description != "" {
+			desc += " — " + entry.Description
+		}
+		c := prompt.Choice{Title: n, Desc: desc}
+		if installed[n] {
+			c.Tag = "installed"
+		}
+		choices[i] = c
+	}
+
+	i, err := prompt.Select("Select a plugin to install", choices)
+	if err != nil {
+		if errors.Is(err, prompt.ErrCancelled) {
+			return "", fmt.Errorf("installation cancelled")
+		}
+		return "", err
+	}
+	return names[i], nil
 }
 
 func runConfigWizard(m *plugin.Manifest) error {
@@ -473,7 +528,7 @@ func pluginUpdateExecute(_ *cobra.Command, _ []string) error {
 		extraRegistries = append(extraRegistries, pluginRegistryURL)
 	}
 
-	fmt.Println("Fetching registry...")
+	clog.Info("fetching registry")
 	idx, err := plugin.MergedIndex(extraRegistries)
 	if err != nil {
 		return fmt.Errorf("fetching registry: %w", err)
@@ -483,7 +538,7 @@ func pluginUpdateExecute(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("caching index: %w", err)
 	}
 
-	fmt.Printf("Registry updated: %d plugins available.\n", len(idx.Plugins))
+	clog.Info("registry updated: %d plugins available", len(idx.Plugins))
 	return nil
 }
 
