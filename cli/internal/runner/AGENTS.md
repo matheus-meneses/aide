@@ -29,8 +29,30 @@ and upserts entries into the store.
 
 ## Plugin protocol (Python → Go)
 
-The runner sends `{"action":"scrape","config":{...},"secrets":{...}}` on stdin via
-`plugin.Execute`. The plugin replies with **one JSON object** on stdout:
+The runner sends a JSON object on stdin via `plugin.Execute`:
+
+```json
+{
+  "action": "scrape",
+  "config": { ... },
+  "secrets": { ... },
+  "context": {
+    "data_dir": "/path/to/data",
+    "log_level": "info",
+    "log_format": "text"
+  }
+}
+```
+
+`context` keys:
+
+| Key | Values | Default | Meaning |
+|-----|--------|---------|---------|
+| `data_dir` | path string | from config | plugin working directory |
+| `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | logging threshold; set to `debug` by `-v` |
+| `log_format` | `text` \| `json` | `text` | log line format; set by `--log-format` |
+
+The plugin replies with **one JSON object** on stdout:
 
 ```json
 {
@@ -53,8 +75,8 @@ invocation and JSON-array stdout format are obsolete — they do not exist in th
   unknown or disabled sources return an error.
 - Each source runs with `context.WithTimeout` derived from `cfg.Settings.TimeoutSeconds`; the
   plugin process is killed on context cancellation by `plugin.Execute`.
-- Credentials are loaded by `plugin.ScopedSecrets(name, m)` and injected as environment
-  variables by `plugin.Execute`.
+- Credentials are loaded by `plugin.ScopedSecrets(name, m)` and passed in `Request.Secrets` on
+  stdin. They are never injected as environment variables.
 - If a plugin returns `ok=false`, the source is counted as failed.
 - Plugin stderr is streamed to the runner's log writer prefixed with `[sourceName]`.
 

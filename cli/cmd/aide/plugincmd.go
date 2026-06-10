@@ -32,6 +32,7 @@ var pluginListCmd = &cobra.Command{
 }
 
 var pluginInstallLocal string
+var pluginInstallYes bool
 
 var pluginInstallCmd = &cobra.Command{
 	Use:   "install [name[@version]]",
@@ -66,6 +67,7 @@ func init() {
 	pluginListCmd.Flags().BoolVar(&pluginListAvailable, "available", false, "show available plugins from registry cache")
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallLocal, "local", "", "install from a local directory instead of the registry")
+	pluginInstallCmd.Flags().BoolVar(&pluginInstallYes, "yes", false, "skip confirmation prompt (local installs only)")
 	pluginUpdateCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
 	pluginRemoveCmd.Flags().BoolVar(&pluginRemoveYes, "yes", false, "skip confirmation")
 
@@ -142,80 +144,84 @@ func pluginListAvailableExecute() error {
 }
 
 func pluginInstallExecute(_ *cobra.Command, args []string) error {
-	var (
-		m   *plugin.Manifest
-		err error
-	)
-
 	if pluginInstallLocal != "" {
 		consent := func(m *plugin.Manifest) bool {
+			if pluginInstallYes {
+				return true
+			}
 			fmt.Printf("\nPlugin: %s@%s (local)\n", m.Name, m.Version)
 			if m.Description != "" {
 				fmt.Printf("Description: %s\n", m.Description)
 			}
 			return confirm("Install this plugin?")
 		}
-		m, err = plugin.InstallLocal(context.Background(), pluginInstallLocal, consent)
-	} else {
-		nameVersion := ""
-		if len(args) > 0 {
-			nameVersion = args[0]
+		m, err := plugin.InstallLocal(context.Background(), pluginInstallLocal, consent)
+		if err != nil {
+			return err
 		}
-		if nameVersion == "" {
-			return fmt.Errorf("provide a plugin name or use --local <path>")
+		if pluginInstallYes {
+			fmt.Printf("  [+] %s installed (--yes: skipping config wizard)\n", m.Name)
+			return nil
 		}
-		name, version, _ := strings.Cut(nameVersion, "@")
-
-		cfg, cfgErr := loadConfig()
-		if cfgErr != nil {
-			return cfgErr
-		}
-
-		extraRegistries := cfg.Registries
-		if pluginRegistryURL != "" {
-			extraRegistries = append(extraRegistries, pluginRegistryURL)
-		}
-
-		fmt.Println("Fetching registry...")
-		idx, idxErr := plugin.MergedIndex(extraRegistries)
-		if idxErr != nil {
-			fmt.Printf("warning: registry fetch failed (%v), trying cache\n", idxErr)
-			idx, idxErr = plugin.LoadCachedIndex()
-			if idxErr != nil {
-				return fmt.Errorf("registry unavailable and no cache: %w", idxErr)
-			}
-		}
-
-		consent := func(m *plugin.Manifest) bool {
-			fmt.Printf("\nPlugin: %s@%s\n", m.Name, m.Version)
-			if m.Description != "" {
-				fmt.Printf("Description: %s\n", m.Description)
-			}
-			if len(m.Capabilities.Network) > 0 {
-				fmt.Printf("Network access: %s\n", strings.Join(m.Capabilities.Network, ", "))
-			}
-			if len(m.Capabilities.Filesystem) > 0 {
-				paths := make([]string, 0, len(m.Capabilities.Filesystem))
-				for _, f := range m.Capabilities.Filesystem {
-					if f.Read != "" {
-						paths = append(paths, "r:"+f.Read)
-					}
-					if f.Write != "" {
-						paths = append(paths, "w:"+f.Write)
-					}
-				}
-				fmt.Printf("Filesystem access: %s\n", strings.Join(paths, ", "))
-			}
-			return confirm("Install this plugin?")
-		}
-
-		m, err = plugin.Install(context.Background(), idx, name, version, consent)
+		return runConfigWizard(m)
 	}
 
+	nameVersion := ""
+	if len(args) > 0 {
+		nameVersion = args[0]
+	}
+	if nameVersion == "" {
+		return fmt.Errorf("provide a plugin name or use --local <path>")
+	}
+	name, version, _ := strings.Cut(nameVersion, "@")
+
+	cfg, cfgErr := loadConfig()
+	if cfgErr != nil {
+		return cfgErr
+	}
+
+	extraRegistries := cfg.Registries
+	if pluginRegistryURL != "" {
+		extraRegistries = append(extraRegistries, pluginRegistryURL)
+	}
+
+	fmt.Println("Fetching registry...")
+	idx, idxErr := plugin.MergedIndex(extraRegistries)
+	if idxErr != nil {
+		fmt.Printf("warning: registry fetch failed (%v), trying cache\n", idxErr)
+		idx, idxErr = plugin.LoadCachedIndex()
+		if idxErr != nil {
+			return fmt.Errorf("registry unavailable and no cache: %w", idxErr)
+		}
+	}
+
+	consent := func(m *plugin.Manifest) bool {
+		fmt.Printf("\nPlugin: %s@%s\n", m.Name, m.Version)
+		if m.Description != "" {
+			fmt.Printf("Description: %s\n", m.Description)
+		}
+		if len(m.Capabilities.Network) > 0 {
+			fmt.Printf("Network access: %s\n", strings.Join(m.Capabilities.Network, ", "))
+		}
+		if len(m.Capabilities.Filesystem) > 0 {
+			paths := make([]string, 0, len(m.Capabilities.Filesystem))
+			for _, f := range m.Capabilities.Filesystem {
+				if f.Read != "" {
+					paths = append(paths, "r:"+f.Read)
+				}
+				if f.Write != "" {
+					paths = append(paths, "w:"+f.Write)
+				}
+			}
+			fmt.Printf("Filesystem access: %s\n", strings.Join(paths, ", "))
+		}
+		return confirm("Install this plugin?")
+	}
+
+	m, err := plugin.Install(context.Background(), idx, name, version, consent)
 	if err != nil {
 		return err
 	}
-
 	return runConfigWizard(m)
 }
 

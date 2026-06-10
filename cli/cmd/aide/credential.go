@@ -2,6 +2,7 @@ package main
 
 import (
 	"aide/cli/internal/keychain"
+	"aide/cli/internal/plugin"
 	"bufio"
 	"fmt"
 	"os"
@@ -17,9 +18,9 @@ var credentialCmd = &cobra.Command{
 }
 
 var credentialSetCmd = &cobra.Command{
-	Use:   "set [source] [key] [value]",
-	Short: "Store credential fields for a source (interactive if no args)",
-	Args:  cobra.RangeArgs(0, 3),
+	Use:   "set <source> [key] [value]",
+	Short: "Store credential fields for a source (reads plugin manifest if no key given)",
+	Args:  cobra.RangeArgs(1, 3),
 	RunE:  credentialSetExecute,
 }
 
@@ -58,19 +59,7 @@ func init() {
 }
 
 func credentialSetExecute(_ *cobra.Command, args []string) error {
-	reader := bufio.NewReader(os.Stdin)
-
-	var source string
-	if len(args) >= 1 {
-		source = args[0]
-	} else {
-		fmt.Print("Source: ")
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		source = strings.TrimSpace(line)
-	}
+	source := args[0]
 
 	if len(args) >= 2 {
 		key := args[1]
@@ -93,6 +82,44 @@ func credentialSetExecute(_ *cobra.Command, args []string) error {
 		return nil
 	}
 
+	mgr := plugin.NewManager()
+	if m, err := mgr.Get(source); err == nil && len(m.Credentials) > 0 {
+		fmt.Printf("Credentials for '%s' (%s)\n\n", source, m.Description)
+		for _, cred := range m.Credentials {
+			label := cred.Label
+			if label == "" {
+				label = cred.Key
+			}
+			var val string
+			if cred.Secret {
+				fmt.Printf("  %s (hidden): ", label)
+				b, readErr := term.ReadPassword(int(os.Stdin.Fd()))
+				fmt.Println()
+				if readErr != nil {
+					return fmt.Errorf("reading %s: %w", cred.Key, readErr)
+				}
+				val = strings.TrimSpace(string(b))
+			} else {
+				fmt.Printf("  %s: ", label)
+				line, readErr := bufio.NewReader(os.Stdin).ReadString('\n')
+				if readErr != nil {
+					return fmt.Errorf("reading %s: %w", cred.Key, readErr)
+				}
+				val = strings.TrimSpace(line)
+			}
+			if val == "" {
+				fmt.Printf("  (skipped)\n")
+				continue
+			}
+			if err := keychain.SetField(source, cred.Key, val); err != nil {
+				return err
+			}
+			fmt.Printf("  '%s' stored\n", cred.Key)
+		}
+		return nil
+	}
+
+	reader := bufio.NewReader(os.Stdin)
 	fmt.Printf("Adding credentials for '%s'. Enter field names and values.\n", source)
 	fmt.Println("Leave field name empty to finish.")
 	fmt.Println()

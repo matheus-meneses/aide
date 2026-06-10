@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
+from aide_sdk.log import Logger
 from aide_sdk.models import MetricEntry, ScraperEntry, TeamMemberEntry
 
 
@@ -10,6 +11,9 @@ class BaseScraper(ABC):
     name: str = ""
     version: str = "0.1.0"
     categories: ClassVar[list[str]] = []
+
+    def __init__(self) -> None:
+        self.log = Logger()
 
     @abstractmethod
     def scrape(self, config: dict[str, Any], secrets: dict[str, Any]) -> list[ScraperEntry]: ...

@@ -36,6 +36,8 @@ func runExecute(cmd *cobra.Command, _ []string) error {
 		}
 
 		r := runner.New(cfg, s)
+		r.SetLogLevel(logLevel())
+		r.SetLogFormat(logFormatValue())
 
 		if err := r.ValidateFilter(sources); err != nil {
 			return err

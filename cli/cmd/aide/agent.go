@@ -55,6 +55,8 @@ func newAgent(cfg *config.Config) (*agent.Agent, *store.Store, error) {
 	}
 
 	r := runner.New(cfg, s)
+	r.SetLogLevel(logLevel())
+	r.SetLogFormat(logFormatValue())
 	a := agent.New(cfg, s, r)
 	return a, s, nil
 }

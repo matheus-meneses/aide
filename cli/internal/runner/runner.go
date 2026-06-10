@@ -5,6 +5,7 @@ import (
 	"aide/cli/internal/plugin"
 	"aide/cli/internal/store"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -16,18 +17,23 @@ import (
 )
 
 type Runner struct {
-	cfg   *config.Config
-	store *store.Store
-	log   io.Writer
+	cfg       *config.Config
+	store     *store.Store
+	log       io.Writer
+	logLevel  string
+	logFormat string
 }
 
 func New(cfg *config.Config, s *store.Store) *Runner {
-	return &Runner{cfg: cfg, store: s, log: os.Stderr}
+	return &Runner{cfg: cfg, store: s, log: os.Stderr, logLevel: "info", logFormat: "text"}
 }
 
 func NewWithLogger(cfg *config.Config, s *store.Store, log io.Writer) *Runner {
-	return &Runner{cfg: cfg, store: s, log: log}
+	return &Runner{cfg: cfg, store: s, log: log, logLevel: "info", logFormat: "text"}
 }
+
+func (r *Runner) SetLogLevel(level string)   { r.logLevel = level }
+func (r *Runner) SetLogFormat(format string) { r.logFormat = format }
 
 func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, error) {
 	sources := r.resolveSources(filterSources)
@@ -159,6 +165,42 @@ func (r *Runner) logf(format string, args ...any) {
 	fmt.Fprintf(r.log, "  "+format+"\n", args...)
 }
 
+func (r *Runner) logLine(level, msg string) {
+	levelValues := map[string]int{"debug": 10, "info": 20, "warn": 30, "error": 40}
+	threshold := levelValues[r.logLevel]
+	if threshold == 0 {
+		threshold = 20
+	}
+	if levelValues[level] < threshold {
+		return
+	}
+	ts := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	if r.logFormat == "json" {
+		type rec struct {
+			TS    string `json:"ts"`
+			Level string `json:"level"`
+			Scope string `json:"scope"`
+			Msg   string `json:"msg"`
+		}
+		b, _ := json.Marshal(rec{TS: ts, Level: level, Scope: "runner", Msg: msg})
+		fmt.Fprintln(r.log, string(b))
+	} else {
+		fmt.Fprintf(r.log, "%s [%s] runner: %s\n", ts, level, msg)
+	}
+}
+
+func (r *Runner) debugf(format string, args ...any) {
+	r.logLine("debug", fmt.Sprintf(format, args...))
+}
+
+func (r *Runner) infof(format string, args ...any) {
+	r.logLine("info", fmt.Sprintf(format, args...))
+}
+
+func (r *Runner) errorf(format string, args ...any) {
+	r.logLine("error", fmt.Sprintf(format, args...))
+}
+
 func (r *Runner) resolveSources(filter []string) map[string]config.Source {
 	all := r.cfg.EnabledSources()
 	if len(filter) == 0 {
@@ -219,15 +261,21 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 		Config:  src.Config,
 		Secrets: secrets,
 		Context: map[string]any{
-			"data_dir": r.cfg.Settings.DataDir,
+			"data_dir":   r.cfg.Settings.DataDir,
+			"log_level":  r.logLevel,
+			"log_format": r.logFormat,
 		},
 	}
+
+	r.debugf("scraping %s via plugin %s", name, pluginName)
+	r.infof("starting %s", name)
 
 	resp, stderr, err := plugin.Execute(ctx, m, req)
 	if stderr != "" {
 		r.streamStderr(name, stderr)
 	}
 	if err != nil {
+		r.errorf("%s failed: %v", name, err)
 		return SourceResult{
 			Source:     name,
 			Error:      err,
@@ -240,6 +288,7 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 		if msg == "" {
 			msg = "plugin returned ok=false"
 		}
+		r.errorf("%s failed: %s", name, msg)
 		return SourceResult{
 			Source:     name,
 			Error:      fmt.Errorf("%s", msg),
@@ -284,7 +333,7 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 		})
 	}
 
-	return SourceResult{
+	result := SourceResult{
 		Source:      name,
 		Entries:     entries,
 		TeamMembers: teamMembers,
@@ -292,12 +341,20 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 		DurationMs:  time.Since(start).Milliseconds(),
 		Stderr:      stderr,
 	}
+	r.debugf("%s finished in %dms (entries=%d)", name, result.DurationMs, len(entries))
+	r.infof("%s done in %dms (%d entries)", name, result.DurationMs, len(entries))
+	return result
 }
 
 func (r *Runner) streamStderr(source, output string) {
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
-		if line != "" {
+		if line == "" {
+			continue
+		}
+		if r.logFormat == "json" {
+			fmt.Fprintln(r.log, line)
+		} else {
 			r.logf("[%s] %s", source, line)
 		}
 	}

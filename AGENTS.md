@@ -67,6 +67,43 @@ wrappers; all business logic lives in `internal/`. Key conventions:
 - Config keys and plugin/source names use `snake_case`.
 - OS-specific files use build-tag suffixes: `sandbox_darwin.go`, `keychain_linux.go`, etc.
 
+### Verbose logging flags
+
+Two global flags are available on every command:
+
+| Flag | Short | Default | Effect |
+|------|-------|---------|--------|
+| `--verbose` | `-v` | off | Sets log level to `debug`. Without this flag, level is `info`. |
+| `--log-format` | — | `text` | `text` (human-readable) or `json` (one JSON object per line). |
+
+Example:
+```
+aide -v run --source jira            # debug-level text output to stderr
+aide -v --log-format json run        # debug-level JSON lines to stderr
+aide run --source jira               # info-level only (default)
+```
+
+The runner passes `log_level` and `log_format` to every plugin via `Request.Context`. Plugins
+read these values automatically through the SDK (`self.log` in Python, `plugin.Log` in Go).
+
+#### Canonical log line format
+
+**text** (default):
+```
+<RFC3339> [<level>] <scope>: <message>
+```
+Example: `2026-06-09T21:30:00Z [debug] jira: Connecting to Jira...`
+
+**json**:
+```json
+{"ts":"2026-06-09T21:30:00Z","level":"debug","scope":"jira","msg":"Connecting to Jira..."}
+```
+Keys always in order: `ts`, `level`, `scope`, `msg`. `scope` is omitted when empty.
+
+Level ordering: `debug=10`, `info=20`, `warn=30`, `error=40`. Only messages at or above the
+configured threshold are emitted. All output goes to **stderr**; stdout remains reserved for the
+plugin protocol JSON.
+
 ### 2. Python plugin subprocess
 
 Each plugin runs in its own `.venv`, invoked by `cli/internal/plugin` via stdin/stdout JSON.

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 func pythonCmdOpts(ctx context.Context, m *Manifest, reqJSON []byte, interactive bool) (*exec.Cmd, error) {
@@ -32,5 +33,19 @@ func pythonCmdOpts(ctx context.Context, m *Manifest, reqJSON []byte, interactive
 		env = append(env, "AIDE_INTERACTIVE=0")
 	}
 	cmd.Env = env
+	if sdkPath := os.Getenv("AIDE_SDK_PATH"); sdkPath != "" {
+		existing := ""
+		for _, e := range env {
+			if strings.HasPrefix(e, "PYTHONPATH=") {
+				existing = strings.TrimPrefix(e, "PYTHONPATH=")
+				break
+			}
+		}
+		if existing != "" {
+			cmd.Env = append(cmd.Env, "PYTHONPATH="+sdkPath+string(os.PathListSeparator)+existing)
+		} else {
+			cmd.Env = append(cmd.Env, "PYTHONPATH="+sdkPath)
+		}
+	}
 	return cmd, nil
 }

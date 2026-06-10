@@ -14,6 +14,9 @@ bin/config.yaml
 # python
 **/__pycache__/
 **/*.pyc
+**/.venv/
+**/build/
+**/*.egg-info/
 
 # node / frontend build
 cli/internal/agent/frontend/node_modules/

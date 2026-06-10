@@ -5,6 +5,8 @@ import sys
 import traceback
 from typing import Any
 
+from aide_sdk.log import Logger
+
 _real_stdout = sys.stdout
 sys.stdout = sys.stderr
 
@@ -13,6 +15,11 @@ def _emit(response: dict[str, Any]) -> None:
     _real_stdout.write(json.dumps(response, default=str))
     _real_stdout.write("\n")
     _real_stdout.flush()
+
+
+def _log_exc(log: Logger, e: Exception) -> None:
+    log.error(f"{type(e).__name__}: {e}")
+    log.debug(traceback.format_exc().strip())
 
 
 def serve(scraper_class: type) -> None:
@@ -26,7 +33,9 @@ def serve(scraper_class: type) -> None:
     action = request.get("action", "scrape")
     config: dict[str, Any] = request.get("config") or {}
     secrets: dict[str, Any] = request.get("secrets") or {}
+    context: dict[str, Any] = request.get("context") or {}
     scraper = scraper_class()
+    scraper.log = Logger.from_context(context, scope=getattr(scraper, "name", "") or "")
 
     if action == "describe":
         _emit({
@@ -48,7 +57,7 @@ def serve(scraper_class: type) -> None:
             team = scraper.scrape_team(config, secrets)
             metrics = scraper.scrape_metrics(config, secrets)
         except Exception as e:
-            traceback.print_exc(file=sys.stderr)
+            _log_exc(scraper.log, e)
             _emit({"protocol_version": "1", "ok": False, "error": str(e)})
             sys.exit(1)
 
@@ -67,7 +76,7 @@ def serve(scraper_class: type) -> None:
         try:
             lines = scraper.render(heading, items, config)
         except Exception as e:
-            traceback.print_exc(file=sys.stderr)
+            _log_exc(scraper.log, e)
             _emit({"protocol_version": "1", "ok": False, "error": str(e)})
             sys.exit(1)
         _emit({"protocol_version": "1", "ok": True, "lines": lines})
@@ -79,7 +88,7 @@ def serve(scraper_class: type) -> None:
         try:
             text = scraper.query(name, params, config, secrets)
         except Exception as e:
-            traceback.print_exc(file=sys.stderr)
+            _log_exc(scraper.log, e)
             _emit({"protocol_version": "1", "ok": False, "error": str(e)})
             sys.exit(1)
         _emit({"protocol_version": "1", "ok": True, "text": text})

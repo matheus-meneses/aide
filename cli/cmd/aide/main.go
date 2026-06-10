@@ -11,6 +11,25 @@ import (
 
 var cfgFile string
 
+var (
+	verbose   bool
+	logFormat string
+)
+
+func logLevel() string {
+	if verbose {
+		return "debug"
+	}
+	return "info"
+}
+
+func logFormatValue() string {
+	if logFormat == "json" {
+		return "json"
+	}
+	return "text"
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "aide",
 	Short: "Aide - your personal work assistant",
@@ -25,6 +44,8 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", config.DefaultConfigPath(), "config file path")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug-level logging")
+	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "text", "log output format: text or json")
 }
 
 func main() {

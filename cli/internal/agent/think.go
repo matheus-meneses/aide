@@ -44,13 +44,14 @@ func parseToolCall(response string) toolCall {
 	response = strings.TrimSpace(response)
 
 	start := strings.Index(response, "{")
-	end := strings.LastIndex(response, "}")
-	if start >= 0 && end > start {
-		response = response[start : end+1]
+	if start < 0 {
+		log.Printf("[agent] parse error: no JSON object found (response: %s)", response)
+		return toolCall{Tool: "done", Reason: "parse error"}
 	}
 
+	dec := json.NewDecoder(strings.NewReader(response[start:]))
 	var call toolCall
-	if err := json.Unmarshal([]byte(response), &call); err != nil {
+	if err := dec.Decode(&call); err != nil {
 		log.Printf("[agent] parse error: %v (response: %s)", err, response)
 		return toolCall{Tool: "done", Reason: "parse error"}
 	}

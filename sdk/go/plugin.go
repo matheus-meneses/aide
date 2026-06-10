@@ -43,6 +43,12 @@ func Serve(h Handler) {
 		os.Exit(1)
 	}
 
+	Log = NewLogger(
+		stringFromContext(req.Context, "log_level"),
+		stringFromContext(req.Context, "log_format"),
+		"",
+	)
+
 	resp, err := h.Handle(&req)
 	if err != nil {
 		emit(&Response{ProtocolVersion: ProtocolVersion, OK: false, Error: err.Error()})
