@@ -96,7 +96,7 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"current":    Version,
-		"update_url": "https://raw.githubusercontent.com/matheus-meneses/aide/main/install.sh",
+		"update_url": "https://raw.githubusercontent.com/matheus-meneses/aide/main/assets/deploy/install.sh",
 	})
 }
 

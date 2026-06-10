@@ -202,7 +202,7 @@ Everything runs locally. Plugins are isolated processes. Registries are just URL
 Install the release binary (macOS / Linux):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/matheus-meneses/aide/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/matheus-meneses/aide/main/assets/deploy/install.sh | bash
 ```
 
 Then set yourself up:

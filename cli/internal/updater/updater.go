@@ -95,7 +95,7 @@ func fetchLatestVersion() (string, error) {
 }
 
 func printUpdateBanner(current, latest string) {
-	installURL := "https://raw.githubusercontent.com/matheus-meneses/aide/main/install.sh"
+	installURL := "https://raw.githubusercontent.com/matheus-meneses/aide/main/assets/deploy/install.sh"
 	fmt.Fprintf(os.Stderr, "\n╭──────────────────────────────────────────────────────────────╮\n")
 	fmt.Fprintf(os.Stderr, "│  A new version of aide is available: %-15s        │\n", latest)
 	fmt.Fprintf(os.Stderr, "│  Current: %-52s│\n", current)
