@@ -5,9 +5,11 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,7 +19,33 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const DefaultRegistryURL = "https://github.com/matheus-meneses/aide-plugins/releases/latest/download/index.yaml"
+const defaultRegistryRepo = "matheus-meneses/aide-plugins"
+
+var registryVersionOverride string
+
+func SetRegistryVersion(v string) { registryVersionOverride = v }
+
+func registryRepo() string {
+	if r := os.Getenv("AIDE_REGISTRY_REPO"); r != "" {
+		return r
+	}
+	return defaultRegistryRepo
+}
+
+func registryVersion() string {
+	if registryVersionOverride != "" {
+		return registryVersionOverride
+	}
+	return os.Getenv("AIDE_REGISTRY_VERSION")
+}
+
+func DefaultRegistryURL() string {
+	repo := registryRepo()
+	if v := registryVersion(); v != "" {
+		return fmt.Sprintf("https://github.com/%s/releases/download/%s/index.yaml", repo, v)
+	}
+	return fmt.Sprintf("https://github.com/%s/releases/latest/download/index.yaml", repo)
+}
 
 var registryHTTPClient = &http.Client{
 	Timeout: 15 * time.Second,
@@ -63,15 +91,90 @@ func authToken() string {
 	return strings.TrimSpace(string(out))
 }
 
-func FetchIndex(registryURL string) (*Index, error) {
-	req, err := http.NewRequest(http.MethodGet, registryURL, nil)
+func httpGetAsset(rawURL string) (*http.Response, error) {
+	token := authToken()
+	getURL := rawURL
+	accept := ""
+	if token != "" {
+		if apiURL, ok := githubAssetAPIURL(rawURL, token); ok {
+			getURL = apiURL
+			accept = "application/octet-stream"
+		}
+	}
+	req, err := http.NewRequest(http.MethodGet, getURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("building request: %w", err)
 	}
-	if token := authToken(); token != "" {
+	if token != "" {
 		req.Header.Set("Authorization", "token "+token)
 	}
+	if accept != "" {
+		req.Header.Set("Accept", accept)
+	}
+	return registryHTTPClient.Do(req)
+}
+
+func githubAssetAPIURL(rawURL, token string) (string, bool) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host != "github.com" {
+		return "", false
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 6 || parts[2] != "releases" {
+		return "", false
+	}
+	owner, repo := parts[0], parts[1]
+	file := parts[len(parts)-1]
+	var releaseAPI string
+	switch {
+	case parts[3] == "download":
+		releaseAPI = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, parts[4])
+	case parts[3] == "latest" && parts[4] == "download":
+		releaseAPI = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+	default:
+		return "", false
+	}
+	assetURL, err := lookupAssetURL(releaseAPI, file, token)
+	if err != nil {
+		return "", false
+	}
+	return assetURL, true
+}
+
+func lookupAssetURL(releaseAPI, file, token string) (string, error) {
+	req, err := http.NewRequest(http.MethodGet, releaseAPI, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "token "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
 	resp, err := registryHTTPClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("release lookup returned HTTP %d", resp.StatusCode)
+	}
+	var rel struct {
+		Assets []struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"assets"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+		return "", err
+	}
+	for _, a := range rel.Assets {
+		if a.Name == file {
+			return a.URL, nil
+		}
+	}
+	return "", fmt.Errorf("asset %q not found in release", file)
+}
+
+func FetchIndex(registryURL string) (*Index, error) {
+	resp, err := httpGetAsset(registryURL)
 	if err != nil {
 		return nil, fmt.Errorf("fetching index: %w", err)
 	}
@@ -94,9 +197,13 @@ func FetchIndex(registryURL string) (*Index, error) {
 }
 
 func MergedIndex(userRegistries []string) (*Index, error) {
-	base, err := FetchIndex(DefaultRegistryURL)
+	base, err := FetchIndex(DefaultRegistryURL())
 	if err != nil {
-		return nil, fmt.Errorf("fetching builtin registry: %w", err)
+		if len(userRegistries) == 0 {
+			return nil, fmt.Errorf("fetching registry %s: %w", DefaultRegistryURL(), err)
+		}
+		fmt.Fprintf(os.Stderr, "warning: skipping default registry %s: %v\n", DefaultRegistryURL(), err)
+		base = &Index{Plugins: make(map[string]PluginEntry)}
 	}
 	for _, url := range userRegistries {
 		extra, err := FetchIndex(url)

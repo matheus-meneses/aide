@@ -270,14 +270,7 @@ func buildVenv(pluginDir, reqFile string) error {
 }
 
 func downloadWithAuth(url, destPath string) error {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	if token := authToken(); token != "" {
-		req.Header.Set("Authorization", "token "+token)
-	}
-	resp, err := registryHTTPClient.Do(req)
+	resp, err := httpGetAsset(url)
 	if err != nil {
 		return err
 	}

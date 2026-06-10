@@ -24,8 +24,9 @@ var pluginCmd = &cobra.Command{
 }
 
 var (
-	pluginListAvailable bool
-	pluginRegistryURL   string
+	pluginListAvailable   bool
+	pluginRegistryURL     string
+	pluginRegistryVersion string
 )
 
 var pluginListCmd = &cobra.Command{
@@ -69,9 +70,11 @@ var pluginAuthCmd = &cobra.Command{
 func init() {
 	pluginListCmd.Flags().BoolVar(&pluginListAvailable, "available", false, "show available plugins from registry cache")
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
+	pluginInstallCmd.Flags().StringVar(&pluginRegistryVersion, "registry-version", "", "registry release version/tag to pull the index from (default: latest)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallLocal, "local", "", "install from a local directory instead of the registry")
 	pluginInstallCmd.Flags().BoolVar(&pluginInstallYes, "yes", false, "skip confirmation prompt (local installs only)")
 	pluginUpdateCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
+	pluginUpdateCmd.Flags().StringVar(&pluginRegistryVersion, "registry-version", "", "registry release version/tag to pull the index from (default: latest)")
 	pluginRemoveCmd.Flags().BoolVar(&pluginRemoveYes, "yes", false, "skip confirmation")
 
 	pluginCmd.AddCommand(pluginListCmd)
@@ -182,6 +185,9 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 	extraRegistries := cfg.Registries
 	if pluginRegistryURL != "" {
 		extraRegistries = append(extraRegistries, pluginRegistryURL)
+	}
+	if pluginRegistryVersion != "" {
+		plugin.SetRegistryVersion(pluginRegistryVersion)
 	}
 
 	clog.Info("fetching registry")
@@ -526,6 +532,9 @@ func pluginUpdateExecute(_ *cobra.Command, _ []string) error {
 	extraRegistries := cfg.Registries
 	if pluginRegistryURL != "" {
 		extraRegistries = append(extraRegistries, pluginRegistryURL)
+	}
+	if pluginRegistryVersion != "" {
+		plugin.SetRegistryVersion(pluginRegistryVersion)
 	}
 
 	clog.Info("fetching registry")

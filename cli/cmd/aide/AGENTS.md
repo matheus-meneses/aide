@@ -39,6 +39,8 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 - Many commands repeat `config.Load` + `store.Open` + `defer Close` boilerplate — could be extracted to a helper in the future.
 - `version` var is set via `-ldflags` at build time; defaults to `"dev"`.
 - `initcmd` uses network access to download the registry; defaults to GitHub releases. Override with `AIDE_RELEASE_URL` env var.
+- `plugin install`/`plugin update` resolve the registry index from a GitHub release. The source repo is `AIDE_REGISTRY_REPO` (default `matheus-meneses/aide-plugins`); the release is `latest` unless pinned with `AIDE_REGISTRY_VERSION` or `--registry-version <tag>` (e.g. `v0.1.0-rc1`, which `latest` would skip as a prerelease). The version-pinned index and its per-plugin tarballs share the same tag, so SHA-256 verification stays consistent.
+- Private registries: when a token is present (`GH_TOKEN`/`GITHUB_TOKEN`/`gh auth token`), index and artifact downloads go through the GitHub release-asset API instead of the `releases/download` browser URLs, which require a session for private repos.
 - `source add` surfaces a user-friendly message when all sources are configured (not a usage error).
 
 ## Relations
