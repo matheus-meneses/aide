@@ -45,7 +45,7 @@ aide/
 │       └── xdg/          platform-specific data/config/cache paths
 ├── sdk/
 │   ├── python/           aide-sdk Python package (BaseScraper, models, runtime)
-│   └── go/               Go plugin stub (future)
+│   └── go/               aide-sdk-go: plugin.Serve + Handler for Go-runtime plugins
 └── bin/                  compiled binary output
 ```
 
@@ -117,6 +117,11 @@ Protocol (one round-trip per invocation):
 at startup. All plugin logging must go to stderr.
 
 Actions: `describe`, `scrape`, `render`, `query`.
+
+A plugin may also set `runtime: go` instead of `python`. The host then runs a compiled binary at
+`<plugin_dir>/bin/<entrypoint.go.binary>` (see `runtime_go.go`) over the identical JSON protocol —
+no venv is built. Go plugins use the `sdk/go` package (`plugin.Serve(Handler)`, `plugin.Log`) and
+publish one artifact per platform in the registry under `go/<goos>_<goarch>` keys.
 
 ### 3. Embedded React UI
 
