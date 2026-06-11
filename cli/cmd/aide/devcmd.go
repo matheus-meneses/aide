@@ -2,6 +2,7 @@ package main
 
 import (
 	"aide/cli/internal/plugin"
+	"aide/cli/internal/runner"
 	"archive/tar"
 	"compress/gzip"
 	"context"
@@ -25,6 +26,16 @@ import (
 var devCmd = &cobra.Command{
 	Use:   "dev",
 	Short: "Plugin development toolkit (scaffold, test, validate, package)",
+}
+
+func devTestCABundle() string {
+	if cb := caBundleValue(); cb != "" {
+		return cb
+	}
+	if verifySSLValue() {
+		return runner.SystemTrustBundle()
+	}
+	return ""
 }
 
 var devJSON bool
@@ -297,6 +308,7 @@ func devTestExecute(cmd *cobra.Command, args []string) error {
 			"log_level":  logLevel(),
 			"log_format": logFormatValue(),
 			"verify_ssl": verifySSLValue(),
+			"ca_bundle":  devTestCABundle(),
 		},
 	}
 

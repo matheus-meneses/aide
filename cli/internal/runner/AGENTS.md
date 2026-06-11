@@ -40,7 +40,8 @@ The runner sends a JSON object on stdin via `plugin.Execute`:
     "data_dir": "/path/to/data",
     "log_level": "info",
     "log_format": "text",
-    "verify_ssl": true
+    "verify_ssl": true,
+    "ca_bundle": ""
   }
 }
 ```
@@ -52,7 +53,12 @@ The runner sends a JSON object on stdin via `plugin.Execute`:
 | `data_dir` | path string | from config | plugin working directory |
 | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | logging threshold; set to `debug` by `-v` |
 | `log_format` | `text` \| `json` | `text` | log line format; set by `--log-format` |
-| `verify_ssl` | `true` \| `false` | `true` | verify TLS certificates for plugin network requests; set by `--verify-ssl` |
+| `verify_ssl` | `true` \| `false` | `true` | verify TLS certificates for plugin network requests |
+| `ca_bundle` | path string | `""` | PEM CA bundle plugins trust when verifying TLS |
+
+TLS is **the CLI's concern**, not the plugin's. The runner resolves both keys per source with precedence `--verify-ssl`/`--ca-bundle` flag > per-source `tls:` config > global `settings.tls` > secure default (`verify_ssl: true`, no bundle), and injects the result. Plugins never decide policy; they just consume the resolved values. When verifying, the Python SDK trusts an explicit `ca_bundle` (exported via `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE`) or otherwise the OS trust store (via `truststore`), so most plugins need no TLS code at all. `aide tls fetch <host>` is a trust-on-first-use helper that captures a server's chain into `~/.aide/certs/` and can wire it into config.
+
+**macOS sandbox + trust export.** Plugins run under a `sandbox-exec` profile (`(deny default)`, no Mach) that blocks the Mach/`trustd` calls macOS needs to evaluate trust natively — so `truststore` cannot verify against the system store from inside the sandbox (symptom: `unable to get local issuer certificate`). To keep the sandbox tight, on macOS the runner exports the OS trust store to a cached PEM (`SystemTrustBundle()` → `security find-certificate -a -p` over the system/admin/login keychains → `~/.aide/cache/system-trust.pem`, 6h TTL) and injects it as `ca_bundle` whenever verification is on and no explicit bundle is set. OpenSSL then verifies via file-read, which the sandbox allows. Linux needs no export (its sandbox reads `/etc/ssl` directly), so `SystemTrustBundle()` is a no-op there.
 
 The plugin replies with **one JSON object** on stdout:
 

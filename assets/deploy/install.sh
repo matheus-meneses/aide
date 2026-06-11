@@ -26,11 +26,19 @@ if [ "$VERSION" != "latest" ]; then
     RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}"
 fi
 
-echo "Installing aide (${OS}/${ARCH})..."
-
 mkdir -p "$INSTALL_DIR"
 
-curl -fL "${RELEASE_URL}/${BINARY}" -o "${INSTALL_DIR}/aide"
+if [ -n "${AIDE_LOCAL_BIN:-}" ]; then
+    echo "Installing aide (${OS}/${ARCH}) from local binary ${AIDE_LOCAL_BIN}..."
+    cp "${AIDE_LOCAL_BIN}" "${INSTALL_DIR}/aide"
+else
+    echo "Installing aide (${OS}/${ARCH})..."
+    if token="$(gh auth token 2>/dev/null)" && [ -n "$token" ]; then
+        curl -fL -H "Authorization: token ${token}" "${RELEASE_URL}/${BINARY}" -o "${INSTALL_DIR}/aide"
+    else
+        curl -fL "${RELEASE_URL}/${BINARY}" -o "${INSTALL_DIR}/aide"
+    fi
+fi
 chmod +x "${INSTALL_DIR}/aide"
 
 add_to_path() {

@@ -15,6 +15,7 @@ var (
 	verbose   bool
 	logFormat string
 	verifySSL bool
+	caBundle  string
 )
 
 func logLevel() string {
@@ -33,6 +34,10 @@ func logFormatValue() string {
 
 func verifySSLValue() bool {
 	return verifySSL
+}
+
+func caBundleValue() string {
+	return caBundle
 }
 
 var rootCmd = &cobra.Command{
@@ -57,6 +62,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug-level logging")
 	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "text", "log output format: text or json")
 	rootCmd.PersistentFlags().BoolVar(&verifySSL, "verify-ssl", true, "verify TLS certificates for plugin network requests")
+	rootCmd.PersistentFlags().StringVar(&caBundle, "ca-bundle", "", "path to a CA bundle (PEM) plugins use to verify TLS")
 }
 
 func main() {

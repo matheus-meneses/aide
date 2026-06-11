@@ -40,6 +40,12 @@ type Settings struct {
 	Concurrency    int    `yaml:"concurrency"`
 	TimeoutSeconds int    `yaml:"timeout_seconds"`
 	DataDir        string `yaml:"data_dir"`
+	TLS            TLS    `yaml:"tls,omitempty"`
+}
+
+type TLS struct {
+	VerifySSL *bool  `yaml:"verify_ssl,omitempty"`
+	CABundle  string `yaml:"ca_bundle,omitempty"`
 }
 
 type TeamMember struct {
@@ -57,6 +63,7 @@ type Source struct {
 	Plugin  string         `yaml:"plugin,omitempty"`
 	Enabled bool           `yaml:"enabled"`
 	Config  map[string]any `yaml:"config,omitempty"`
+	TLS     *TLS           `yaml:"tls,omitempty"`
 }
 
 func Load(path string) (*Config, error) {
@@ -118,6 +125,15 @@ func (c *Config) ResolvePaths(basedir string) {
 		return filepath.Join(basedir, p)
 	}
 	c.Settings.DataDir = resolve(c.Settings.DataDir)
+	if c.Settings.TLS.CABundle != "" {
+		c.Settings.TLS.CABundle = resolve(c.Settings.TLS.CABundle)
+	}
+	for name, src := range c.Sources {
+		if src.TLS != nil && src.TLS.CABundle != "" {
+			src.TLS.CABundle = resolve(src.TLS.CABundle)
+			c.Sources[name] = src
+		}
+	}
 }
 
 func (c *Config) EnabledSources() map[string]Source {

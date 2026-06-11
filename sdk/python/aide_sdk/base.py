@@ -20,6 +20,16 @@ class BaseScraper(ABC):
     def verify_ssl(self) -> bool:
         return bool(self.context.get("verify_ssl", True))
 
+    @property
+    def ca_bundle(self) -> str:
+        return str(self.context.get("ca_bundle") or "")
+
+    @property
+    def tls_verify(self) -> bool | str:
+        if not self.verify_ssl:
+            return False
+        return self.ca_bundle or True
+
     @abstractmethod
     def scrape(self, config: dict[str, Any], secrets: dict[str, Any]) -> list[ScraperEntry]: ...
 

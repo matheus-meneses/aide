@@ -17,25 +17,55 @@ import (
 )
 
 type Runner struct {
-	cfg       *config.Config
-	store     *store.Store
-	log       io.Writer
-	logLevel  string
-	logFormat string
-	verifySSL bool
+	cfg               *config.Config
+	store             *store.Store
+	log               io.Writer
+	logLevel          string
+	logFormat         string
+	tlsVerifyOverride *bool
+	caBundleOverride  *string
 }
 
 func New(cfg *config.Config, s *store.Store) *Runner {
-	return &Runner{cfg: cfg, store: s, log: os.Stderr, logLevel: "info", logFormat: "text", verifySSL: true}
+	return &Runner{cfg: cfg, store: s, log: os.Stderr, logLevel: "info", logFormat: "text"}
 }
 
 func NewWithLogger(cfg *config.Config, s *store.Store, log io.Writer) *Runner {
-	return &Runner{cfg: cfg, store: s, log: log, logLevel: "info", logFormat: "text", verifySSL: true}
+	return &Runner{cfg: cfg, store: s, log: log, logLevel: "info", logFormat: "text"}
 }
 
-func (r *Runner) SetLogLevel(level string)   { r.logLevel = level }
-func (r *Runner) SetLogFormat(format string) { r.logFormat = format }
-func (r *Runner) SetVerifySSL(verify bool)   { r.verifySSL = verify }
+func (r *Runner) SetLogLevel(level string)         { r.logLevel = level }
+func (r *Runner) SetLogFormat(format string)       { r.logFormat = format }
+func (r *Runner) SetVerifySSLOverride(verify bool) { r.tlsVerifyOverride = &verify }
+func (r *Runner) SetCABundleOverride(path string)  { r.caBundleOverride = &path }
+
+func (r *Runner) resolveTLS(src config.Source) (bool, string) {
+	verify := true
+	caBundle := ""
+	if g := r.cfg.Settings.TLS; g.VerifySSL != nil || g.CABundle != "" {
+		if g.VerifySSL != nil {
+			verify = *g.VerifySSL
+		}
+		if g.CABundle != "" {
+			caBundle = g.CABundle
+		}
+	}
+	if src.TLS != nil {
+		if src.TLS.VerifySSL != nil {
+			verify = *src.TLS.VerifySSL
+		}
+		if src.TLS.CABundle != "" {
+			caBundle = src.TLS.CABundle
+		}
+	}
+	if r.tlsVerifyOverride != nil {
+		verify = *r.tlsVerifyOverride
+	}
+	if r.caBundleOverride != nil {
+		caBundle = *r.caBundleOverride
+	}
+	return verify, caBundle
+}
 
 func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, error) {
 	sources := r.resolveSources(filterSources)
@@ -258,6 +288,11 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 
 	secrets, _ := plugin.ScopedSecrets(name, m)
 
+	verifySSL, caBundle := r.resolveTLS(src)
+	if verifySSL && caBundle == "" {
+		caBundle = SystemTrustBundle()
+	}
+
 	req := &plugin.Request{
 		Action:  "scrape",
 		Config:  src.Config,
@@ -266,7 +301,8 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 			"data_dir":   r.cfg.Settings.DataDir,
 			"log_level":  r.logLevel,
 			"log_format": r.logFormat,
-			"verify_ssl": r.verifySSL,
+			"verify_ssl": verifySSL,
+			"ca_bundle":  caBundle,
 		},
 	}
 

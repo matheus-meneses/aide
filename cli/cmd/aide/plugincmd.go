@@ -24,8 +24,8 @@ var pluginCmd = &cobra.Command{
 }
 
 var (
-	pluginListAvailable   bool
-	pluginRegistryURL     string
+	pluginListAvailable  bool
+	pluginRegistryURL    string
 	pluginRegistryVersion string
 )
 

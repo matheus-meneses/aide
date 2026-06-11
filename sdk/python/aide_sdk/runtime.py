@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
 from typing import Any
@@ -22,6 +23,31 @@ def _log_exc(log: Logger, e: Exception) -> None:
     log.debug(traceback.format_exc().strip())
 
 
+def _apply_tls(context: dict[str, Any]) -> None:
+    if not bool(context.get("verify_ssl", True)):
+        try:
+            import urllib3
+
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        except Exception:
+            pass
+        return
+
+    ca_bundle = str(context.get("ca_bundle") or "")
+    if ca_bundle:
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", ca_bundle)
+        os.environ.setdefault("SSL_CERT_FILE", ca_bundle)
+        os.environ.setdefault("CURL_CA_BUNDLE", ca_bundle)
+        return
+
+    try:
+        import truststore
+
+        truststore.inject_into_ssl()
+    except Exception:
+        pass
+
+
 def serve(scraper_class: type) -> None:
     try:
         raw = sys.stdin.read()
@@ -34,6 +60,7 @@ def serve(scraper_class: type) -> None:
     config: dict[str, Any] = request.get("config") or {}
     secrets: dict[str, Any] = request.get("secrets") or {}
     context: dict[str, Any] = request.get("context") or {}
+    _apply_tls(context)
     scraper = scraper_class()
     scraper.context = context
     scraper.log = Logger.from_context(context, scope=getattr(scraper, "name", "") or "")

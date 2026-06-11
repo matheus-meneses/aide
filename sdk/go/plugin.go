@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,7 +10,32 @@ import (
 
 const ProtocolVersion = "1"
 
-var VerifySSL = true
+var (
+	VerifySSL = true
+	CABundle  = ""
+)
+
+// TLSConfig returns a *tls.Config reflecting the CLI-resolved TLS policy:
+// verification disabled when VerifySSL is false, or a custom CA bundle
+// trusted when CABundle points at a readable PEM file.
+func TLSConfig() *tls.Config {
+	cfg := &tls.Config{}
+	if !VerifySSL {
+		cfg.InsecureSkipVerify = true
+		return cfg
+	}
+	if CABundle != "" {
+		if pem, err := os.ReadFile(CABundle); err == nil {
+			pool, perr := x509.SystemCertPool()
+			if perr != nil || pool == nil {
+				pool = x509.NewCertPool()
+			}
+			pool.AppendCertsFromPEM(pem)
+			cfg.RootCAs = pool
+		}
+	}
+	return cfg
+}
 
 type Request struct {
 	ProtocolVersion string            `json:"protocol_version"`
@@ -51,6 +78,7 @@ func Serve(h Handler) {
 		"",
 	)
 	VerifySSL = boolFromContext(req.Context, "verify_ssl", true)
+	CABundle = stringFromContext(req.Context, "ca_bundle")
 
 	resp, err := h.Handle(&req)
 	if err != nil {

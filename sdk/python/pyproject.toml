@@ -7,7 +7,7 @@ name = "aide-sdk"
 version = "0.1.0"
 description = "SDK for writing aide plugins"
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2.0"]
+dependencies = ["pydantic>=2.0", "truststore>=0.9"]
 
 [tool.setuptools.packages.find]
 where = ["."]

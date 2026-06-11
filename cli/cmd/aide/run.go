@@ -38,7 +38,12 @@ func runExecute(cmd *cobra.Command, _ []string) error {
 		r := runner.New(cfg, s)
 		r.SetLogLevel(logLevel())
 		r.SetLogFormat(logFormatValue())
-		r.SetVerifySSL(verifySSLValue())
+		if cmd.Flags().Changed("verify-ssl") {
+			r.SetVerifySSLOverride(verifySSLValue())
+		}
+		if cmd.Flags().Changed("ca-bundle") {
+			r.SetCABundleOverride(caBundleValue())
+		}
 
 		if err := r.ValidateFilter(sources); err != nil {
 			return err
