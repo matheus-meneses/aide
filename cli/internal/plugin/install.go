@@ -224,6 +224,9 @@ func buildVenv(pluginDir, reqFile string) error {
 	}
 
 	venvDir := filepath.Join(pluginDir, ".venv")
+	if err := os.RemoveAll(venvDir); err != nil {
+		return fmt.Errorf("clearing stale venv: %w", err)
+	}
 	if err := runCmd(pythonBin, "-m", "venv", venvDir); err != nil {
 		return fmt.Errorf("creating venv: %w", err)
 	}
