@@ -502,7 +502,7 @@ func promptField(field plugin.Field, indent string) any {
 
 func promptSecret(prompt string) string {
 	fmt.Print(prompt)
-	b, err := term.ReadPassword(syscall.Stdin)
+	b, err := term.ReadPassword(int(syscall.Stdin))
 	fmt.Println()
 	if err != nil {
 		return promptLine("")
