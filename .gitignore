@@ -21,7 +21,8 @@ bin/config.yaml
 
 # node / frontend build
 cli/internal/agent/frontend/node_modules/
-cli/internal/agent/frontend/dist/
+cli/internal/agent/frontend/dist/*
+!cli/internal/agent/frontend/dist/.gitkeep
 
 # ide
 *.iml
