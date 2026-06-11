@@ -41,7 +41,7 @@ func sourceAddExecute(_ *cobra.Command, args []string) error {
 
 	fmt.Printf("\nSetting up %s...\n\n", name)
 
-	sourceCfg, err := prompt.ConfigurePlugin(m)
+	sourceCfg, err := prompt.ConfigurePlugin(m, nil)
 	if err != nil {
 		return err
 	}

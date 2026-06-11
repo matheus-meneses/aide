@@ -26,6 +26,16 @@ var sourceAddCmd = &cobra.Command{
 	RunE:          sourceAddExecute,
 }
 
+var sourceConfigureCmd = &cobra.Command{
+	Use:           "configure [name]",
+	Aliases:       []string{"edit", "reconfigure"},
+	Short:         "Reconfigure an existing source interactively",
+	Args:          cobra.MaximumNArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          sourceConfigureExecute,
+}
+
 var sourceRemoveCmd = &cobra.Command{
 	Use:   "remove <name>",
 	Short: "Remove a source from configuration",
@@ -59,6 +69,7 @@ func init() {
 
 	sourceCmd.AddCommand(sourceListCmd)
 	sourceCmd.AddCommand(sourceAddCmd)
+	sourceCmd.AddCommand(sourceConfigureCmd)
 	sourceCmd.AddCommand(sourceRemoveCmd)
 	sourceCmd.AddCommand(sourceEnableCmd)
 	sourceCmd.AddCommand(sourceDisableCmd)
