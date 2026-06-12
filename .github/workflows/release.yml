@@ -67,6 +67,7 @@ jobs:
             dist/${{ env.BINARY }}.sha256
 
   publish-sdk:
+    if: startsWith(github.ref, 'refs/tags/sdk-v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
