@@ -2,6 +2,8 @@
 
 **Your work, in one place — local-first, plugin-driven, and fully yours.**
 
+*Pronounced "aid".*
+
 [![build](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/matheus-meneses/aide)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.26%2B-00ADD8)](https://go.dev)
@@ -12,12 +14,32 @@
 > anything. Your data never leaves your laptop, and aide knows nothing about your tools until *you* teach it, one plugin
 > at a time.
 
+**What the name means.** An *aide* (pronounced "aid") is a trusted assistant — someone who quietly helps you get
+things done without taking over. That is exactly the role this tool plays for your work: a helper that keeps track of
+everything competing for your attention so you don't have to.
+
 ## The problem
 
 If you lead a team or work across many systems, your day is scattered: tickets in one tool, code reviews in another,
 approval queues somewhere else, meetings in your calendar, HR requests in a portal. Nothing talks to each other, and
 there is no single place that answers "what actually needs me right now?" aide is that place. It runs on your machine,
 collects from every source you connect, and gives you one honest answer — plus an agent you can ask follow-ups.
+
+## Quick start
+
+Up and running in under a minute (macOS / Linux):
+
+```sh
+curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh | bash
+
+aide init                      # creates ~/.aide, installs a Python runtime, fetches the registry
+aide plugin install            # browse the registry and pick a source interactively
+aide config source add <name>  # connect it (interactive wizard, prompts for credentials)
+aide run && aide report        # collect everything, then see what needs you
+```
+
+That's the whole loop: install, connect a source, collect, read your report. Want the agent to answer follow-ups?
+See [Agent mode](#agent-mode). Building from source or installing more sources? See [Getting started](#getting-started).
 
 ## Privacy & local-first
 
@@ -67,6 +89,47 @@ aide agent ask "what needs my attention today?"
 aide orchestrates your plugins as sandboxed subprocesses and talks to them over a tiny JSON protocol on stdin/stdout. It
 runs them in parallel, normalizes whatever they return into a single item model, and stores it locally in SQLite.
 Plugins can be written in any language that can speak the protocol; the Python SDK makes it trivial.
+
+## Agent mode
+
+Agent mode is an optional local assistant that reasons over the data aide has already collected. There are two ways to
+use it: a one-shot question from the terminal, or a continuous background agent with a web chat UI. Either way it only
+talks to the LLM endpoint you configure — point it at a self-hosted model or any provider you trust, and nothing else
+leaves your machine.
+
+It needs data to reason about, so configure at least one source and run `aide run` first.
+
+**1. Point it at a model.** Edit `~/.aide/config.yaml` and fill in the `agent:` block:
+
+```yaml
+agent:
+  llm_url: http://localhost:11434/v1   # any OpenAI-compatible endpoint (e.g. Ollama, vLLM, a hosted provider)
+  llm_model: llama3.1
+  llm_api_key: ""                      # only if your endpoint requires one
+  run_interval: 30m                    # how often the background agent re-collects (default 30m)
+  briefing_times: ["08:00"]            # when it posts a daily briefing (default 08:00)
+```
+
+**2. Verify connectivity.** Confirm aide can reach the model before relying on it:
+
+```sh
+aide agent status        # prints the LLM URL, model, interval, and an OK / UNREACHABLE check
+```
+
+**3. Ask a one-shot question.** Great for a quick triage from the terminal:
+
+```sh
+aide agent ask "what needs my attention today?"
+```
+
+**4. Run it continuously.** Start the background agent and open the chat UI:
+
+```sh
+aide agent start         # serves on port 8531 by default; use -p to change it
+```
+
+Then open `http://localhost:8531`. The agent re-collects every `run_interval` and posts a briefing at each of your
+`briefing_times`, and you can chat with it about anything in your data at any time.
 
 ## Build your own plugin
 
@@ -190,8 +253,6 @@ Everything runs locally. Plugins are isolated processes. Registries are just URL
 ## More it can do
 
 - **Focused report** — a terminal view split into ACTION REQUIRED and INFORMATIONAL so you triage in seconds.
-- **Autonomous agent** — `aide agent start` runs a background loop and serves a web chat UI that monitors your signals
-  and answers questions.
 - **Team awareness** — HR plugins can build an org tree so the agent understands who reports to whom.
 - **Structured logging** — `aide -v run` for debug detail, `aide --log-format json run` for machine-readable logs (all
   on stderr; stdout is reserved for the plugin protocol).
@@ -202,7 +263,7 @@ Everything runs locally. Plugins are isolated processes. Registries are just URL
 Install the release binary (macOS / Linux):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/matheus-meneses/aide/main/assets/deploy/install.sh | bash
+curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh | bash
 ```
 
 Then set yourself up:
