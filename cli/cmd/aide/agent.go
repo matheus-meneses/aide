@@ -58,7 +58,11 @@ func newAgent(cfg *config.Config) (*agent.Agent, *store.Store, error) {
 	r := runner.New(cfg, s)
 	r.SetLogLevel(logLevel())
 	r.SetLogFormat(logFormatValue())
-	a := agent.New(cfg, s, r)
+	a, err := agent.New(cfg, s, r)
+	if err != nil {
+		s.Close()
+		return nil, nil, err
+	}
 	return a, s, nil
 }
 
@@ -99,6 +103,7 @@ func agentStatusExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
+	fmt.Printf("Provider:     %s\n", result.Provider)
 	fmt.Printf("LLM URL:      %s\n", result.LLMURL)
 	fmt.Printf("Model:        %s\n", result.Model)
 	fmt.Printf("Run interval: %s\n", result.RunInterval)
