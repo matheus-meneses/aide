@@ -13,6 +13,7 @@ import (
 )
 
 type StatusResult struct {
+	Provider     string `json:"provider"`
 	LLMURL       string `json:"llm_url"`
 	Model        string `json:"model"`
 	RunInterval  string `json:"run_interval"`
@@ -30,7 +31,7 @@ type Agent struct {
 	cfg      *config.Config
 	store    *store.Store
 	runner   *runner.Runner
-	llm      *LLMClient
+	llm      LLM
 	notifier Notifier
 	tools    *ToolRegistry
 	bus      *EventBus
@@ -79,7 +80,7 @@ func (a *Agent) runScrape(ctx context.Context, sources []string) (*runner.RunRes
 	return result, nil
 }
 
-func New(cfg *config.Config, s *store.Store, r *runner.Runner) *Agent {
+func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 	apiKey := cfg.Agent.LLMAPIKey
 	if apiKey == "" {
 		if cred, err := keychain.GetAll("agent"); err == nil {
@@ -87,11 +88,16 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) *Agent {
 		}
 	}
 
+	llm, err := NewLLM(cfg.Agent.LLMProvider, cfg.Agent.LLMURL, cfg.Agent.LLMModel, apiKey)
+	if err != nil {
+		return nil, fmt.Errorf("configuring llm: %w", err)
+	}
+
 	a := &Agent{
 		cfg:      cfg,
 		store:    s,
 		runner:   r,
-		llm:      NewLLMClient(cfg.Agent.LLMURL, cfg.Agent.LLMModel, apiKey),
+		llm:      llm,
 		notifier: &NoopNotifier{},
 		sessions: newSessionManager(time.Hour),
 	}
@@ -101,14 +107,14 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) *Agent {
 		fmt.Printf("warning: team config sync: %v\n", err)
 	}
 
-	return a
+	return a, nil
 }
 
 func (a *Agent) SetNotifier(n Notifier) {
 	a.notifier = n
 }
 
-func (a *Agent) LLM() *LLMClient {
+func (a *Agent) LLM() LLM {
 	return a.llm
 }
 
@@ -153,6 +159,7 @@ func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 
 func (a *Agent) Status() (*StatusResult, error) {
 	result := &StatusResult{
+		Provider:    string(NormalizeProvider(a.cfg.Agent.LLMProvider)),
 		LLMURL:      a.cfg.Agent.LLMURL,
 		Model:       a.cfg.Agent.LLMModel,
 		RunInterval: a.cfg.Agent.RunIntervalDuration().String(),

@@ -23,6 +23,7 @@ type Config struct {
 type AgentConfig struct {
 	RunInterval   string   `yaml:"run_interval"`
 	BriefingTimes []string `yaml:"briefing_times"`
+	LLMProvider   string   `yaml:"llm_provider,omitempty"`
 	LLMModel      string   `yaml:"llm_model"`
 	LLMURL        string   `yaml:"llm_url"`
 	LLMAPIKey     string   `yaml:"llm_api_key,omitempty"`

@@ -97,13 +97,18 @@ use it: a one-shot question from the terminal, or a continuous background agent 
 talks to the LLM endpoint you configure — point it at a self-hosted model or any provider you trust, and nothing else
 leaves your machine.
 
-**Model compatibility.** aide speaks the standard OpenAI Chat Completions API (`POST /chat/completions`, plus `/models`
-for the reachability check), so it works with any OpenAI-compatible endpoint — local runtimes like
-[Ollama](https://ollama.com), [vLLM](https://github.com/vllm-project/vllm), or
-[LM Studio](https://lmstudio.ai), and hosted providers that expose that API. To use a provider that *isn't*
-OpenAI-compatible, put a [LiteLLM](https://github.com/BerriAI/litellm) proxy in front of it: LiteLLM presents 100+
-providers (OpenAI, Anthropic Claude, Google Gemini, AWS Bedrock, Azure OpenAI, Groq, and more) behind a single
-OpenAI-compatible URL that you then set as `llm_url`.
+**Providers.** Pick one with `llm_provider` (the wizard asks for you):
+
+- `openai` *(default)* — any OpenAI-compatible Chat Completions endpoint (`POST /chat/completions`): OpenAI,
+  Azure OpenAI, and local runtimes like [Ollama](https://ollama.com),
+  [vLLM](https://github.com/vllm-project/vllm), or [LM Studio](https://lmstudio.ai). Set `llm_url` to the API base
+  (e.g. `http://localhost:11434/v1`).
+- `litellm` — a [LiteLLM](https://github.com/BerriAI/litellm) proxy, which presents 100+ providers (OpenAI, Anthropic
+  Claude, Google Gemini, AWS Bedrock, Azure OpenAI, Groq, and more) behind one OpenAI-compatible URL. Point `llm_url`
+  at the proxy.
+- `anthropic` — Anthropic's native Messages API directly (no proxy). Uses `https://api.anthropic.com` by default.
+
+More providers can be added behind the same interface over time.
 
 It needs data to reason about, so configure at least one source and run `aide run` first.
 
@@ -123,7 +128,8 @@ Prefer editing YAML? The non-secret settings live under the `agent:` block of `~
 
 ```yaml
 agent:
-  llm_url: http://localhost:11434/v1   # any OpenAI-compatible endpoint (e.g. Ollama, vLLM, a hosted provider)
+  llm_provider: openai                 # openai (default) | litellm | anthropic
+  llm_url: http://localhost:11434/v1   # API base for openai/litellm; omit for anthropic's default
   llm_model: llama3.1
   run_interval: 30m                    # how often the background agent re-collects (default 30m)
   briefing_times: ["08:00"]            # when it posts a daily briefing (default 08:00)
