@@ -1,17 +1,18 @@
 package main
 
 import (
-	"fmt"
-
-	"github.com/spf13/cobra"
-
 	"aide/cli/internal/config"
 	"aide/cli/internal/render"
 	"aide/cli/internal/store"
+	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
-var teamListView string
-var teamListSource string
+var (
+	teamListView   string
+	teamListSource string
+)
 
 var teamCmd = &cobra.Command{
 	Use:   "team",
@@ -42,7 +43,7 @@ func init() {
 	rootCmd.AddCommand(teamCmd)
 }
 
-func teamListExecute(cmd *cobra.Command, args []string) error {
+func teamListExecute(_ *cobra.Command, _ []string) error {
 	return withStore(func(_ *config.Config, s *store.Store) error {
 		members, err := s.Team.All()
 		if err != nil {
@@ -64,7 +65,7 @@ func teamListExecute(cmd *cobra.Command, args []string) error {
 	})
 }
 
-func teamSyncExecute(cmd *cobra.Command, args []string) error {
+func teamSyncExecute(_ *cobra.Command, _ []string) error {
 	return withStore(func(_ *config.Config, s *store.Store) error {
 		n, err := s.Team.ReresolveManagers()
 		if err != nil {

@@ -1,37 +1,70 @@
 package runner
 
 import (
-	"bytes"
+	"aide/cli/internal/config"
+	"aide/cli/internal/plugin"
+	"aide/cli/internal/store"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/store"
 
 	"github.com/google/uuid"
 )
 
 type Runner struct {
-	cfg   *config.Config
-	store *store.Store
-	log   io.Writer
+	cfg               *config.Config
+	store             *store.Store
+	log               io.Writer
+	logLevel          string
+	logFormat         string
+	tlsVerifyOverride *bool
+	caBundleOverride  *string
 }
 
 func New(cfg *config.Config, s *store.Store) *Runner {
-	return &Runner{cfg: cfg, store: s, log: os.Stderr}
+	return &Runner{cfg: cfg, store: s, log: os.Stderr, logLevel: "info", logFormat: "text"}
 }
 
 func NewWithLogger(cfg *config.Config, s *store.Store, log io.Writer) *Runner {
-	return &Runner{cfg: cfg, store: s, log: log}
+	return &Runner{cfg: cfg, store: s, log: log, logLevel: "info", logFormat: "text"}
+}
+
+func (r *Runner) SetLogLevel(level string)         { r.logLevel = level }
+func (r *Runner) SetLogFormat(format string)       { r.logFormat = format }
+func (r *Runner) SetVerifySSLOverride(verify bool) { r.tlsVerifyOverride = &verify }
+func (r *Runner) SetCABundleOverride(path string)  { r.caBundleOverride = &path }
+
+func (r *Runner) resolveTLS(src config.Source) (bool, string) {
+	verify := true
+	caBundle := ""
+	if g := r.cfg.Settings.TLS; g.VerifySSL != nil || g.CABundle != "" {
+		if g.VerifySSL != nil {
+			verify = *g.VerifySSL
+		}
+		if g.CABundle != "" {
+			caBundle = g.CABundle
+		}
+	}
+	if src.TLS != nil {
+		if src.TLS.VerifySSL != nil {
+			verify = *src.TLS.VerifySSL
+		}
+		if src.TLS.CABundle != "" {
+			caBundle = src.TLS.CABundle
+		}
+	}
+	if r.tlsVerifyOverride != nil {
+		verify = *r.tlsVerifyOverride
+	}
+	if r.caBundleOverride != nil {
+		caBundle = *r.caBundleOverride
+	}
+	return verify, caBundle
 }
 
 func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, error) {
@@ -92,7 +125,15 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 			health.Status = "ok"
 			health.EntriesCount = len(result.Entries)
 
-			items, metrics := r.partitionEntries(result)
+			var items []store.Item
+			var metrics []metricEntry
+			var members []store.Member
+
+			if result.PluginResp != nil {
+				items, metrics, members = r.normalizeResponse(result.Source, result.PluginResp)
+			} else {
+				items, metrics = r.partitionEntries(result)
+			}
 
 			newCount, _, upsertErr := r.store.Items.Upsert(result.Source, items)
 			if upsertErr != nil {
@@ -110,10 +151,14 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 				}
 			}
 
-			if len(result.TeamMembers) > 0 {
-				members := make([]store.Member, 0, len(result.TeamMembers))
+			if len(members) > 0 {
+				if err := r.store.Team.Upsert(members); err != nil {
+					r.logf("[%s] team upsert error: %v", result.Source, err)
+				}
+			} else if len(result.TeamMembers) > 0 {
+				legacy := make([]store.Member, 0, len(result.TeamMembers))
 				for _, raw := range result.TeamMembers {
-					members = append(members, store.Member{
+					legacy = append(legacy, store.Member{
 						Name:         raw.Name,
 						Email:        raw.Email,
 						Role:         raw.Role,
@@ -124,7 +169,7 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 						Source:       result.Source,
 					})
 				}
-				if err := r.store.Team.Upsert(members); err != nil {
+				if err := r.store.Team.Upsert(legacy); err != nil {
 					r.logf("[%s] team upsert error: %v", result.Source, err)
 				}
 			}
@@ -150,6 +195,42 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 
 func (r *Runner) logf(format string, args ...any) {
 	fmt.Fprintf(r.log, "  "+format+"\n", args...)
+}
+
+func (r *Runner) logLine(level, msg string) {
+	levelValues := map[string]int{"debug": 10, "info": 20, "warn": 30, "error": 40}
+	threshold := levelValues[r.logLevel]
+	if threshold == 0 {
+		threshold = 20
+	}
+	if levelValues[level] < threshold {
+		return
+	}
+	ts := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	if r.logFormat == "json" {
+		type rec struct {
+			TS    string `json:"ts"`
+			Level string `json:"level"`
+			Scope string `json:"scope"`
+			Msg   string `json:"msg"`
+		}
+		b, _ := json.Marshal(rec{TS: ts, Level: level, Scope: "runner", Msg: msg})
+		fmt.Fprintln(r.log, string(b))
+	} else {
+		fmt.Fprintf(r.log, "%s [%s] runner: %s\n", ts, level, msg)
+	}
+}
+
+func (r *Runner) debugf(format string, args ...any) {
+	r.logLine("debug", fmt.Sprintf(format, args...))
+}
+
+func (r *Runner) infof(format string, args ...any) {
+	r.logLine("info", fmt.Sprintf(format, args...))
+}
+
+func (r *Runner) errorf(format string, args ...any) {
+	r.logLine("error", fmt.Sprintf(format, args...))
 }
 
 func (r *Runner) resolveSources(filter []string) map[string]config.Source {
@@ -191,88 +272,128 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 
 	start := time.Now()
 
-	configJSON, err := json.Marshal(src.Config)
+	mgr := plugin.NewManager()
+	pluginName := src.Plugin
+	if pluginName == "" {
+		pluginName = name
+	}
+	m, err := mgr.Get(pluginName)
 	if err != nil {
 		return SourceResult{
 			Source:     name,
-			Error:      fmt.Errorf("marshaling config: %w", err),
+			Error:      fmt.Errorf("plugin %q not installed: %w", pluginName, err),
 			DurationMs: time.Since(start).Milliseconds(),
 		}
 	}
 
-	cmd := exec.CommandContext(ctx,
-		r.cfg.Settings.PythonBin,
-		"-m", "framework.runner",
-		name,
-		"--config", string(configJSON),
-	)
-	cmd.Dir = r.cfg.Settings.ScrapersDir
-	cmd.Env = os.Environ()
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		if cmd.Process != nil {
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
-		return nil
+	secrets, _ := plugin.ScopedSecrets(name, m)
+
+	verifySSL, caBundle := r.resolveTLS(src)
+	if verifySSL && caBundle == "" {
+		caBundle = SystemTrustBundle()
 	}
 
-	if prefix, ok := src.Config["credentials_env"].(string); ok && prefix != "" {
-		cred, credErr := keychain.GetAll(name)
-		if credErr == nil && cred != nil {
-			for key, val := range cred.Fields {
-				envKey := prefix + "_" + strings.ToUpper(key)
-				cmd.Env = append(cmd.Env, envKey+"="+val)
-			}
-		}
+	req := &plugin.Request{
+		Action:  "scrape",
+		Config:  src.Config,
+		Secrets: secrets,
+		Context: map[string]any{
+			"data_dir":   r.cfg.Settings.DataDir,
+			"log_level":  r.logLevel,
+			"log_format": r.logFormat,
+			"verify_ssl": verifySSL,
+			"ca_bundle":  caBundle,
+		},
 	}
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	r.debugf("scraping %s via plugin %s", name, pluginName)
+	r.infof("starting %s", name)
 
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			r.streamStderr(name, stderr.String())
-		}
-		errMsg := err.Error()
-		if stderr.Len() > 0 {
-			errMsg = stderr.String()
-		}
-		return SourceResult{
-			Source:     name,
-			Error:      fmt.Errorf("%s", errMsg),
-			DurationMs: time.Since(start).Milliseconds(),
-			Stderr:     stderr.String(),
-		}
+	resp, stderr, err := plugin.Execute(ctx, m, req)
+	if stderr != "" {
+		r.streamStderr(name, stderr)
 	}
-
-	if stderr.Len() > 0 {
-		r.streamStderr(name, stderr.String())
-	}
-
-	entries, err := parseScraperOutput(stdout.Bytes())
 	if err != nil {
+		r.errorf("%s failed: %v", name, err)
 		return SourceResult{
 			Source:     name,
-			Error:      fmt.Errorf("parsing output: %w", err),
+			Error:      err,
 			DurationMs: time.Since(start).Milliseconds(),
-			Stderr:     stderr.String(),
+			Stderr:     stderr,
+		}
+	}
+	if !resp.OK {
+		msg := resp.Error
+		if msg == "" {
+			msg = "plugin returned ok=false"
+		}
+		r.errorf("%s failed: %s", name, msg)
+		return SourceResult{
+			Source:     name,
+			Error:      fmt.Errorf("%s", msg),
+			DurationMs: time.Since(start).Milliseconds(),
+			Stderr:     stderr,
 		}
 	}
 
-	return SourceResult{
+	entries := make([]ScraperEntry, 0, len(resp.Entries))
+	for _, e := range resp.Entries {
+		entries = append(entries, ScraperEntry{
+			Source:    name,
+			Member:    e.Member,
+			Category:  e.Category,
+			Title:     e.Title,
+			Detail:    e.Detail,
+			EntryDate: e.EntryDate,
+			Priority:  e.Priority,
+			Metadata:  e.Metadata,
+		})
+	}
+
+	for _, met := range resp.Metrics {
+		entries = append(entries, ScraperEntry{
+			Source:   name,
+			Category: "metric",
+			Title:    met.Name,
+			Metadata: map[string]any{"mode": "metric", "metric_value": met.Value},
+		})
+	}
+
+	teamMembers := make([]TeamMemberRaw, 0, len(resp.TeamMembers))
+	for _, t := range resp.TeamMembers {
+		teamMembers = append(teamMembers, TeamMemberRaw{
+			Name:                t.Name,
+			Email:               t.Email,
+			Role:                t.Role,
+			Department:          t.Department,
+			Branch:              t.Branch,
+			Registration:        t.Registration,
+			ManagerRegistration: t.ManagerRegistration,
+		})
+	}
+
+	result := SourceResult{
 		Source:      name,
-		Entries:     entries.Entries,
-		TeamMembers: entries.TeamMembers,
+		Entries:     entries,
+		TeamMembers: teamMembers,
+		PluginResp:  resp,
 		DurationMs:  time.Since(start).Milliseconds(),
-		Stderr:      stderr.String(),
+		Stderr:      stderr,
 	}
+	r.debugf("%s finished in %dms (entries=%d)", name, result.DurationMs, len(entries))
+	r.infof("%s done in %dms (%d entries)", name, result.DurationMs, len(entries))
+	return result
 }
 
 func (r *Runner) streamStderr(source, output string) {
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
-		if line != "" {
+		if line == "" {
+			continue
+		}
+		if r.logFormat == "json" {
+			fmt.Fprintln(r.log, line)
+		} else {
 			r.logf("[%s] %s", source, line)
 		}
 	}

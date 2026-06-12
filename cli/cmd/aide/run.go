@@ -1,14 +1,13 @@
 package main
 
 import (
-	"fmt"
-
-	"github.com/spf13/cobra"
-
 	"aide/cli/internal/config"
 	"aide/cli/internal/render"
 	"aide/cli/internal/runner"
 	"aide/cli/internal/store"
+	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
 var runCmd = &cobra.Command{
@@ -23,7 +22,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 }
 
-func runExecute(cmd *cobra.Command, args []string) error {
+func runExecute(cmd *cobra.Command, _ []string) error {
 	sources, _ := cmd.Flags().GetStringSlice("source")
 	concurrency, _ := cmd.Flags().GetInt("concurrency")
 
@@ -37,6 +36,14 @@ func runExecute(cmd *cobra.Command, args []string) error {
 		}
 
 		r := runner.New(cfg, s)
+		r.SetLogLevel(logLevel())
+		r.SetLogFormat(logFormatValue())
+		if cmd.Flags().Changed("verify-ssl") {
+			r.SetVerifySSLOverride(verifySSLValue())
+		}
+		if cmd.Flags().Changed("ca-bundle") {
+			r.SetCABundleOverride(caBundleValue())
+		}
 
 		if err := r.ValidateFilter(sources); err != nil {
 			return err

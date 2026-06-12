@@ -44,7 +44,7 @@ Single-page React application served by the Go agent HTTP server. Provides real-
 ## Pitfalls
 
 - `EventSource` auto-reconnects on disconnect but events during the gap are lost (no Last-Event-ID replay yet).
-- `localStorage` is not yet used for notification persistence (refresh clears feed).
+- Notification events are persisted in `localStorage` (key `aide-notifications`, capped at 100) via `lib/eventStore.ts` and reloaded on page refresh.
 - No service worker — notifications only work while tab is open.
 - `fetchStatus` error sets `statusError` state; UI shows fallback text instead of infinite skeleton.
 - Chat retry only resends the last user message — does not handle multi-turn context loss.

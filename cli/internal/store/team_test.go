@@ -1,12 +1,11 @@
 package store_test
 
 import (
+	"aide/cli/internal/store"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"aide/cli/internal/store"
 )
 
 func openTestStore(t *testing.T) *store.Store {

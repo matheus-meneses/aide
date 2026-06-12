@@ -16,7 +16,7 @@ type webChatRequest struct {
 
 const maxChatBodyBytes = 1 << 20
 
-func (a *Agent) handleChat(bus *EventBus) http.HandlerFunc {
+func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxChatBodyBytes)
 
@@ -83,7 +83,6 @@ func (a *Agent) handleChat(bus *EventBus) http.HandlerFunc {
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		})
-
 		if err != nil {
 			errData, _ := json.Marshal(map[string]string{"error": err.Error()})
 			fmt.Fprintf(w, "event: error\ndata: %s\n\n", errData)
@@ -109,7 +108,7 @@ func (a *Agent) handleChat(bus *EventBus) http.HandlerFunc {
 	}
 }
 
-func (a *Agent) handleSessions(w http.ResponseWriter, r *http.Request) {
+func (a *Agent) handleSessions(w http.ResponseWriter, _ *http.Request) {
 	sessions, err := a.store.Chat.ListSessions(20)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

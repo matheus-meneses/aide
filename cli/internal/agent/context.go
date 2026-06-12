@@ -1,12 +1,11 @@
 package agent
 
 import (
+	"aide/cli/internal/store"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
-
-	"aide/cli/internal/store"
 )
 
 const (
@@ -24,7 +23,7 @@ func BuildContext(s *store.Store) (string, error) {
 	profile, _ := s.Profile.All()
 	if name := profile["preferred_name"]; name != "" {
 		email := profile["email"]
-		b.WriteString(fmt.Sprintf("You are Aide, a personal work assistant for %s (%s).\n", name, email))
+		fmt.Fprintf(&b, "You are Aide, a personal work assistant for %s (%s).\n", name, email)
 	} else {
 		b.WriteString("You are Aide, a personal work assistant.\n")
 	}
@@ -61,7 +60,7 @@ func BuildContext(s *store.Store) (string, error) {
 			continue
 		}
 		written[source] = true
-		b.WriteString(fmt.Sprintf("## %s (%d items)\n", source, len(items)))
+		fmt.Fprintf(&b, "## %s (%d items)\n", source, len(items))
 		for _, item := range items {
 			b.WriteString(formatItem(item))
 		}
@@ -72,7 +71,7 @@ func BuildContext(s *store.Store) (string, error) {
 		if written[source] {
 			continue
 		}
-		b.WriteString(fmt.Sprintf("## %s (%d items)\n", source, len(items)))
+		fmt.Fprintf(&b, "## %s (%d items)\n", source, len(items))
 		for _, item := range items {
 			b.WriteString(formatItem(item))
 		}
@@ -80,14 +79,14 @@ func BuildContext(s *store.Store) (string, error) {
 	}
 
 	if len(prioritized) > len(flatGrouped(grouped)) {
-		b.WriteString(fmt.Sprintf("(%d items omitted due to context limits)\n\n", len(prioritized)-len(flatGrouped(grouped))))
+		fmt.Fprintf(&b, "(%d items omitted due to context limits)\n\n", len(prioritized)-len(flatGrouped(grouped)))
 	}
 
 	health, err := s.Runs.AllHealth()
 	if err == nil && len(health) > 0 {
 		b.WriteString("## Source Health\n")
 		for _, h := range health {
-			b.WriteString(fmt.Sprintf("- %s: %s (last run: %s, entries: %d)\n", h.Source, h.Status, h.LastRun, h.EntriesCount))
+			fmt.Fprintf(&b, "- %s: %s (last run: %s, entries: %d)\n", h.Source, h.Status, h.LastRun, h.EntriesCount)
 		}
 		b.WriteString("\n")
 	}
@@ -96,7 +95,7 @@ func BuildContext(s *store.Store) (string, error) {
 	if err == nil && len(metrics) > 0 {
 		b.WriteString("## Latest Metrics\n")
 		for _, m := range metrics {
-			b.WriteString(fmt.Sprintf("- %s/%s: %.0f\n", m.Source, m.Name, m.Value))
+			fmt.Fprintf(&b, "- %s/%s: %.0f\n", m.Source, m.Name, m.Value)
 		}
 		b.WriteString("\n")
 	}
@@ -106,10 +105,10 @@ func BuildContext(s *store.Store) (string, error) {
 		b.WriteString("## Summary\n")
 		total := 0
 		for source, count := range counts {
-			b.WriteString(fmt.Sprintf("- %s: %d open\n", source, count))
+			fmt.Fprintf(&b, "- %s: %d open\n", source, count)
 			total += count
 		}
-		b.WriteString(fmt.Sprintf("- Total: %d open items\n", total))
+		fmt.Fprintf(&b, "- Total: %d open items\n", total)
 		b.WriteString("\n")
 	}
 
@@ -161,9 +160,10 @@ func prioritizeItems(items []store.Item) []store.Item {
 	for _, item := range items {
 		s := 0
 
-		if item.EntryDate == today {
+		switch item.EntryDate {
+		case today:
 			s += 100
-		} else if item.EntryDate == tomorrow {
+		case tomorrow:
 			s += 80
 		}
 
@@ -184,9 +184,10 @@ func prioritizeItems(items []store.Item) []store.Item {
 			s += 10
 		}
 
-		if item.Source == "outlook" {
+		switch item.Source {
+		case "outlook":
 			s += 15
-		} else if item.Source == "jira" {
+		case "jira":
 			s += 10
 		}
 
@@ -252,7 +253,7 @@ func TrimHistory(history []ChatMessage, maxTokens int) []ChatMessage {
 		if len(content) > 100 {
 			content = content[:100] + "..."
 		}
-		summary.WriteString(fmt.Sprintf("- %s: %s\n", prefix, content))
+		fmt.Fprintf(&summary, "- %s: %s\n", prefix, content)
 	}
 
 	result := []ChatMessage{system}

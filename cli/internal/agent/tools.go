@@ -33,9 +33,9 @@ func (r *ToolRegistry) Get(name string) (*Tool, bool) {
 func (r *ToolRegistry) Describe() string {
 	var b strings.Builder
 	for _, t := range r.tools {
-		b.WriteString(fmt.Sprintf("- %s: %s", t.Name, t.Description))
+		fmt.Fprintf(&b, "- %s: %s", t.Name, t.Description)
 		if t.Parameters != "" {
-			b.WriteString(fmt.Sprintf(" Params: %s", t.Parameters))
+			fmt.Fprintf(&b, " Params: %s", t.Parameters)
 		}
 		b.WriteString("\n")
 	}

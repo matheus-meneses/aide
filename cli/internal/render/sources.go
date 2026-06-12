@@ -1,11 +1,10 @@
 package render
 
 import (
-	"fmt"
-	"sort"
-
 	"aide/cli/internal/config"
 	"aide/cli/internal/store"
+	"fmt"
+	"sort"
 )
 
 func printSourcesTable(cfg *config.Config, health []store.SourceHealth) {

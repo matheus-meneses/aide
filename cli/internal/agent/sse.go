@@ -27,10 +27,10 @@ type EventRing struct {
 	count  int
 }
 
-func NewEventRing(cap int) *EventRing {
+func NewEventRing(capacity int) *EventRing {
 	return &EventRing{
-		events: make([]Event, cap),
-		cap:    cap,
+		events: make([]Event, capacity),
+		cap:    capacity,
 	}
 }
 

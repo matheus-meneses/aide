@@ -1,20 +1,20 @@
 package main
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/store"
 	"bufio"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
 )
+
+var stdinReader = bufio.NewReader(os.Stdin)
 
 func confirm(prompt string) bool {
 	fmt.Printf("%s [y/N]: ", prompt)
-	reader := bufio.NewReader(os.Stdin)
-	line, err := reader.ReadString('\n')
+	line, err := stdinReader.ReadString('\n')
 	if err != nil {
 		return false
 	}

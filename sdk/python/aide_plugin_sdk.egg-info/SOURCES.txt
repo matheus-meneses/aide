@@ -1,0 +1,10 @@
+pyproject.toml
+aide_plugin_sdk.egg-info/PKG-INFO
+aide_plugin_sdk.egg-info/SOURCES.txt
+aide_plugin_sdk.egg-info/dependency_links.txt
+aide_plugin_sdk.egg-info/requires.txt
+aide_plugin_sdk.egg-info/top_level.txt
+aide_sdk/__init__.py
+aide_sdk/base.py
+aide_sdk/models.py
+aide_sdk/runtime.py

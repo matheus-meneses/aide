@@ -1,10 +1,9 @@
 package render
 
 import (
+	"aide/cli/internal/store"
 	"sort"
 	"strings"
-
-	"aide/cli/internal/store"
 )
 
 type defaultPlugin struct{}
@@ -16,7 +15,7 @@ func (d *defaultPlugin) Classify(item store.Item) string {
 	return "Items"
 }
 
-func (d *defaultPlugin) RenderSection(heading string, items []store.Item) {
+func (d *defaultPlugin) RenderSection(_ string, items []store.Item) {
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].FirstSeenAt > items[j].FirstSeenAt
 	})

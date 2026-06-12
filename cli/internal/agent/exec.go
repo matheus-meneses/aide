@@ -211,9 +211,15 @@ func (a *Agent) execWhoami(args []string) *ExecResult {
 			preferred = strings.Fields(name)[0]
 		}
 
-		a.store.Profile.Set("name", name)
-		a.store.Profile.Set("email", email)
-		a.store.Profile.Set("preferred_name", preferred)
+		if err := a.store.Profile.Set("name", name); err != nil {
+			return &ExecResult{Type: "text", Text: fmt.Sprintf("failed to save identity: %v", err)}
+		}
+		if err := a.store.Profile.Set("email", email); err != nil {
+			return &ExecResult{Type: "text", Text: fmt.Sprintf("failed to save identity: %v", err)}
+		}
+		if err := a.store.Profile.Set("preferred_name", preferred); err != nil {
+			return &ExecResult{Type: "text", Text: fmt.Sprintf("failed to save identity: %v", err)}
+		}
 
 		return &ExecResult{Type: "text", Text: fmt.Sprintf("Identity saved! Hi %s.", preferred)}
 	}

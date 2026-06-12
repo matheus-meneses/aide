@@ -1,13 +1,12 @@
 package main
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/store"
 	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
 )
 
 var (
@@ -46,7 +45,7 @@ func pruneTotal(result *store.PruneResult) int64 {
 		result.Metrics + result.Runs + result.Acks + result.Tokens
 }
 
-func pruneExecute(cmd *cobra.Command, args []string) error {
+func pruneExecute(_ *cobra.Command, args []string) error {
 	days := 7
 	if len(args) > 0 {
 		d, err := strconv.Atoi(args[0])
@@ -56,7 +55,7 @@ func pruneExecute(cmd *cobra.Command, args []string) error {
 		days = d
 	}
 
-	return withStore(func(cfg *config.Config, s *store.Store) error {
+	return withStore(func(_ *config.Config, s *store.Store) error {
 		counts, err := s.Maintenance.PruneCounts(days)
 		if err != nil {
 			return fmt.Errorf("computing prune counts: %w", err)

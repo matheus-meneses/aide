@@ -89,7 +89,8 @@ func (a *Agent) saveMemory(history []string) {
 		history = []string{"No actions taken"}
 	}
 
-	summary := fmt.Sprintf("Cycle at %s | %s",
+	summary := fmt.Sprintf(
+		"Cycle at %s | %s",
 		time.Now().Format("Monday 15:04"),
 		strings.Join(history, " | "),
 	)

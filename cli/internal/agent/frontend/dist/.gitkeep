@@ -1,0 +1,2 @@
+Placeholder so go:embed all:frontend/dist resolves without a frontend build.
+The real UI is produced by `npm run build` (locally and in the release job).

@@ -8,7 +8,7 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 
 | File | Commands |
 |------|----------|
-| `main.go` | Root command, global flags (`--config`), version check hook |
+| `main.go` | Root command, global flags (`--config`, `--verify-ssl`, `--ca-bundle`), version check hook |
 | `initcmd.go` | `aide init` — setup ~/.aide, extract scrapers, create venv, download registry |
 | `run.go` | `aide run` — execute scrapers via runner package |
 | `agent.go` | `aide agent start` / `aide agent status` — start autonomous agent |
@@ -21,6 +21,7 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 | `sources.go` | `aide sources` — source health overview |
 | `history.go` | `aide history` — run history table |
 | `prune.go` | `aide prune` — data retention cleanup |
+| `tlscmd.go` | `aide tls fetch <host>` — TOFU capture of a server chain into `~/.aide/certs/`, optional config wiring |
 | `versioncmd.go` | `aide version` — print version |
 | `whoami.go` | `aide whoami` — show resolved identity |
 
@@ -38,8 +39,12 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 
 - Many commands repeat `config.Load` + `store.Open` + `defer Close` boilerplate — could be extracted to a helper in the future.
 - `version` var is set via `-ldflags` at build time; defaults to `"dev"`.
-- `initcmd` relies on network access to Nexus for Python standalone and registry; has fallback for registry.
+- `initcmd` uses network access to download the registry; defaults to GitHub releases. Override with `AIDE_RELEASE_URL` env var.
+- `plugin install`/`plugin update` resolve the registry index from a GitHub release. The source repo is `AIDE_REGISTRY_REPO` (default `matheus-meneses/aide-plugins`); the release is `latest` unless pinned with `AIDE_REGISTRY_VERSION` or `--registry-version <tag>` (e.g. `v0.1.0-rc1`, which `latest` would skip as a prerelease). The version-pinned index and its per-plugin tarballs share the same tag, so SHA-256 verification stays consistent.
+- Private registries: when a token is present (`GH_TOKEN`/`GITHUB_TOKEN`/`gh auth token`), index and artifact downloads go through the GitHub release-asset API instead of the `releases/download` browser URLs, which require a session for private repos.
 - `source add` surfaces a user-friendly message when all sources are configured (not a usage error).
+- TLS: `--verify-ssl`/`--ca-bundle` only override config when the flag was `Changed` (so `run` honors `config.yaml` per-source/global `tls:` for unattended agent runs). The runner resolves flag > per-source > global > secure default and injects `verify_ssl` + `ca_bundle`. `tls fetch` dials with `InsecureSkipVerify` on purpose — it's trust-on-first-use, so it prints SHA-256 fingerprints to verify out-of-band.
+- macOS sandbox: plugins run under `sandbox-exec` with no Mach access, so `truststore` can't reach `trustd` (symptom: `unable to get local issuer certificate`). The runner works around this by exporting the OS trust store to `~/.aide/cache/system-trust.pem` (`runner.SystemTrustBundle()`) and injecting it as `ca_bundle` when verification is on and no explicit bundle is set; OpenSSL then verifies via file-read inside the sandbox. Note `--verify-ssl false` (space) does NOT bypass — cobra needs `--verify-ssl=false`.
 
 ## Relations
 

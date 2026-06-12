@@ -90,11 +90,11 @@ func (a *Agent) publishBriefing() {
 	var body strings.Builder
 	body.WriteString("Good morning! Here's your briefing:\n")
 	if len(events) > 0 {
-		body.WriteString(fmt.Sprintf("- %d meetings today\n", len(events)))
+		fmt.Fprintf(&body, "- %d meetings today\n", len(events))
 	}
 	total := 0
 	for source, count := range counts {
-		body.WriteString(fmt.Sprintf("- %d open %s items\n", count, source))
+		fmt.Fprintf(&body, "- %d open %s items\n", count, source)
 		total += count
 	}
 	if total == 0 && len(events) == 0 {

@@ -1,20 +1,24 @@
 package keychain
 
 import (
-	"bytes"
+	"aide/cli/internal/xdg"
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"path/filepath"
 	"strings"
-)
-
-const (
-	servicePrefix  = "aide/"
-	accountDefault = "aide"
 )
 
 type Credential struct {
 	Fields map[string]string
+}
+
+func ServicePrefix() string {
+	base := filepath.Base(xdg.AideHome())
+	name := strings.TrimLeft(base, ".")
+	if name == "" {
+		name = "aide"
+	}
+	return name + "/"
 }
 
 func SetField(source, key, value string) error {
@@ -27,8 +31,8 @@ func SetField(source, key, value string) error {
 }
 
 func GetAll(source string) (*Credential, error) {
-	service := servicePrefix + source
-	raw, err := getPassword(service)
+	service := ServicePrefix() + source
+	raw, err := kcGet(service)
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +46,8 @@ func GetAll(source string) (*Credential, error) {
 }
 
 func DeleteSource(source string) error {
-	service := servicePrefix + source
-	cmd := exec.Command("/usr/bin/security", "delete-generic-password", "-s", service)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("keychain delete failed: %s", strings.TrimSpace(stderr.String()))
-	}
-	return nil
+	service := ServicePrefix() + source
+	return kcDelete(service)
 }
 
 func DeleteField(source, key string) error {
@@ -68,41 +66,7 @@ func DeleteField(source, key string) error {
 }
 
 func List() ([]string, error) {
-	cmd := exec.Command("/usr/bin/security", "dump-keychain")
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("keychain dump failed: %w", err)
-	}
-
-	var sources []string
-	for _, line := range strings.Split(stdout.String(), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "\"svce\"") {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		val := strings.Trim(strings.TrimSpace(parts[1]), "\"")
-		if !strings.HasPrefix(val, servicePrefix) {
-			continue
-		}
-		name := strings.TrimPrefix(val, servicePrefix)
-		found := false
-		for _, s := range sources {
-			if s == name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			sources = append(sources, name)
-		}
-	}
-
-	return sources, nil
+	return kcList()
 }
 
 func store(source string, cred *Credential) error {
@@ -110,29 +74,8 @@ func store(source string, cred *Credential) error {
 	if err != nil {
 		return fmt.Errorf("encoding credentials: %w", err)
 	}
-
-	service := servicePrefix + source
-	cmd := exec.Command("/usr/bin/security", "add-generic-password",
-		"-s", service,
-		"-a", accountDefault,
-		"-w", string(data),
-		"-U",
-	)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("keychain store failed: %s", strings.TrimSpace(stderr.String()))
-	}
-	return nil
+	service := ServicePrefix() + source
+	return kcStore(service, string(data))
 }
 
-func getPassword(service string) (string, error) {
-	cmd := exec.Command("/usr/bin/security", "find-generic-password", "-s", service, "-w")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("credential not found for %s", service)
-	}
-	return strings.TrimSpace(stdout.String()), nil
-}
+const accountDefault = "aide"

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Data-source / plugin issue?
+    url: https://github.com/matheus-meneses/aide-plugins/issues/new/choose
+    about: Bugs or requests for a specific source (GitLab, Jira, Outlook, ...) belong in the aide-plugins repository.

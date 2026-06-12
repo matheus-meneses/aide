@@ -1,22 +1,21 @@
 package main
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/plugin"
+	"aide/cli/internal/prompt"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/prompt"
-	"aide/cli/internal/registry"
 )
 
-func sourceAddExecute(cmd *cobra.Command, args []string) error {
-	reg := registry.Load()
+func sourceAddExecute(_ *cobra.Command, args []string) error {
 	cfg, err := config.LoadRaw(cfgFile)
 	if err != nil {
 		return err
 	}
+
+	mgr := plugin.NewManager()
 
 	var name string
 	if len(args) == 1 {
@@ -28,26 +27,28 @@ func sourceAddExecute(cmd *cobra.Command, args []string) error {
 		if cfg.Sources == nil {
 			cfg.Sources = make(map[string]config.Source)
 		}
-		picked, err := prompt.PickSource(reg, cfg.Sources)
+		picked, err := prompt.PickPlugin(mgr, cfg.Sources)
 		if err != nil {
 			return err
 		}
 		name = picked
 	}
 
-	def := reg.GetSource(name)
-	if def == nil {
-		return fmt.Errorf("source '%s' not found in registry", name)
+	m, err := mgr.Get(name)
+	if err != nil {
+		return fmt.Errorf("plugin '%s' is not installed — run 'aide plugin install %s' first", name, name)
 	}
 
 	fmt.Printf("\nSetting up %s...\n\n", name)
 
-	sourceCfg, err := prompt.ConfigureSource(def)
+	sourceCfg, err := prompt.ConfigurePlugin(m, nil)
 	if err != nil {
 		return err
 	}
 
-	sourceCfg["credentials_env"] = fmt.Sprintf("AIDE_%s", strings.ToUpper(name))
+	if err := prompt.SetupPluginCredentials(m, name); err != nil {
+		return fmt.Errorf("credential setup failed, source not saved: %w", err)
+	}
 
 	if cfg.Sources == nil {
 		cfg.Sources = make(map[string]config.Source)
@@ -55,10 +56,6 @@ func sourceAddExecute(cmd *cobra.Command, args []string) error {
 	cfg.Sources[name] = config.Source{
 		Enabled: true,
 		Config:  sourceCfg,
-	}
-
-	if err := prompt.SetupCredentials(def, name); err != nil {
-		return fmt.Errorf("credential setup failed, source not saved: %w", err)
 	}
 
 	if err := cfg.Save(cfgFile); err != nil {

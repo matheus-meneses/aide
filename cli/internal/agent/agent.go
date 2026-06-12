@@ -1,16 +1,15 @@
 package agent
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/keychain"
+	"aide/cli/internal/runner"
+	"aide/cli/internal/store"
 	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
 )
 
 type StatusResult struct {

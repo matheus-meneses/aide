@@ -7,8 +7,9 @@ Loads, validates, and provides typed access to the YAML configuration file (`~/.
 ## Key Types
 
 - `Config` — Root config struct containing `Settings`, `Team`, `Sources`, and `Agent`.
-- `Settings` — Concurrency, timeout, paths to data/scrapers/python.
-- `Source` — Per-source config with `Enabled` flag and opaque `Config map[string]any`.
+- `Settings` — Concurrency, timeout, paths to data/scrapers/python, and global `TLS`.
+- `Source` — Per-source config with `Enabled` flag, opaque `Config map[string]any`, and optional `TLS` override.
+- `TLS` — `VerifySSL *bool` (nil = unset, so defaults/overrides compose) and `CABundle` PEM path. Set globally under `settings.tls` and/or per source under `sources.<name>.tls`. The `runner` resolves the effective value (flag > per-source > global > secure default).
 - `AgentConfig` — Autonomous agent settings (run interval, briefing times, LLM config).
 - `TeamMember` — Name + aliases for member resolution across sources.
 
@@ -23,7 +24,7 @@ Loads, validates, and provides typed access to the YAML configuration file (`~/.
 ## Pitfalls
 
 - `Source.Config` is `map[string]any` — values come from YAML unmarshaling; numeric types may be `int` or `float64` depending on the YAML content.
-- `ResolvePaths` mutates the receiver in place.
+- `ResolvePaths` mutates the receiver in place (expands `~`/relative for `data_dir` and every `ca_bundle`).
 - Never assume config paths are absolute until after `Load` (which calls `ResolvePaths`).
 
 ## Relations

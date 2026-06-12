@@ -1,10 +1,9 @@
 package agent
 
 import (
+	"aide/cli/internal/store"
 	"fmt"
 	"time"
-
-	"aide/cli/internal/store"
 )
 
 func formatItem(item store.Item) string {

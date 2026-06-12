@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
-
 	"aide/cli/internal/config"
 	"aide/cli/internal/render"
 	"aide/cli/internal/store"
+
+	"github.com/spf13/cobra"
 )
 
 var diffCmd = &cobra.Command{
@@ -19,10 +19,10 @@ func init() {
 	rootCmd.AddCommand(diffCmd)
 }
 
-func diffExecute(cmd *cobra.Command, args []string) error {
+func diffExecute(cmd *cobra.Command, _ []string) error {
 	source, _ := cmd.Flags().GetString("source")
 
-	return withStore(func(cfg *config.Config, s *store.Store) error {
+	return withStore(func(_ *config.Config, s *store.Store) error {
 		return render.PrintDiff(s, source)
 	})
 }

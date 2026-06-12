@@ -1,26 +1,25 @@
 package render
 
 import (
+	"aide/cli/internal/config"
+	"aide/cli/internal/runner"
+	"aide/cli/internal/store"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
-
-	"aide/cli/internal/config"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
 )
 
 func PrintRunSummary(result *runner.RunResult) {
 	printRunSummaryTable(result)
 }
 
-func PrintReport(s *store.Store, member, category string) error {
+func PrintReport(s *store.Store, cfg *config.Config, member, category string) error {
 	items, err := s.Items.QueryOpen("", member, category)
 	if err != nil {
 		return err
 	}
-	printItemsReport(items)
+	printItemsReport(items, sourcePluginMap(cfg))
 	return nil
 }
 
@@ -39,7 +38,7 @@ func PrintDiff(s *store.Store, source string) error {
 	return nil
 }
 
-func PrintStats(s *store.Store, source string, days int) error {
+func PrintStats(s *store.Store, cfg *config.Config, source string, days int) error {
 	openItems, err := s.Items.QueryOpen(source, "", "")
 	if err != nil {
 		return err
@@ -77,7 +76,7 @@ func PrintStats(s *store.Store, source string, days int) error {
 		}
 	}
 
-	printStatsReport(openItems, resolvedCounts, history, avgAge, days, latestMetrics, metricHistories)
+	printStatsReport(openItems, resolvedCounts, history, avgAge, days, latestMetrics, metricHistories, sourcePluginMap(cfg))
 	return nil
 }
 
@@ -99,7 +98,7 @@ func PrintHistory(s *store.Store) error {
 	return nil
 }
 
-func printItemsReport(items []store.Item) {
+func printItemsReport(items []store.Item, pluginMap map[string]string) {
 	if len(items) == 0 {
 		fprintln("No open items.")
 		return
@@ -121,12 +120,12 @@ func printItemsReport(items []store.Item) {
 
 	if len(actionRequired) > 0 {
 		fprintf("\n ┌─ ACTION REQUIRED (%d) ─────────────────────────────────────────\n", len(actionRequired))
-		printGroupedItems(actionRequired)
+		printGroupedItems(actionRequired, pluginMap)
 	}
 
 	if len(informational) > 0 {
 		fprintf("\n ┌─ INFORMATIONAL (%d) ────────────────────────────────────────────\n", len(informational))
-		printGroupedItems(informational)
+		printGroupedItems(informational, pluginMap)
 	}
 
 	fprintln()
@@ -166,12 +165,12 @@ type sectionEntry struct {
 	items   []store.Item
 }
 
-func printGroupedItems(items []store.Item) {
+func printGroupedItems(items []store.Item, pluginMap map[string]string) {
 	sectionMap := make(map[string]*sectionEntry)
 	var sectionOrder []string
 
 	for _, item := range items {
-		plugin := pluginFor(item.Source)
+		plugin := pluginFor(item.Source, pluginMap)
 		heading := plugin.Classify(item)
 		mapKey := item.Source + "|" + heading
 		if _, exists := sectionMap[mapKey]; !exists {
@@ -195,7 +194,7 @@ func printGroupedItems(items []store.Item) {
 		fprintf(" │\n")
 		fprintf(" ├─ %s / %s (%d)\n", strings.ToUpper(sec.source), sec.heading, len(sec.items))
 
-		plugin := pluginFor(sec.source)
+		plugin := pluginFor(sec.source, pluginMap)
 		plugin.RenderSection(sec.heading, sec.items)
 	}
 	fprintf(" │\n")

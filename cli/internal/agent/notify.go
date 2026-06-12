@@ -6,6 +6,6 @@ type Notifier interface {
 
 type NoopNotifier struct{}
 
-func (n *NoopNotifier) Notify(title, body string) error {
+func (n *NoopNotifier) Notify(_, _ string) error {
 	return nil
 }

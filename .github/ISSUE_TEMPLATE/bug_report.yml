@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a problem with the aide CLI or agent
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in the details below so it can be reproduced quickly.
+        Issues with a specific data source (GitLab, Jira, Outlook, ...) belong in the
+        [aide-plugins](https://github.com/matheus-meneses/aide-plugins/issues/new/choose) repository.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands you ran, in order.
+      placeholder: |
+        1. aide ...
+        2. aide ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: aide version
+      description: Output of `aide version`.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS / architecture
+      placeholder: e.g. macOS 14 arm64, Ubuntu 24.04 amd64, Windows 11 amd64
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: Relevant plugin (optional)
+      description: If the issue involves a specific source, name it and its version.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output from `aide -v <command>` (verbose). This will be rendered as code, so no backticks needed.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is a CLI/agent bug, not a data-source/plugin bug.
+          required: true

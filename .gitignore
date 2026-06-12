@@ -8,21 +8,21 @@ data/.chat_history
 *.db
 
 # secrets and sessions
-scrapers/.sessions/
+data/
 config.yaml
 bin/config.yaml
 
 # python
-scrapers/.venv/
 **/__pycache__/
 **/*.pyc
+**/.venv/
+**/build/
+**/*.egg-info/
 
 # node / frontend build
 cli/internal/agent/frontend/node_modules/
-cli/internal/agent/frontend/dist/
-
-# embedded (generated at build time)
-cli/internal/scrapers/embedded/
+cli/internal/agent/frontend/dist/*
+!cli/internal/agent/frontend/dist/.gitkeep
 
 # ide
 *.iml
