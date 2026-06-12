@@ -97,15 +97,34 @@ use it: a one-shot question from the terminal, or a continuous background agent 
 talks to the LLM endpoint you configure — point it at a self-hosted model or any provider you trust, and nothing else
 leaves your machine.
 
+**Model compatibility.** aide speaks the standard OpenAI Chat Completions API (`POST /chat/completions`, plus `/models`
+for the reachability check), so it works with any OpenAI-compatible endpoint — local runtimes like
+[Ollama](https://ollama.com), [vLLM](https://github.com/vllm-project/vllm), or
+[LM Studio](https://lmstudio.ai), and hosted providers that expose that API. To use a provider that *isn't*
+OpenAI-compatible, put a [LiteLLM](https://github.com/BerriAI/litellm) proxy in front of it: LiteLLM presents 100+
+providers (OpenAI, Anthropic Claude, Google Gemini, AWS Bedrock, Azure OpenAI, Groq, and more) behind a single
+OpenAI-compatible URL that you then set as `llm_url`.
+
 It needs data to reason about, so configure at least one source and run `aide run` first.
 
-**1. Point it at a model.** Edit `~/.aide/config.yaml` and fill in the `agent:` block:
+**1. Point it at a model.** Run the guided setup — it asks for your endpoint, model, and schedule:
+
+```sh
+aide agent config
+```
+
+If your endpoint needs an API key, the wizard offers to store it as a scoped secret in your OS keychain (the same way plugin credentials are handled — never in plaintext config). You can also set or rotate it later with:
+
+```sh
+aide credential set agent
+```
+
+Prefer editing YAML? The non-secret settings live under the `agent:` block of `~/.aide/config.yaml`:
 
 ```yaml
 agent:
   llm_url: http://localhost:11434/v1   # any OpenAI-compatible endpoint (e.g. Ollama, vLLM, a hosted provider)
   llm_model: llama3.1
-  llm_api_key: ""                      # only if your endpoint requires one
   run_interval: 30m                    # how often the background agent re-collects (default 30m)
   briefing_times: ["08:00"]            # when it posts a daily briefing (default 08:00)
 ```

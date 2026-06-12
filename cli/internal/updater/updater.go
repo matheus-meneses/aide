@@ -2,6 +2,7 @@ package updater
 
 import (
 	"aide/cli/internal/xdg"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 const (
 	defaultReleaseBaseURL = "https://github.com/matheus-meneses/aide/releases/latest/download"
+	defaultRepoSlug       = "matheus-meneses/aide"
 	throttleFile          = ".last_version_check"
 	throttleWindow        = 12 * time.Hour
 )
@@ -23,6 +25,17 @@ func releaseBaseURL() string {
 		return v
 	}
 	return defaultReleaseBaseURL
+}
+
+func repoSlug() string {
+	if v := os.Getenv("AIDE_REPO"); v != "" {
+		return v
+	}
+	return defaultRepoSlug
+}
+
+func InstallURL() string {
+	return releaseBaseURL() + "/install.sh"
 }
 
 var httpClient = &http.Client{
@@ -45,14 +58,14 @@ func CheckOnce(currentVersion string) {
 		return
 	}
 
-	latest, err := fetchLatestVersion()
+	latest, err := LatestVersion()
 	if err != nil {
 		return
 	}
 
 	markChecked()
 
-	if latest != "" && latest != currentVersion {
+	if IsNewer(latest, currentVersion) {
 		printUpdateBanner(currentVersion, latest)
 	}
 }
@@ -76,8 +89,16 @@ func markChecked() {
 	_ = os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o600)
 }
 
-func fetchLatestVersion() (string, error) {
-	resp, err := httpClient.Get(releaseBaseURL() + "/VERSION")
+func LatestVersion() (string, error) {
+	url := "https://api.github.com/repos/" + repoSlug() + "/releases/latest"
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "aide-updater")
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -91,11 +112,55 @@ func fetchLatestVersion() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(body)), nil
+
+	var payload struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(payload.TagName), nil
+}
+
+func IsNewer(latest, current string) bool {
+	if latest == "" || latest == current {
+		return false
+	}
+	lv := parseSemver(latest)
+	cv := parseSemver(current)
+	if lv == nil || cv == nil {
+		return latest != current
+	}
+	for i := 0; i < 3; i++ {
+		if lv[i] != cv[i] {
+			return lv[i] > cv[i]
+		}
+	}
+	return false
+}
+
+func parseSemver(v string) []int {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+	if i := strings.IndexAny(v, "-+"); i >= 0 {
+		v = v[:i]
+	}
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ".")
+	out := make([]int, 3)
+	for i := 0; i < 3 && i < len(parts); i++ {
+		n, err := strconv.Atoi(parts[i])
+		if err != nil {
+			return nil
+		}
+		out[i] = n
+	}
+	return out
 }
 
 func printUpdateBanner(current, latest string) {
-	installURL := "https://raw.githubusercontent.com/matheus-meneses/aide/main/assets/deploy/install.sh"
+	installURL := InstallURL()
 	fmt.Fprintf(os.Stderr, "\n╭──────────────────────────────────────────────────────────────╮\n")
 	fmt.Fprintf(os.Stderr, "│  A new version of aide is available: %-15s        │\n", latest)
 	fmt.Fprintf(os.Stderr, "│  Current: %-52s│\n", current)
