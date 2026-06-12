@@ -10,7 +10,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.44.0
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.51.0
+	modernc.org/sqlite v1.52.0
 )
 
 require (
