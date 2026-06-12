@@ -25,7 +25,7 @@ type AgentConfig struct {
 	BriefingTimes []string `yaml:"briefing_times"`
 	LLMModel      string   `yaml:"llm_model"`
 	LLMURL        string   `yaml:"llm_url"`
-	LLMAPIKey     string   `yaml:"llm_api_key"`
+	LLMAPIKey     string   `yaml:"llm_api_key,omitempty"`
 }
 
 func (a AgentConfig) RunIntervalDuration() time.Duration {

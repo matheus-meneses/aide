@@ -58,6 +58,19 @@ func init() {
 	rootCmd.AddCommand(credentialCmd)
 }
 
+func resolveCredentialSchema(mgr *plugin.Manager, source string) ([]plugin.Credential, string) {
+	if m, err := mgr.Get(source); err == nil && len(m.Credentials) > 0 {
+		return m.Credentials, m.Description
+	}
+	switch source {
+	case "agent":
+		return []plugin.Credential{
+			{Key: "llm_api_key", Label: "LLM API key", Secret: true},
+		}, "Autonomous agent LLM endpoint"
+	}
+	return nil, ""
+}
+
 func credentialSetExecute(_ *cobra.Command, args []string) error {
 	source := args[0]
 
@@ -83,9 +96,10 @@ func credentialSetExecute(_ *cobra.Command, args []string) error {
 	}
 
 	mgr := plugin.NewManager()
-	if m, err := mgr.Get(source); err == nil && len(m.Credentials) > 0 {
-		fmt.Printf("Credentials for '%s' (%s)\n\n", source, m.Description)
-		for _, cred := range m.Credentials {
+	creds, desc := resolveCredentialSchema(mgr, source)
+	if len(creds) > 0 {
+		fmt.Printf("Credentials for '%s' (%s)\n\n", source, desc)
+		for _, cred := range creds {
 			label := cred.Label
 			if label == "" {
 				label = cred.Key

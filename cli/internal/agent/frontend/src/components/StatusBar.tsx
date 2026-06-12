@@ -45,8 +45,8 @@ export function StatusBar({ connected, onToggleSidebar, activeSource, onSourceCl
 
     void fetchVersion()
       .then((v) => {
-        if (v.update_url && v.current !== "dev") {
-          setUpdateAvailable({ current: v.current, latest: "", url: v.update_url });
+        if (v.update_available && v.current !== "dev") {
+          setUpdateAvailable({ current: v.current, latest: v.latest, url: v.update_url });
         }
       })
       .catch(() => {});
@@ -81,7 +81,10 @@ export function StatusBar({ connected, onToggleSidebar, activeSource, onSourceCl
       {updateAvailable && (
         <div className="flex items-center gap-2 px-4 py-1.5 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
           <ArrowUpCircle className="w-3.5 h-3.5 shrink-0" />
-          <span>Update available (current: {updateAvailable.current})</span>
+          <span>
+            Update available{updateAvailable.latest ? `: ${updateAvailable.latest}` : ""} (current:{" "}
+            {updateAvailable.current})
+          </span>
           <code className="ml-auto text-[10px] bg-amber-500/10 rounded px-1.5 py-0.5 font-mono">
             curl -fsSL {updateAvailable.url} | bash
           </code>

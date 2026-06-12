@@ -44,6 +44,7 @@ func init() {
 	agentCmd.AddCommand(agentStartCmd)
 	agentCmd.AddCommand(agentStatusCmd)
 	agentCmd.AddCommand(agentAskCmd)
+	agentCmd.AddCommand(agentConfigCmd)
 	agentStartCmd.Flags().IntVarP(&startPort, "port", "p", 8531, "Web UI port")
 	rootCmd.AddCommand(agentCmd)
 }

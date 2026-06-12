@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/updater"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -93,10 +94,21 @@ func (a *Agent) handleNotifications(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleVersion(w http.ResponseWriter, _ *http.Request) {
+	var latest string
+	updateAvailable := false
+	if Version != "dev" {
+		if v, err := updater.LatestVersion(); err == nil {
+			latest = v
+			updateAvailable = updater.IsNewer(latest, Version)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"current":    Version,
-		"update_url": "https://raw.githubusercontent.com/matheus-meneses/aide/main/assets/deploy/install.sh",
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"current":          Version,
+		"latest":           latest,
+		"update_available": updateAvailable,
+		"update_url":       updater.InstallURL(),
 	})
 }
 

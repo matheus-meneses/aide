@@ -59,9 +59,16 @@ export async function fetchSessions(): Promise<unknown> {
   return resp.json();
 }
 
-export async function fetchVersion(): Promise<{ current: string; update_url: string }> {
+export interface VersionInfo {
+  current: string;
+  latest: string;
+  update_available: boolean;
+  update_url: string;
+}
+
+export async function fetchVersion(): Promise<VersionInfo> {
   const resp = await checkedFetch(`${BASE}/api/version`);
-  return resp.json() as Promise<{ current: string; update_url: string }>;
+  return resp.json() as Promise<VersionInfo>;
 }
 
 export async function fetchNotifications(
