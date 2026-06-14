@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func (a *Agent) handleMemory(w http.ResponseWriter, _ *http.Request) {
@@ -76,6 +77,28 @@ func (a *Agent) handleWhoami(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, profile)
 }
 
+func (a *Agent) handleSetWhoami(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name          string `json:"name"`
+		Email         string `json:"email"`
+		PreferredName string `json:"preferred_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+	if err := a.store.Profile.SetIdentity(req.Name, req.Email, req.PreferredName); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	profile, _ := a.store.Profile.All()
+	writeJSON(w, http.StatusOK, profile)
+}
+
 func (a *Agent) handleNotifications(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")
 	limit := 50
@@ -109,6 +132,12 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 		"latest":           latest,
 		"update_available": updateAvailable,
 		"update_url":       updater.InstallURL(),
+	})
+}
+
+func (a *Agent) handleRuntime(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"native_notifications": a.NativeNotifications(),
 	})
 }
 

@@ -7,6 +7,22 @@ import (
 	"path/filepath"
 )
 
+// Remove deletes an installed plugin's directory. The name must be a bare
+// plugin name (no path separators) to avoid escaping the plugins root.
+func (mgr *Manager) Remove(name string) error {
+	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
+		return fmt.Errorf("invalid plugin name %q", name)
+	}
+	dir := filepath.Join(mgr.root, name)
+	if _, err := os.Stat(dir); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("plugin %q is not installed", name)
+		}
+		return fmt.Errorf("locating plugin %q: %w", name, err)
+	}
+	return os.RemoveAll(dir)
+}
+
 type Manager struct {
 	root string
 }

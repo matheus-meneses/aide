@@ -4,6 +4,7 @@ import (
 	"aide/cli/internal/agent"
 	"aide/cli/internal/config"
 	"aide/cli/internal/keychain"
+	"aide/cli/internal/provision"
 	"fmt"
 	"strings"
 
@@ -112,20 +113,19 @@ func agentConfigExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	existingPlainKey := strings.TrimSpace(cfg.Agent.LLMAPIKey)
-
-	cfg.Agent.LLMProvider = provider
-	cfg.Agent.LLMURL = strings.TrimSpace(llmURL)
-	cfg.Agent.LLMModel = strings.TrimSpace(llmModel)
-	cfg.Agent.RunInterval = strings.TrimSpace(runInterval)
-	cfg.Agent.BriefingTimes = parseBriefingTimes(briefings)
-	cfg.Agent.LLMAPIKey = ""
-
-	if err := cfg.Save(cfgFile); err != nil {
+	apiKey, err := promptAgentAPIKey(strings.TrimSpace(cfg.Agent.LLMAPIKey))
+	if err != nil {
 		return err
 	}
 
-	if err := promptAgentAPIKey(existingPlainKey); err != nil {
+	if err := provision.SetLLM(cfgFile, provision.LLMInput{
+		Provider:      provider,
+		BaseURL:       llmURL,
+		Model:         llmModel,
+		APIKey:        apiKey,
+		RunInterval:   runInterval,
+		BriefingTimes: parseBriefingTimes(briefings),
+	}); err != nil {
 		return err
 	}
 
@@ -135,7 +135,9 @@ func agentConfigExecute(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func promptAgentAPIKey(existingPlainKey string) error {
+// promptAgentAPIKey returns the API key to store (empty to leave unchanged).
+// An existing plaintext key in config is migrated to the keychain transparently.
+func promptAgentAPIKey(existingPlainKey string) (string, error) {
 	hasKey := false
 	if cred, err := keychain.GetAll("agent"); err == nil {
 		if v, ok := cred.Fields["llm_api_key"]; ok && v != "" {
@@ -144,11 +146,7 @@ func promptAgentAPIKey(existingPlainKey string) error {
 	}
 
 	if existingPlainKey != "" && !hasKey {
-		if err := keychain.SetField("agent", "llm_api_key", existingPlainKey); err != nil {
-			return fmt.Errorf("migrating API key to keychain: %w", err)
-		}
-		hasKey = true
-		fmt.Println("  Moved your existing API key out of config.yaml and into the keychain.")
+		return existingPlainKey, nil
 	}
 
 	message := "Set an LLM API key? (stored in your OS keychain)"
@@ -161,28 +159,19 @@ func promptAgentAPIKey(existingPlainKey string) error {
 		Message: message,
 		Default: !hasKey,
 	}, &setKey); err != nil {
-		return err
+		return "", err
 	}
 	if !setKey {
-		return nil
+		return "", nil
 	}
 
 	var key string
 	if err := survey.AskOne(&survey.Password{
 		Message: "LLM API key",
 	}, &key); err != nil {
-		return err
+		return "", err
 	}
-	key = strings.TrimSpace(key)
-	if key == "" {
-		fmt.Println("  (no key entered, leaving keychain unchanged)")
-		return nil
-	}
-	if err := keychain.SetField("agent", "llm_api_key", key); err != nil {
-		return fmt.Errorf("storing API key: %w", err)
-	}
-	fmt.Println("  API key stored in keychain.")
-	return nil
+	return strings.TrimSpace(key), nil
 }
 
 func parseBriefingTimes(s string) []string {

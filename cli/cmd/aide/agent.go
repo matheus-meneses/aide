@@ -3,8 +3,10 @@ package main
 import (
 	"aide/cli/internal/agent"
 	"aide/cli/internal/config"
+	"aide/cli/internal/provision"
 	"aide/cli/internal/runner"
 	"aide/cli/internal/store"
+	"aide/cli/internal/ui"
 	"context"
 	"fmt"
 	"os/signal"
@@ -15,6 +17,11 @@ import (
 )
 
 var startPort int
+
+var (
+	scheduleInterval  string
+	scheduleBriefings string
+)
 
 var agentCmd = &cobra.Command{
 	Use:   "agent",
@@ -40,13 +47,40 @@ var agentAskCmd = &cobra.Command{
 	RunE:  agentAskExecute,
 }
 
+var agentScheduleCmd = &cobra.Command{
+	Use:   "schedule",
+	Short: "Set the run interval and briefing times non-interactively",
+	RunE:  agentScheduleExecute,
+}
+
 func init() {
 	agentCmd.AddCommand(agentStartCmd)
 	agentCmd.AddCommand(agentStatusCmd)
 	agentCmd.AddCommand(agentAskCmd)
 	agentCmd.AddCommand(agentConfigCmd)
+	agentCmd.AddCommand(agentScheduleCmd)
 	agentStartCmd.Flags().IntVarP(&startPort, "port", "p", 8531, "Web UI port")
+	agentScheduleCmd.Flags().StringVar(&scheduleInterval, "interval", "", "how often the agent re-collects (e.g. 30m, 1h)")
+	agentScheduleCmd.Flags().StringVar(&scheduleBriefings, "briefings", "", "comma-separated daily briefing times (24h, e.g. 08:00,17:30)")
 	rootCmd.AddCommand(agentCmd)
+}
+
+func agentScheduleExecute(cmd *cobra.Command, _ []string) error {
+	if !cmd.Flags().Changed("interval") && !cmd.Flags().Changed("briefings") {
+		return fmt.Errorf("provide --interval and/or --briefings")
+	}
+	in := provision.ScheduleInput{}
+	if cmd.Flags().Changed("interval") {
+		in.RunInterval = scheduleInterval
+	}
+	if cmd.Flags().Changed("briefings") {
+		in.BriefingTimes = parseBriefingTimes(scheduleBriefings)
+	}
+	if err := provision.SetSchedule(cfgFile, in); err != nil {
+		return err
+	}
+	ui.PrintSuccess("Schedule updated.")
+	return nil
 }
 
 func newAgent(cfg *config.Config) (*agent.Agent, *store.Store, error) {
@@ -73,6 +107,10 @@ func agentStartExecute(_ *cobra.Command, _ []string) error {
 	}
 
 	agent.Version = version
+
+	if cfg.Agent.LLMModel == "" || cfg.Agent.LLMURL == "" {
+		ui.PrintWarn("No AI model configured — autonomous runs are paused. Set one with: aide agent config")
+	}
 
 	a, s, err := newAgent(cfg)
 	if err != nil {

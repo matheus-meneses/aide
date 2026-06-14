@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type AgentEvent } from "@/lib/eventStore";
+import { fetchRuntime } from "@/lib/api";
 import {
   GROUPING_WINDOW_MS,
+  type NotificationState,
   currentPermission,
   flushGroupedBuffer,
   requestNotificationPermission,
@@ -11,9 +13,9 @@ import {
 export function useNotifications() {
   const groupBufferRef = useRef<AgentEvent[]>([]);
   const groupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [notificationPermission, setNotificationPermission] = useState<
-    NotificationPermission | "unsupported"
-  >(currentPermission);
+  const nativeRef = useRef(false);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationState>("unknown");
 
   const enableNotifications = useCallback(async () => {
     const result = await requestNotificationPermission();
@@ -22,6 +24,8 @@ export function useNotifications() {
   }, []);
 
   const queueBrowserNotification = useCallback((event: AgentEvent) => {
+    if (nativeRef.current) return;
+
     const priority = event.priority || "normal";
     if (priority === "urgent") {
       showBrowserNotification(event);
@@ -39,7 +43,27 @@ export function useNotifications() {
   }, []);
 
   useEffect(() => {
-    if (currentPermission() !== "default") return;
+    let cancelled = false;
+    fetchRuntime()
+      .then((info) => {
+        if (cancelled) return;
+        if (info.native_notifications) {
+          nativeRef.current = true;
+          setNotificationPermission("native");
+        } else {
+          setNotificationPermission(currentPermission());
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setNotificationPermission(currentPermission());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (notificationPermission !== "default") return;
 
     const onGesture = () => {
       if (currentPermission() === "default") {
@@ -55,7 +79,7 @@ export function useNotifications() {
       window.removeEventListener("pointerdown", onGesture);
       window.removeEventListener("keydown", onGesture);
     };
-  }, [enableNotifications]);
+  }, [notificationPermission, enableNotifications]);
 
   const cleanupGrouping = useCallback(() => {
     if (groupTimerRef.current) {

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Bell, CheckCircle, Info, X, AlertTriangle } from "lucide-react";
+import { AlertCircle, Bell, BellOff, CheckCircle, Info, X, AlertTriangle } from "lucide-react";
 import { type AgentEvent, describeEvent } from "@/hooks/useSSE";
+import { type NotificationState } from "@/lib/notifications";
 
 interface Props {
   events: AgentEvent[];
   onEventClick?: (event: AgentEvent) => void;
   onDismiss?: (event: AgentEvent) => void;
-  notificationPermission?: NotificationPermission | "unsupported";
+  notificationPermission?: NotificationState;
   onEnableNotifications?: () => void;
 }
 
@@ -14,26 +15,50 @@ function PermissionBanner({
   permission,
   onEnable,
 }: {
-  permission?: NotificationPermission | "unsupported";
+  permission?: NotificationState;
   onEnable?: () => void;
 }) {
+  const [showHelp, setShowHelp] = useState(false);
+
   if (permission === "default") {
     return (
       <button
         onClick={onEnable}
-        className="w-full text-left px-3 py-2 text-xs border-b bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+        className="flex w-full items-center gap-2 border-b bg-primary/5 px-3 py-2 text-left text-xs font-medium text-primary transition-colors hover:bg-primary/10"
       >
-        Enable browser notifications
+        <Bell className="h-3.5 w-3.5 shrink-0" />
+        Enable notifications to get alerts for new items and briefings
       </button>
     );
   }
+
   if (permission === "denied") {
     return (
-      <div className="px-3 py-2 text-xs border-b bg-amber-500/5 text-amber-600">
-        Notifications are blocked. Enable them in your browser's site settings.
+      <div className="border-b bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+        <div className="flex items-start gap-2">
+          <BellOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">Notifications are blocked for Aide.</span>
+          <button
+            onClick={() => setShowHelp((v) => !v)}
+            className="shrink-0 font-medium underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-300"
+          >
+            {showHelp ? "Hide" : "How to enable"}
+          </button>
+        </div>
+        {showHelp && (
+          <ol className="mt-2 list-decimal space-y-1 pl-7 text-amber-600/90 dark:text-amber-400/90">
+            <li>Click the lock or site icon to the left of the address bar.</li>
+            <li>
+              Find <span className="font-medium">Notifications</span> and switch it to{" "}
+              <span className="font-medium">Allow</span>.
+            </li>
+            <li>Reload the page.</li>
+          </ol>
+        )}
       </div>
     );
   }
+
   return null;
 }
 

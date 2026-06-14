@@ -1,4 +1,4 @@
-import { AlertTriangle, Bot, RotateCcw, User } from "lucide-react";
+import { AlertTriangle, Bot, Loader2, RotateCcw, Sparkles, User } from "lucide-react";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/cn";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
@@ -17,8 +17,12 @@ interface Props {
   isError?: boolean;
   format?: string;
   data?: Record<string, unknown>;
+  pending?: boolean;
+  pendingLabel?: string;
+  needsConfig?: boolean;
   onSuggestionClick?: (text: string) => void;
   onRetry?: () => void;
+  onConfigure?: () => void;
 }
 
 function timeAgo(ts: number): string {
@@ -42,6 +46,14 @@ function isScrapeData(d: Record<string, unknown>): d is ScrapeData {
   return typeof d.sources_total === "number";
 }
 
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-dashed bg-card/50 p-4 text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
 function RichContent({
   format,
   data,
@@ -53,23 +65,27 @@ function RichContent({
   content: string;
   onSuggestionClick?: (text: string) => void;
 }) {
-  if (format === "schedule" && data)
-    return <ScheduleView data={data as unknown as ComponentProps<typeof ScheduleView>["data"]} />;
-  if (format === "items" && data)
-    return <ItemsView data={data as unknown as ComponentProps<typeof ItemsView>["data"]} />;
-  if (format === "status" && data)
-    return <StatusView data={data} />;
-  if (format === "memory")
+  if (format === "schedule")
     return (
-      <MemoryView
-        data={data}
-        text={content}
-      />
+      <ScheduleView data={(data as unknown as ComponentProps<typeof ScheduleView>["data"]) ?? []} />
     );
-  if (format === "stats" && data)
-    return <StatsView data={data as unknown as ComponentProps<typeof StatsView>["data"]} />;
-  if (format === "team" && data)
-    return <TeamView data={data as unknown as ComponentProps<typeof TeamView>["data"]} />;
+  if (format === "items")
+    return <ItemsView data={(data as unknown as ComponentProps<typeof ItemsView>["data"]) ?? []} />;
+  if (format === "status")
+    return data ? <StatusView data={data} /> : <EmptyState label="Nothing to report yet." />;
+  if (format === "memory") return <MemoryView data={data} text={content} />;
+  if (format === "stats")
+    return data ? (
+      <StatsView data={data as unknown as ComponentProps<typeof StatsView>["data"]} />
+    ) : (
+      <EmptyState label="No usage stats yet." />
+    );
+  if (format === "team")
+    return data ? (
+      <TeamView data={data as unknown as ComponentProps<typeof TeamView>["data"]} />
+    ) : (
+      <EmptyState label="No team members yet." />
+    );
   if (format === "scrape" && data && isScrapeData(data)) {
     return (
       <div className="rounded-lg border bg-card p-3 text-sm">
@@ -81,10 +97,12 @@ function RichContent({
     );
   }
   if (format === "text") {
+    if (!content.trim()) return <EmptyState label="Nothing to show." />;
     return (
       <pre className="text-sm whitespace-pre-wrap font-mono bg-muted rounded p-3">{content}</pre>
     );
   }
+  if (!content.trim()) return <EmptyState label="Nothing to show." />;
   return <MarkdownRenderer content={content} onSuggestionClick={onSuggestionClick} />;
 }
 
@@ -96,10 +114,52 @@ export function ChatMessage({
   isError,
   format,
   data,
+  pending,
+  pendingLabel,
+  needsConfig,
   onSuggestionClick,
   onRetry,
+  onConfigure,
 }: Props) {
   const isUser = role === "user";
+
+  if (pending) {
+    return (
+      <div className="group flex gap-3 px-4 py-3">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent">
+          <Bot className="h-4 w-4" />
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {pendingLabel ?? "Working…"}
+        </div>
+      </div>
+    );
+  }
+
+  if (needsConfig) {
+    return (
+      <div className="flex gap-3 px-4 py-3">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15">
+          <Sparkles className="h-4 w-4 text-amber-500" />
+        </div>
+        <div className="max-w-[80%] space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-sm">
+          <p className="text-foreground/90">
+            I'm not connected to an AI model yet, so I can't answer that. Connect a model and I'll
+            start triaging your tasks, meetings, and notifications.
+          </p>
+          {onConfigure && (
+            <button
+              onClick={onConfigure}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Configure agent
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (isError) {
     return (

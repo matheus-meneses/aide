@@ -1,4 +1,4 @@
-package main
+package pyenv
 
 import (
 	"aide/cli/internal/updater"
@@ -10,30 +10,41 @@ import (
 )
 
 const (
-	pythonVersion = "3.12.7"
-	pythonRelease = "20241016"
-	pythonBaseURL = "https://github.com/indygreg/python-build-standalone/releases/download/" + pythonRelease
+	Version = "3.12.7"
+	release = "20241016"
+	baseURL = "https://github.com/indygreg/python-build-standalone/releases/download/" + release
 )
 
-func ensurePython(base string) (string, error) {
-	pythonDir := filepath.Join(base, "python")
-	pythonBin := filepath.Join(pythonDir, "bin", "python3")
-	if runtime.GOOS == "windows" {
-		pythonBin = filepath.Join(pythonDir, "python.exe")
+type ProgressFunc func(msg string)
+
+func report(progress ProgressFunc, format string, args ...any) {
+	if progress != nil {
+		progress(fmt.Sprintf(format, args...))
 	}
+}
+
+func BinPath(base string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(base, "python", "python.exe")
+	}
+	return filepath.Join(base, "python", "bin", "python3")
+}
+
+func Ensure(base string, progress ProgressFunc) (string, error) {
+	pythonBin := BinPath(base)
 
 	if info, err := os.Stat(pythonBin); err == nil && !info.IsDir() {
-		fmt.Printf("  [=] Standalone Python already installed (%s)\n", pythonBin)
+		report(progress, "Python runtime already installed")
 		return pythonBin, nil
 	}
 
-	tarballName, err := pythonTarballName()
+	tarballName, err := tarballName()
 	if err != nil {
 		return "", err
 	}
 
-	url := pythonBaseURL + "/" + tarballName
-	fmt.Printf("  [+] Downloading Python %s...\n", pythonVersion)
+	url := baseURL + "/" + tarballName
+	report(progress, "Downloading Python %s...", Version)
 
 	tmpFile, err := os.CreateTemp("", "aide-python-*.tar.gz")
 	if err != nil {
@@ -42,17 +53,17 @@ func ensurePython(base string) (string, error) {
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
 
-	if err := updater.DownloadFile(url, tmpFile, true); err != nil {
+	if err := updater.DownloadFile(url, tmpFile, false); err != nil {
 		return "", fmt.Errorf("downloading python: %w", err)
 	}
 	tmpFile.Close()
 
-	fmt.Println("  [+] Extracting Python...")
+	report(progress, "Extracting Python runtime...")
 	if err := os.MkdirAll(base, 0o755); err != nil {
 		return "", fmt.Errorf("creating base dir: %w", err)
 	}
 
-	if err := execCmdSilent("tar", "-xzf", tmpFile.Name(), "-C", base); err != nil {
+	if err := run("tar", "-xzf", tmpFile.Name(), "-C", base); err != nil {
 		return "", fmt.Errorf("extracting python tarball: %w", err)
 	}
 
@@ -60,11 +71,11 @@ func ensurePython(base string) (string, error) {
 		return "", fmt.Errorf("python binary not found after extraction at %s", pythonBin)
 	}
 
-	fmt.Printf("  [+] Python %s installed\n", pythonVersion)
+	report(progress, "Python %s installed", Version)
 	return pythonBin, nil
 }
 
-func pythonTarballName() (string, error) {
+func tarballName() (string, error) {
 	var arch, platform string
 
 	switch runtime.GOARCH {
@@ -85,10 +96,10 @@ func pythonTarballName() (string, error) {
 		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	return fmt.Sprintf("cpython-%s+%s-%s-%s-install_only.tar.gz", pythonVersion, pythonRelease, arch, platform), nil
+	return fmt.Sprintf("cpython-%s+%s-%s-%s-install_only.tar.gz", Version, release, arch, platform), nil
 }
 
-func execCmdSilent(name string, args ...string) error {
+func run(name string, args ...string) error {
 	c := exec.Command(name, args...)
 	c.Env = os.Environ()
 	out, err := c.CombinedOutput()

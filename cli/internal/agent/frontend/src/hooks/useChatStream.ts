@@ -8,6 +8,17 @@ export interface Message {
   isError?: boolean;
   format?: string;
   data?: Record<string, unknown>;
+  pending?: boolean;
+  pendingLabel?: string;
+  needsConfig?: boolean;
+}
+
+class ChatStreamError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.code = code;
+  }
 }
 
 interface ParsedMessage {
@@ -19,6 +30,7 @@ interface ParsedMessage {
 interface ParsedChunk {
   content?: string;
   error?: string;
+  code?: string;
 }
 
 let msgCounter = 0;
@@ -141,7 +153,7 @@ export function useChatStream(url: string) {
                 pendingEventType = "";
                 try {
                   const errData = JSON.parse(data) as ParsedChunk;
-                  throw new Error(errData.error ?? "LLM error");
+                  throw new ChatStreamError(errData.error ?? "LLM error", errData.code);
                 } catch (e: unknown) {
                   if (e instanceof SyntaxError) {
                     throw new Error("LLM request failed", { cause: e });
@@ -191,11 +203,12 @@ export function useChatStream(url: string) {
           });
         } else {
           const errorMsg = err instanceof Error ? err.message : "Failed to get response";
+          const needsConfig = err instanceof ChatStreamError && err.code === "llm_not_configured";
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
             if (last && last.role === "assistant") {
-              updated[updated.length - 1] = { ...last, content: errorMsg, isError: true };
+              updated[updated.length - 1] = { ...last, content: errorMsg, isError: true, needsConfig };
             }
             return updated;
           });
@@ -220,6 +233,14 @@ export function useChatStream(url: string) {
     setMessages((prev) => [...prev, msg]);
   }, []);
 
+  const updateMessage = useCallback((id: string, patch: Partial<Message>) => {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  }, []);
+
+  const removeMessage = useCallback((id: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
   const retry = useCallback(() => {
     const last = [...messages].reverse().find((m) => m.role === "user");
     if (last) {
@@ -235,6 +256,8 @@ export function useChatStream(url: string) {
     cancel,
     clearMessages,
     injectMessage,
+    updateMessage,
+    removeMessage,
     appendAssistantFromSSE,
     retry,
   };

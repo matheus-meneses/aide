@@ -2,6 +2,8 @@ import { type AgentEvent } from "@/lib/eventStore";
 
 export const GROUPING_WINDOW_MS = 5000;
 
+export type NotificationState = NotificationPermission | "unsupported" | "native" | "unknown";
+
 interface ParsedEventData {
   title?: string;
   body?: string;
@@ -47,14 +49,12 @@ export function describeEvent(event: AgentEvent): { title: string; body: string 
   }
 }
 
-export function currentPermission(): NotificationPermission | "unsupported" {
+export function currentPermission(): NotificationState {
   if (!("Notification" in window)) return "unsupported";
   return Notification.permission;
 }
 
-export async function requestNotificationPermission(): Promise<
-  NotificationPermission | "unsupported"
-> {
+export async function requestNotificationPermission(): Promise<NotificationState> {
   if (!("Notification" in window)) return "unsupported";
   try {
     return await Notification.requestPermission();

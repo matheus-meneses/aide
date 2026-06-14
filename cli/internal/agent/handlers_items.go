@@ -37,6 +37,10 @@ func (a *Agent) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	metrics, _ := a.store.Metrics.Latest("")
 	events, _ := a.store.Items.TodayEvents()
 
+	if counts == nil {
+		counts = map[string]int{}
+	}
+
 	status := map[string]interface{}{
 		"counts":       counts,
 		"health":       health,

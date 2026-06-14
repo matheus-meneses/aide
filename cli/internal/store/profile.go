@@ -1,9 +1,29 @@
 package store
 
-import "database/sql"
+import (
+	"database/sql"
+	"strings"
+)
 
 type ProfileRepo struct {
 	db *sql.DB
+}
+
+func (r *ProfileRepo) SetIdentity(name, email, preferred string) error {
+	if preferred == "" {
+		if fields := strings.Fields(name); len(fields) > 0 {
+			preferred = fields[0]
+		} else {
+			preferred = "there"
+		}
+	}
+	if err := r.Set("name", name); err != nil {
+		return err
+	}
+	if err := r.Set("email", email); err != nil {
+		return err
+	}
+	return r.Set("preferred_name", preferred)
 }
 
 func (r *ProfileRepo) Set(key, value string) error {

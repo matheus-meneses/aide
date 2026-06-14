@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -124,7 +123,7 @@ func (b *EventBus) Publish(e Event) {
 		select {
 		case ch <- e:
 		default:
-			log.Printf("[sse] dropped event id=%d type=%s for slow subscriber", e.ID, e.Type)
+			alog.Warn("sse dropped event id=%d type=%s for slow subscriber", e.ID, e.Type)
 		}
 	}
 }

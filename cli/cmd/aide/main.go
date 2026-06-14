@@ -3,6 +3,7 @@ package main
 import (
 	"aide/cli/internal/clog"
 	"aide/cli/internal/config"
+	"aide/cli/internal/ui"
 	"aide/cli/internal/updater"
 	"os"
 
@@ -18,18 +19,38 @@ var (
 	caBundle  string
 )
 
+var (
+	resolvedLevel  = "info"
+	resolvedFormat = "text"
+)
+
 func logLevel() string {
-	if verbose {
-		return "debug"
-	}
-	return "info"
+	return resolvedLevel
 }
 
 func logFormatValue() string {
-	if logFormat == "json" {
-		return "json"
+	return resolvedFormat
+}
+
+// resolveLogging applies precedence flag > env > config > default for the log
+// level and format, sourcing config defaults so the CLI honors settings.yaml.
+func resolveLogging(cmd *cobra.Command) (level, format string) {
+	flagLevel := ""
+	if verbose {
+		flagLevel = "debug"
 	}
-	return "text"
+	flagFormat := ""
+	if cmd.Flags().Changed("log-format") {
+		flagFormat = logFormat
+	}
+
+	cfgLevel, cfgFormat := "", ""
+	if cfg, err := config.LoadRaw(cfgFile); err == nil {
+		cfgLevel = cfg.Settings.LogLevel
+		cfgFormat = cfg.Settings.LogFormat
+	}
+
+	return clog.Resolve(flagLevel, flagFormat, cfgLevel, cfgFormat)
 }
 
 func verifySSLValue() bool {
@@ -46,8 +67,9 @@ var rootCmd = &cobra.Command{
 	Long:          "Aide orchestrates data collection, provides insights, and assists with daily work management.",
 	SilenceErrors: true,
 	SilenceUsage:  true,
-	PersistentPreRun: func(_ *cobra.Command, _ []string) {
-		clog.Configure(logLevel(), logFormatValue())
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+		resolvedLevel, resolvedFormat = resolveLogging(cmd)
+		clog.Configure(resolvedLevel, resolvedFormat)
 	},
 	PersistentPostRun: func(cmd *cobra.Command, _ []string) {
 		if cmd.Name() == "version" || cmd.Name() == "init" {
@@ -67,7 +89,7 @@ func init() {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		clog.Error("%s", err)
+		ui.PrintError("%s", err)
 		os.Exit(1)
 	}
 }

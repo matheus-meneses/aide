@@ -11,32 +11,78 @@ import (
 func (a *Agent) StartAutonomous(ctx context.Context, port int) error {
 	a.loadMemory()
 
-	interval := a.cfg.Agent.RunIntervalDuration()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	a.schedMu.Lock()
+	a.autoCtx = ctx
+	a.reschedule = make(chan struct{}, 1)
+	a.schedMu.Unlock()
 
-	go func() {
-		a.runAgentCycle(ctx)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				a.runAgentCycle(ctx)
-			}
-		}
-	}()
+	go a.runScheduleLoop(ctx)
 
 	go func() {
 		time.Sleep(2 * time.Second)
 		a.checkIdentityOnStart()
 	}()
 
-	if len(a.cfg.Agent.BriefingTimes) > 0 {
-		go a.runBriefingScheduler(ctx)
-	}
+	a.maybeStartBriefingScheduler(ctx)
 
 	return a.Serve(ctx, port)
+}
+
+func (a *Agent) runScheduleLoop(ctx context.Context) {
+	interval := a.getConfig().Agent.RunIntervalDuration()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	a.runAgentCycle(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.runAgentCycle(ctx)
+		case <-a.reschedule:
+			if next := a.getConfig().Agent.RunIntervalDuration(); next > 0 && next != interval {
+				interval = next
+				ticker.Reset(interval)
+				alog.Info("run interval updated to %s", interval)
+			}
+		}
+	}
+}
+
+// signalReschedule asks the running schedule loop to re-read the configured run
+// interval (and reset its ticker) and lazily starts the briefing scheduler if it
+// was not running. Safe to call before StartAutonomous (it becomes a no-op).
+func (a *Agent) signalReschedule() {
+	a.schedMu.Lock()
+	ch := a.reschedule
+	ctx := a.autoCtx
+	a.schedMu.Unlock()
+
+	if ch != nil {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+	if ctx != nil {
+		a.maybeStartBriefingScheduler(ctx)
+	}
+}
+
+func (a *Agent) maybeStartBriefingScheduler(ctx context.Context) {
+	if len(a.getConfig().Agent.BriefingTimes) == 0 {
+		return
+	}
+	a.schedMu.Lock()
+	if a.briefingStarted {
+		a.schedMu.Unlock()
+		return
+	}
+	a.briefingStarted = true
+	a.schedMu.Unlock()
+
+	go a.runBriefingScheduler(ctx)
 }
 
 func (a *Agent) runBriefingScheduler(ctx context.Context) {
@@ -59,7 +105,7 @@ func (a *Agent) runBriefingScheduler(ctx context.Context) {
 			}
 
 			currentTime := now.Format("15:04")
-			for _, bt := range a.cfg.Agent.BriefingTimes {
+			for _, bt := range a.getConfig().Agent.BriefingTimes {
 				if firedToday[bt] {
 					continue
 				}
@@ -108,6 +154,8 @@ func (a *Agent) publishBriefing() {
 			Data:     fmt.Sprintf(`{"title":"Daily Briefing","body":%q}`, body.String()),
 		})
 	}
+
+	nativeNotify("Daily Briefing", body.String())
 
 	a.postToChatAndSSE(body.String(), time.Now().UTC().Format(time.RFC3339))
 }

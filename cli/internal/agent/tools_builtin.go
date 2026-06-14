@@ -18,9 +18,10 @@ func sha256Sum(s string) []byte {
 func (a *Agent) registerDefaultTools() {
 	a.tools = NewToolRegistry()
 	mgr := plugin.NewManager()
+	cfg := a.getConfig()
 
-	sourceNames := make([]string, 0, len(a.cfg.Sources))
-	for name, src := range a.cfg.Sources {
+	sourceNames := make([]string, 0, len(cfg.Sources))
+	for name, src := range cfg.Sources {
 		if src.Enabled {
 			sourceNames = append(sourceNames, name)
 		}
@@ -59,7 +60,7 @@ func (a *Agent) registerDefaultTools() {
 		},
 	})
 
-	for sourceName, src := range a.cfg.Sources {
+	for sourceName, src := range cfg.Sources {
 		if !src.Enabled {
 			continue
 		}

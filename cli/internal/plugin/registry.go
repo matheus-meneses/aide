@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"aide/cli/internal/keychain"
 	"aide/cli/internal/xdg"
 	"crypto/sha256"
 	"crypto/tls"
@@ -18,6 +19,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+// RegistryTokenService is the keychain "source" under which a private registry
+// token is stored (field "token"), enabling access to private GitHub registries.
+const RegistryTokenService = "registry"
 
 const defaultRegistryRepo = "matheus-meneses/aide-plugins"
 
@@ -83,6 +88,11 @@ func authToken() string {
 	}
 	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 		return t
+	}
+	if cred, err := keychain.GetAll(RegistryTokenService); err == nil {
+		if t := strings.TrimSpace(cred.Fields["token"]); t != "" {
+			return t
+		}
 	}
 	out, err := exec.Command("gh", "auth", "token").Output()
 	if err != nil {

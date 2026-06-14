@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 )
@@ -39,13 +38,15 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 		sess.mu.Lock()
 		defer sess.mu.Unlock()
 
+		sysCtx, err := BuildContext(a.store)
+		if err != nil {
+			http.Error(w, `{"error":"context build failed"}`, http.StatusInternalServerError)
+			return
+		}
+		systemMsg := ChatMessage{Role: "system", Content: sysCtx}
+
 		if len(sess.history) == 0 {
-			sysCtx, err := BuildContext(a.store)
-			if err != nil {
-				http.Error(w, `{"error":"context build failed"}`, http.StatusInternalServerError)
-				return
-			}
-			sess.history = []ChatMessage{{Role: "system", Content: sysCtx}}
+			sess.history = []ChatMessage{systemMsg}
 
 			if persisted, err := a.store.Chat.LoadMessages(req.SessionID); err == nil {
 				for _, m := range persisted {
@@ -54,6 +55,8 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 					}
 				}
 			}
+		} else {
+			sess.history[0] = systemMsg
 		}
 
 		sess.history = append(sess.history, ChatMessage{Role: "user", Content: req.Message})
@@ -70,15 +73,27 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 		w.Header().Set("Connection", "keep-alive")
 		flusher.Flush()
 
+		if cfg := a.getConfig(); cfg.Agent.LLMModel == "" || cfg.Agent.LLMURL == "" {
+			errData, _ := json.Marshal(map[string]string{
+				"error": "No AI model is configured yet, so I can't answer questions. Configure the agent to connect a model.",
+				"code":  "llm_not_configured",
+			})
+			fmt.Fprintf(w, "event: error\ndata: %s\n\n", errData)
+			flusher.Flush()
+			sess.history = sess.history[:len(sess.history)-1]
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
 
 		now := time.Now().UTC().Format(time.RFC3339)
 		if err := a.store.Chat.InsertMessage(req.SessionID, "user", req.Message, now); err != nil {
-			log.Printf("[agent] failed to persist user message: %v", err)
+			alog.Warn("failed to persist user message: %v", err)
 		}
 
-		full, usage, err := a.llm.ChatStream(ctx, sess.history, func(chunk string) {
+		llm := a.getLLM()
+		full, usage, err := llm.ChatStream(ctx, sess.history, func(chunk string) {
 			data, _ := json.Marshal(map[string]string{"content": chunk})
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
@@ -92,15 +107,15 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 		}
 
 		if usage != nil {
-			if err := a.store.Tokens.Record("chat", a.llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
-				log.Printf("[agent] failed to record token usage: %v", err)
-			}
+		if err := a.store.Tokens.Record("chat", llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
+			alog.Warn("failed to record token usage: %v", err)
+		}
 		}
 
 		sess.history = append(sess.history, ChatMessage{Role: "assistant", Content: full})
 
 		if err := a.store.Chat.InsertMessage(req.SessionID, "assistant", full, time.Now().UTC().Format(time.RFC3339)); err != nil {
-			log.Printf("[agent] failed to persist assistant message: %v", err)
+			alog.Warn("failed to persist assistant message: %v", err)
 		}
 
 		fmt.Fprintf(w, "event: done\ndata: {}\n\n")

@@ -5,6 +5,11 @@ import (
 	"aide/cli/internal/store"
 )
 
+type metricEntry struct {
+	name  string
+	value float64
+}
+
 func (r *Runner) normalizeResponse(source string, resp *plugin.Response) ([]store.Item, []metricEntry, []store.Member) {
 	var items []store.Item
 	var metrics []metricEntry
@@ -69,4 +74,50 @@ func (r *Runner) normalizeResponse(source string, resp *plugin.Response) ([]stor
 	}
 
 	return items, metrics, members
+}
+
+func (r *Runner) partitionEntries(result SourceResult) ([]store.Item, []metricEntry) {
+	var items []store.Item
+	var metrics []metricEntry
+
+	for _, e := range result.Entries {
+		mode := ""
+		if e.Metadata != nil {
+			if m, ok := e.Metadata["mode"].(string); ok {
+				mode = m
+			}
+		}
+
+		if mode == "metric" {
+			value := 0.0
+			if e.Metadata != nil {
+				if v, ok := e.Metadata["metric_value"].(float64); ok {
+					value = v
+				}
+			}
+			metrics = append(metrics, metricEntry{name: e.Title, value: value})
+			continue
+		}
+
+		member := r.cfg.ResolveMember(e.Member)
+		link := ""
+		if e.Metadata != nil {
+			if url, ok := e.Metadata["web_url"].(string); ok {
+				link = url
+			}
+		}
+		fp := store.Fingerprint(e.Source, link, e.Title, member)
+		items = append(items, store.Item{
+			Fingerprint: fp,
+			Source:      e.Source,
+			Member:      member,
+			Category:    e.Category,
+			Title:       e.Title,
+			Detail:      e.Detail,
+			EntryDate:   e.EntryDate,
+			Priority:    e.Priority,
+			Link:        link,
+		})
+	}
+	return items, metrics
 }

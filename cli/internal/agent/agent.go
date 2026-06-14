@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/clog"
 	"aide/cli/internal/config"
 	"aide/cli/internal/keychain"
 	"aide/cli/internal/runner"
@@ -11,6 +12,8 @@ import (
 	"sync"
 	"time"
 )
+
+var alog = clog.New("agent")
 
 type StatusResult struct {
 	Provider     string `json:"provider"`
@@ -28,10 +31,13 @@ type Notification struct {
 }
 
 type Agent struct {
-	cfg      *config.Config
+	cfgMu      sync.RWMutex
+	cfg        *config.Config
+	llm        LLM
+	configPath string
+
 	store    *store.Store
 	runner   *runner.Runner
-	llm      LLM
 	notifier Notifier
 	tools    *ToolRegistry
 	bus      *EventBus
@@ -39,9 +45,119 @@ type Agent struct {
 
 	scrapeMu sync.Mutex
 
-	stateMu    sync.RWMutex
-	lastRun    time.Time
-	lastMemory string
+	schedMu         sync.Mutex
+	autoCtx         context.Context
+	reschedule      chan struct{}
+	briefingStarted bool
+
+	NoBrowser bool
+
+	stateMu             sync.RWMutex
+	lastRun             time.Time
+	lastMemory          string
+	nativeNotifications bool
+}
+
+func (a *Agent) SetNoBrowser(v bool) {
+	a.NoBrowser = v
+}
+
+// SetNativeNotifications marks that the host (e.g. the desktop app) delivers OS
+// notifications, so the web UI can stop using the browser Notification API.
+func (a *Agent) SetNativeNotifications(v bool) {
+	a.stateMu.Lock()
+	a.nativeNotifications = v
+	a.stateMu.Unlock()
+}
+
+func (a *Agent) NativeNotifications() bool {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.nativeNotifications
+}
+
+// SetNativeNotifier routes OS notifications through the given notifier (while
+// keeping the in-app activity feed via the event bus) and flags native delivery
+// so the web UI suppresses its own browser notifications.
+func (a *Agent) SetNativeNotifier(n Notifier) {
+	if a.bus != nil {
+		a.SetNotifier(NewMultiNotifier(&BusNotifier{Bus: a.bus}, n))
+	} else {
+		a.SetNotifier(n)
+	}
+	a.SetNativeNotifications(true)
+}
+
+func (a *Agent) SetConfigPath(p string) {
+	a.cfgMu.Lock()
+	a.configPath = p
+	a.cfgMu.Unlock()
+}
+
+func (a *Agent) configPathOrDefault() string {
+	a.cfgMu.RLock()
+	p := a.configPath
+	a.cfgMu.RUnlock()
+	if p != "" {
+		return p
+	}
+	return config.DefaultConfigPath()
+}
+
+func (a *Agent) getConfig() *config.Config {
+	a.cfgMu.RLock()
+	defer a.cfgMu.RUnlock()
+	return a.cfg
+}
+
+func (a *Agent) getLLM() LLM {
+	a.cfgMu.RLock()
+	defer a.cfgMu.RUnlock()
+	return a.llm
+}
+
+func (a *Agent) ReloadConfig() error {
+	cfg, err := config.Load(a.configPathOrDefault())
+	if err != nil {
+		return fmt.Errorf("reloading config: %w", err)
+	}
+
+	apiKey := cfg.Agent.LLMAPIKey
+	if apiKey == "" {
+		if cred, err := keychain.GetAll("agent"); err == nil {
+			apiKey = cred.Fields["llm_api_key"]
+		}
+	}
+
+	llm, err := NewLLM(cfg.Agent.LLMProvider, cfg.Agent.LLMURL, cfg.Agent.LLMModel, apiKey)
+	if err != nil {
+		return fmt.Errorf("configuring llm: %w", err)
+	}
+
+	a.cfgMu.Lock()
+	a.cfg = cfg
+	a.llm = llm
+	a.cfgMu.Unlock()
+
+	level, format := clog.Resolve("", "", cfg.Settings.LogLevel, cfg.Settings.LogFormat)
+	clog.Configure(level, format)
+
+	a.scrapeMu.Lock()
+	if a.runner != nil {
+		a.runner.SetConfig(cfg)
+		a.runner.SetLogLevel(level)
+		a.runner.SetLogFormat(format)
+	}
+	a.scrapeMu.Unlock()
+
+	a.registerDefaultTools()
+
+	if err := runner.SyncTeamFromConfig(cfg, a.store); err != nil {
+		alog.Warn("team config sync: %v", err)
+	}
+
+	a.signalReschedule()
+	return nil
 }
 
 func (a *Agent) setLastRun(t time.Time) {
@@ -104,7 +220,7 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 	a.registerDefaultTools()
 
 	if err := runner.SyncTeamFromConfig(cfg, s); err != nil {
-		fmt.Printf("warning: team config sync: %v\n", err)
+		alog.Warn("team config sync: %v", err)
 	}
 
 	return a, nil
@@ -114,8 +230,29 @@ func (a *Agent) SetNotifier(n Notifier) {
 	a.notifier = n
 }
 
+func TestLLM(provider, baseURL, model, apiKey string) error {
+	llm, err := NewLLM(provider, baseURL, model, apiKey)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	reply, _, err := llm.Chat(ctx, []ChatMessage{
+		{Role: "user", Content: "Reply with a single short word to confirm you are reachable."},
+	})
+	if err != nil {
+		return fmt.Errorf("model %q did not respond: %w", llm.Model(), err)
+	}
+	if strings.TrimSpace(reply) == "" {
+		return fmt.Errorf("model %q returned an empty response", llm.Model())
+	}
+	return nil
+}
+
 func (a *Agent) LLM() LLM {
-	return a.llm
+	return a.getLLM()
 }
 
 func (a *Agent) Store() *store.Store {
@@ -123,7 +260,7 @@ func (a *Agent) Store() *store.Store {
 }
 
 func (a *Agent) Config() *config.Config {
-	return a.cfg
+	return a.getConfig()
 }
 
 func (a *Agent) Runner() *runner.Runner {
@@ -143,14 +280,15 @@ func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 		{Role: "user", Content: question},
 	}
 
-	resp, usage, err := a.llm.Chat(ctx, messages)
+	llm := a.getLLM()
+	resp, usage, err := llm.Chat(ctx, messages)
 	if err != nil {
 		return "", fmt.Errorf("llm chat: %w", err)
 	}
 
 	if usage != nil {
-		if err := a.store.Tokens.Record("ask", a.llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
-			fmt.Printf("warning: failed to record token usage: %v\n", err)
+		if err := a.store.Tokens.Record("ask", llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
+			alog.Warn("failed to record token usage: %v", err)
 		}
 	}
 
@@ -158,15 +296,16 @@ func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 }
 
 func (a *Agent) Status() (*StatusResult, error) {
+	cfg := a.getConfig()
 	result := &StatusResult{
-		Provider:    string(NormalizeProvider(a.cfg.Agent.LLMProvider)),
-		LLMURL:      a.cfg.Agent.LLMURL,
-		Model:       a.cfg.Agent.LLMModel,
-		RunInterval: a.cfg.Agent.RunIntervalDuration().String(),
-		Briefings:   strings.Join(a.cfg.Agent.BriefingTimes, ", "),
+		Provider:    string(NormalizeProvider(cfg.Agent.LLMProvider)),
+		LLMURL:      cfg.Agent.LLMURL,
+		Model:       cfg.Agent.LLMModel,
+		RunInterval: cfg.Agent.RunIntervalDuration().String(),
+		Briefings:   strings.Join(cfg.Agent.BriefingTimes, ", "),
 	}
 
-	if err := a.llm.Ping(); err != nil {
+	if err := a.getLLM().Ping(); err != nil {
 		result.LLMReachable = false
 		result.LLMError = err.Error()
 	} else {
@@ -180,7 +319,7 @@ func (a *Agent) ensureFreshData(ctx context.Context) {
 	health, err := a.store.Runs.AllHealth()
 	if err != nil || len(health) == 0 {
 		if _, err := a.runScrape(ctx, nil); err != nil {
-			fmt.Printf("ensure fresh data: %v\n", err)
+			alog.Error("ensure fresh data: %v", err)
 		}
 		return
 	}
@@ -193,9 +332,9 @@ func (a *Agent) ensureFreshData(ctx context.Context) {
 		}
 	}
 
-	if time.Since(mostRecent) > a.cfg.Agent.RunIntervalDuration() {
+	if time.Since(mostRecent) > a.getConfig().Agent.RunIntervalDuration() {
 		if _, err := a.runScrape(ctx, nil); err != nil {
-			fmt.Printf("ensure fresh data: %v\n", err)
+			alog.Error("ensure fresh data: %v", err)
 		}
 	}
 }

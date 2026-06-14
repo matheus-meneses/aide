@@ -5,11 +5,24 @@ import { type Message } from "@/hooks/useChatStream";
 interface Params {
   input: string;
   injectMessage: (msg: Message) => void;
+  updateMessage: (id: string, patch: Partial<Message>) => void;
   clearMessages: () => void;
   markAtBottom: () => void;
 }
 
-export function useSlashCommands({ input, injectMessage, clearMessages, markAtBottom }: Params) {
+const PENDING_LABELS: Record<string, string> = {
+  scrape: "Collecting items from your sources…",
+  command: "Running command…",
+  prune: "Pruning old data…",
+};
+
+export function useSlashCommands({
+  input,
+  injectMessage,
+  updateMessage,
+  clearMessages,
+  markAtBottom,
+}: Params) {
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -58,26 +71,56 @@ export function useSlashCommands({ input, injectMessage, clearMessages, markAtBo
       return;
     }
 
+    const pendingId = `exec-${Date.now()}`;
+    const pendingLabel = PENDING_LABELS[name];
+    if (pendingLabel) {
+      injectMessage({
+        id: pendingId,
+        role: "assistant",
+        content: "",
+        timestamp: Date.now(),
+        pending: true,
+        pendingLabel,
+      });
+      markAtBottom();
+    }
+
     try {
       const result = await execCommand(fullCommand);
       const responseMsg: Message = {
-        id: `exec-${Date.now()}`,
+        id: pendingId,
         role: "assistant",
         content: result.text || "",
         timestamp: Date.now(),
         format: result.type,
         data: result.data,
       };
-      injectMessage(responseMsg);
+      if (pendingLabel) {
+        updateMessage(pendingId, { ...responseMsg, pending: false, pendingLabel: undefined });
+      } else {
+        injectMessage(responseMsg);
+      }
     } catch (err: unknown) {
-      injectMessage({
-        id: `exec-err-${Date.now()}`,
-        role: "assistant",
-        content: `Command failed: ${err instanceof Error ? err.message : "network error"}`,
-        timestamp: Date.now(),
-        format: "text",
-        isError: true,
-      });
+      const message = `Command failed: ${err instanceof Error ? err.message : "network error"}`;
+      if (pendingLabel) {
+        updateMessage(pendingId, {
+          content: message,
+          timestamp: Date.now(),
+          format: "text",
+          isError: true,
+          pending: false,
+          pendingLabel: undefined,
+        });
+      } else {
+        injectMessage({
+          id: `exec-err-${Date.now()}`,
+          role: "assistant",
+          content: message,
+          timestamp: Date.now(),
+          format: "text",
+          isError: true,
+        });
+      }
     }
   };
 

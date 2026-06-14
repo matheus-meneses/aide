@@ -38,26 +38,28 @@ func (a AgentConfig) RunIntervalDuration() time.Duration {
 }
 
 type Settings struct {
-	Concurrency    int    `yaml:"concurrency"`
-	TimeoutSeconds int    `yaml:"timeout_seconds"`
-	DataDir        string `yaml:"data_dir"`
-	TLS            TLS    `yaml:"tls,omitempty"`
+	Concurrency    int    `yaml:"concurrency" json:"concurrency"`
+	TimeoutSeconds int    `yaml:"timeout_seconds" json:"timeout_seconds"`
+	DataDir        string `yaml:"data_dir" json:"data_dir"`
+	LogLevel       string `yaml:"log_level,omitempty" json:"log_level"`
+	LogFormat      string `yaml:"log_format,omitempty" json:"log_format"`
+	TLS            TLS    `yaml:"tls,omitempty" json:"tls"`
 }
 
 type TLS struct {
-	VerifySSL *bool  `yaml:"verify_ssl,omitempty"`
-	CABundle  string `yaml:"ca_bundle,omitempty"`
+	VerifySSL *bool  `yaml:"verify_ssl,omitempty" json:"verify_ssl"`
+	CABundle  string `yaml:"ca_bundle,omitempty" json:"ca_bundle"`
 }
 
 type TeamMember struct {
-	Name         string   `yaml:"name"`
-	Aliases      []string `yaml:"aliases"`
-	Email        string   `yaml:"email"`
-	Role         string   `yaml:"role"`
-	Department   string   `yaml:"department"`
-	Branch       string   `yaml:"branch"`
-	Registration string   `yaml:"registration"`
-	Manager      string   `yaml:"manager"`
+	Name         string   `yaml:"name" json:"name"`
+	Aliases      []string `yaml:"aliases" json:"aliases"`
+	Email        string   `yaml:"email" json:"email"`
+	Role         string   `yaml:"role" json:"role"`
+	Department   string   `yaml:"department" json:"department"`
+	Branch       string   `yaml:"branch" json:"branch"`
+	Registration string   `yaml:"registration" json:"registration"`
+	Manager      string   `yaml:"manager" json:"manager"`
 }
 
 type Source struct {
@@ -84,6 +86,8 @@ func Load(path string) (*Config, error) {
 			Concurrency:    5,
 			TimeoutSeconds: 120,
 			DataDir:        filepath.Join(aideHome, "data"),
+			LogLevel:       "info",
+			LogFormat:      "text",
 		},
 		Agent: AgentConfig{
 			RunInterval:   "30m",

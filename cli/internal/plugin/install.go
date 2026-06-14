@@ -158,11 +158,7 @@ func Install(_ context.Context, idx *Index, name, version string, consent func(*
 }
 
 func Remove(name string) error {
-	dir := filepath.Join(xdg.AideHome(), "plugins", name)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return fmt.Errorf("plugin %q is not installed", name)
-	}
-	return os.RemoveAll(dir)
+	return NewManager().Remove(name)
 }
 
 // EnsureRuntime prepares a plugin directory so it can be executed in place:

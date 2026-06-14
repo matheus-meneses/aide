@@ -8,14 +8,31 @@
     --foreground: 30 10% 12%;
     --card: 40 25% 99%;
     --card-foreground: 30 10% 12%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 30 10% 12%;
     --primary: 30 8% 18%;
     --primary-foreground: 40 20% 97%;
+    --secondary: 35 14% 92%;
+    --secondary-foreground: 30 10% 12%;
     --muted: 35 12% 93%;
     --muted-foreground: 30 6% 46%;
     --accent: 35 14% 92%;
     --accent-foreground: 30 10% 12%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 40 20% 98%;
+    --success: 145 58% 34%;
+    --success-foreground: 40 20% 98%;
+    --warning: 36 92% 44%;
+    --warning-foreground: 30 12% 12%;
+    --info: 214 80% 48%;
+    --info-foreground: 40 20% 98%;
     --border: 35 10% 88%;
+    --input: 35 10% 84%;
+    --ring: 30 8% 40%;
     --radius: 0.5rem;
+    --duration-fast: 0.12s;
+    --duration-base: 0.2s;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .dark {
@@ -23,13 +40,27 @@
     --foreground: 35 15% 92%;
     --card: 30 5% 14%;
     --card-foreground: 35 15% 92%;
+    --popover: 30 5% 15%;
+    --popover-foreground: 35 15% 92%;
     --primary: 35 15% 92%;
     --primary-foreground: 30 6% 12%;
+    --secondary: 30 5% 19%;
+    --secondary-foreground: 35 15% 92%;
     --muted: 30 5% 20%;
     --muted-foreground: 35 8% 60%;
     --accent: 30 5% 18%;
     --accent-foreground: 35 15% 92%;
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 35 15% 96%;
+    --success: 145 48% 46%;
+    --success-foreground: 30 6% 10%;
+    --warning: 38 90% 56%;
+    --warning-foreground: 30 6% 10%;
+    --info: 210 84% 62%;
+    --info-foreground: 30 6% 10%;
     --border: 30 5% 22%;
+    --input: 30 5% 26%;
+    --ring: 35 10% 55%;
   }
 }
 
@@ -40,6 +71,21 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  :focus-visible {
+    outline: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

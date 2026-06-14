@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
@@ -23,7 +22,7 @@ type agentState struct {
 func (a *Agent) loadMemory() {
 	mem, err := a.store.Memory.LoadLast()
 	if err != nil {
-		log.Printf("[agent] no previous memory found, starting fresh")
+		alog.Debug("no previous memory found, starting fresh")
 		return
 	}
 
@@ -32,15 +31,15 @@ func (a *Agent) loadMemory() {
 		t, err := time.Parse(time.RFC3339, mem.LastScrapeAt)
 		if err == nil {
 			a.setLastRun(t)
-			log.Printf("[agent] restored last scrape time: %s", t.Format("15:04"))
+			alog.Debug("restored last scrape time: %s", t.Format("15:04"))
 		}
 	}
-	log.Printf("[agent] loaded memory: %s", mem.Content)
+	alog.Debug("loaded memory: %s", mem.Content)
 }
 
 func (a *Agent) runAgentCycle(ctx context.Context) {
 	if err := a.store.Acks.Prune(); err != nil {
-		log.Printf("[agent] failed to prune acks: %v", err)
+		alog.Warn("failed to prune acks: %v", err)
 	}
 	state := a.observeState()
 	var history []string
@@ -55,18 +54,18 @@ func (a *Agent) runAgentCycle(ctx context.Context) {
 		call := a.think(ctx, state, history)
 		if call.Tool == "" || call.Tool == "done" {
 			if call.Reason != "" {
-				log.Printf("[agent] done: %s", call.Reason)
+				alog.Debug("done: %s", call.Reason)
 			}
 			break
 		}
 
-		log.Printf("[agent] action: %s(%v) — %s", call.Tool, call.Params, call.Reason)
+		alog.Info("action: %s(%v) — %s", call.Tool, call.Params, call.Reason)
 
 		result, err := a.executeTool(ctx, call.Tool, call.Params)
 		if err != nil {
 			entry := fmt.Sprintf("Called %s -> ERROR: %v", call.Tool, err)
 			history = append(history, entry)
-			log.Printf("[agent] error: %v", err)
+			alog.Error("tool error: %v", err)
 			if a.bus != nil {
 				a.bus.Publish(Event{
 					Type:     "cycle_error",
@@ -102,12 +101,12 @@ func (a *Agent) saveMemory(history []string) {
 	}
 
 	if err := a.store.Memory.Save(lastScrape, summary); err != nil {
-		log.Printf("[agent] failed to save memory: %v", err)
+		alog.Warn("failed to save memory: %v", err)
 		return
 	}
 
 	if err := a.store.Memory.Prune(5); err != nil {
-		log.Printf("[agent] failed to prune memories: %v", err)
+		alog.Warn("failed to prune memories: %v", err)
 	}
 	a.setLastMemory(summary)
 }

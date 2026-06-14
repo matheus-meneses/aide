@@ -1,18 +1,53 @@
 import { useCallback, useEffect, useState } from "react";
-import { PanelLeft, PanelLeftClose } from "lucide-react";
+import { Loader2, PanelLeft, PanelLeftClose } from "lucide-react";
 import { type AgentEvent, useSSE } from "@/hooks/useSSE";
 import { StatusBar } from "@/components/StatusBar";
 import { NotificationFeed } from "@/components/NotificationFeed";
 import { ChatPanel } from "@/components/ChatPanel";
 import { ItemsView } from "@/components/ItemsView";
+import { LLMBanner } from "@/components/LLMBanner";
+import { SettingsView, type TabId } from "@/components/settings/SettingsView";
+import SetupWizard from "@/components/setup/SetupWizard";
+import { fetchSetupStatus } from "@/lib/api";
 
 function App() {
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetchSetupStatus()
+      .then((s) => setNeedsSetup(s.needs_setup))
+      .catch(() => setNeedsSetup(false));
+  }, []);
+
+  if (needsSetup === null) {
+    return (
+      <div className="flex h-screen items-center justify-center text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
+      </div>
+    );
+  }
+
+  if (needsSetup) {
+    return <SetupWizard onComplete={() => window.location.reload()} />;
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const { events, connected, dismiss, onChatMessage, notificationPermission, enableNotifications } =
     useSSE("/api/events");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [pendingEvent, setPendingEvent] = useState<AgentEvent | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<TabId>("profile");
+
+  const openSettings = useCallback((tab: TabId = "profile") => {
+    setSettingsTab(tab);
+    setShowSettings(true);
+  }, []);
 
   const handleEventClick = useCallback((event: AgentEvent) => {
     setActiveSource(null);
@@ -34,6 +69,22 @@ function App() {
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setShowSettings((v) => !v);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (showSettings) setShowSettings(false);
+        else if (activeSource) setActiveSource(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showSettings, activeSource]);
+
   return (
     <div className="h-screen flex flex-col">
       <StatusBar
@@ -41,8 +92,16 @@ function App() {
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
         activeSource={activeSource}
         onSourceClick={setActiveSource}
+        onOpenSettings={() => openSettings()}
       />
-      <div className="flex flex-1 overflow-hidden relative">
+      {showSettings ? (
+        <div className="flex-1 overflow-hidden">
+          <SettingsView onClose={() => setShowSettings(false)} initialTab={settingsTab} />
+        </div>
+      ) : (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <LLMBanner onConfigure={() => openSettings("agent")} />
+        <div className="flex flex-1 overflow-hidden relative">
         {isMobile && sidebarOpen && (
           <div
             className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden animate-fade-in"
@@ -100,10 +159,13 @@ function App() {
               pendingEvent={pendingEvent}
               onEventConsumed={() => setPendingEvent(null)}
               onChatMessage={onChatMessage}
+              onConfigure={() => openSettings("agent")}
             />
           )}
         </main>
+        </div>
       </div>
+      )}
     </div>
   );
 }

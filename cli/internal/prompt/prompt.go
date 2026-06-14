@@ -270,6 +270,32 @@ func coerceStringMap(v any) map[string]any {
 	}
 }
 
+// CollectPluginCredentials prompts for a plugin's declared credentials and
+// returns them as a map without storing anything, so the caller can hand them
+// to a shared headless write path.
+func CollectPluginCredentials(m *plugin.Manifest) (map[string]string, error) {
+	out := make(map[string]string)
+	if len(m.Credentials) == 0 {
+		return out, nil
+	}
+
+	fmt.Println("\nCredentials:")
+	for _, cred := range m.Credentials {
+		var value string
+		var err error
+		if cred.Secret {
+			err = survey.AskOne(&survey.Password{Message: cred.Label}, &value, survey.WithValidator(survey.Required))
+		} else {
+			err = survey.AskOne(&survey.Input{Message: cred.Label}, &value, survey.WithValidator(survey.Required))
+		}
+		if err != nil {
+			return nil, err
+		}
+		out[cred.Key] = value
+	}
+	return out, nil
+}
+
 func SetupPluginCredentials(m *plugin.Manifest, sourceName string) error {
 	if len(m.Credentials) == 0 {
 		return nil

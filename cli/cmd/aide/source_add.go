@@ -4,6 +4,7 @@ import (
 	"aide/cli/internal/config"
 	"aide/cli/internal/plugin"
 	"aide/cli/internal/prompt"
+	"aide/cli/internal/provision"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -46,19 +47,16 @@ func sourceAddExecute(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := prompt.SetupPluginCredentials(m, name); err != nil {
+	creds, err := prompt.CollectPluginCredentials(m)
+	if err != nil {
 		return fmt.Errorf("credential setup failed, source not saved: %w", err)
 	}
 
-	if cfg.Sources == nil {
-		cfg.Sources = make(map[string]config.Source)
-	}
-	cfg.Sources[name] = config.Source{
-		Enabled: true,
-		Config:  sourceCfg,
-	}
-
-	if err := cfg.Save(cfgFile); err != nil {
+	if err := provision.AddSource(cfgFile, provision.SourceInput{
+		Name:        name,
+		Config:      sourceCfg,
+		Credentials: creds,
+	}); err != nil {
 		return err
 	}
 

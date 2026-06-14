@@ -30,15 +30,17 @@ interface Props {
   pendingEvent?: AgentEvent | null;
   onEventConsumed?: () => void;
   onChatMessage?: (cb: (event: AgentEvent) => void) => void;
+  onConfigure?: () => void;
 }
 
-export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage }: Props) {
+export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage, onConfigure }: Props) {
   const {
     messages,
     send,
     isStreaming,
     cancel,
     injectMessage,
+    updateMessage,
     clearMessages,
     appendAssistantFromSSE,
     retry,
@@ -57,7 +59,13 @@ export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage }: Prop
     setSelectedIdx,
     filteredCommands,
     handleSlashCommand,
-  } = useSlashCommands({ input, injectMessage, clearMessages, markAtBottom });
+  } = useSlashCommands({
+    input,
+    injectMessage,
+    updateMessage,
+    clearMessages,
+    markAtBottom,
+  });
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -218,9 +226,13 @@ export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage }: Prop
               isError={msg.isError}
               format={msg.format}
               data={msg.data}
+              pending={msg.pending}
+              pendingLabel={msg.pendingLabel}
+              needsConfig={msg.needsConfig}
               isStreaming={isStreaming && i === messages.length - 1 && msg.role === "assistant"}
               onSuggestionClick={handleSuggestion}
-              onRetry={msg.isError ? retry : undefined}
+              onRetry={msg.isError && !msg.needsConfig ? retry : undefined}
+              onConfigure={onConfigure}
             />
           ))}
         </div>
