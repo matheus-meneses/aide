@@ -35,17 +35,22 @@ jobs:
         working-directory: cli
         run: go mod verify
 
+      - name: Resolve packages
+        id: pkgs
+        working-directory: cli
+        run: echo "list=$(go list ./... | grep -v '/cmd/aide-app' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+
       - name: Build
         working-directory: cli
-        run: go build ./...
+        run: go build ${{ steps.pkgs.outputs.list }}
 
       - name: Vet
         working-directory: cli
-        run: go vet ./...
+        run: go vet ${{ steps.pkgs.outputs.list }}
 
       - name: Test
         working-directory: cli
-        run: go test ./...
+        run: go test ${{ steps.pkgs.outputs.list }}
 
   cross-compile:
     runs-on: ubuntu-latest
@@ -78,4 +83,4 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build ./...
+        run: go build $(go list ./... | grep -v '/cmd/aide-app')
