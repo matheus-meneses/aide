@@ -1,20 +1,21 @@
-Copyright (c) 2026 Matheus Meneses
+Business Source License 1.1
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to use, copy, modify, and distribute the Software for personal, educational, research, and internal business purposes, subject to the following conditions:
+Parameters
 
-1. The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-2. Any modifications to the Software must be clearly documented.
-3. Commercial redistribution, resale, sublicensing, or offering the Software as a hosted service (SaaS) is prohibited without prior written permission from the copyright holder.
-4. Organizations may use the Software internally for their own operations without charge, provided they do not sell, sublicense, redistribute, or offer the Software as a service to third parties.
-5. Any commercial use involving:
-    * selling the Software,
-    * bundling the Software into a commercial offering,
-    * providing paid access to the Software,
-    * offering the Software as a managed or hosted service,
-    * or generating revenue directly from the Software,
-    requires a separate commercial license agreement with the copyright holder.
-6. Contributions submitted to the project may be incorporated into the Software and distributed under the terms of this license.
+Licensor:             Matheus Meneses
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Licensed Work:        Aide
 
-For commercial licensing inquiries, contact the copyright holder.
+Additional Use Grant:
+
+You may use, copy, modify, and distribute the Licensed Work for
+personal, educational, research, and internal business purposes.
+
+You may not sell, sublicense, commercially redistribute, bundle into
+commercial offerings, or offer the Licensed Work as a hosted or managed
+service (including SaaS) without obtaining a commercial license from
+the Licensor.
+
+Change Date:          January 1, 2050
+
+Change License:       Apache License, Version 2.0
