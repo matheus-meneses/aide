@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"aide/cli/internal/store"
 	"fmt"
 	"sort"
@@ -213,7 +214,7 @@ func flatGrouped(grouped map[string][]store.Item) []store.Item {
 	return all
 }
 
-func TrimHistory(history []ChatMessage, maxTokens int) []ChatMessage {
+func TrimHistory(history []llm.ChatMessage, maxTokens int) []llm.ChatMessage {
 	if len(history) <= 3 {
 		return history
 	}
@@ -256,8 +257,8 @@ func TrimHistory(history []ChatMessage, maxTokens int) []ChatMessage {
 		fmt.Fprintf(&summary, "- %s: %s\n", prefix, content)
 	}
 
-	result := []ChatMessage{system}
-	result = append(result, ChatMessage{Role: "system", Content: summary.String()})
+	result := []llm.ChatMessage{system}
+	result = append(result, llm.ChatMessage{Role: "system", Content: summary.String()})
 	result = append(result, kept...)
 	return result
 }

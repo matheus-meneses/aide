@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"aide/cli/internal/clog"
 	"aide/cli/internal/config"
 	"aide/cli/internal/keychain"
@@ -33,7 +34,7 @@ type Notification struct {
 type Agent struct {
 	cfgMu      sync.RWMutex
 	cfg        *config.Config
-	llm        LLM
+	llm        llm.LLM
 	configPath string
 
 	store    *store.Store
@@ -50,16 +51,10 @@ type Agent struct {
 	reschedule      chan struct{}
 	briefingStarted bool
 
-	NoBrowser bool
-
 	stateMu             sync.RWMutex
 	lastRun             time.Time
 	lastMemory          string
 	nativeNotifications bool
-}
-
-func (a *Agent) SetNoBrowser(v bool) {
-	a.NoBrowser = v
 }
 
 // SetNativeNotifications marks that the host (e.g. the desktop app) delivers OS
@@ -110,7 +105,7 @@ func (a *Agent) getConfig() *config.Config {
 	return a.cfg
 }
 
-func (a *Agent) getLLM() LLM {
+func (a *Agent) getLLM() llm.LLM {
 	a.cfgMu.RLock()
 	defer a.cfgMu.RUnlock()
 	return a.llm
@@ -129,14 +124,14 @@ func (a *Agent) ReloadConfig() error {
 		}
 	}
 
-	llm, err := NewLLM(cfg.Agent.LLMProvider, cfg.Agent.LLMURL, cfg.Agent.LLMModel, apiKey)
+	client, err := llm.NewLLM(cfg.Agent.LLMProvider, cfg.Agent.LLMURL, cfg.Agent.LLMModel, apiKey)
 	if err != nil {
 		return fmt.Errorf("configuring llm: %w", err)
 	}
 
 	a.cfgMu.Lock()
 	a.cfg = cfg
-	a.llm = llm
+	a.llm = client
 	a.cfgMu.Unlock()
 
 	level, format := clog.Resolve("", "", cfg.Settings.LogLevel, cfg.Settings.LogFormat)
@@ -204,7 +199,7 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 		}
 	}
 
-	llm, err := NewLLM(cfg.Agent.LLMProvider, cfg.Agent.LLMURL, cfg.Agent.LLMModel, apiKey)
+	client, err := llm.NewLLM(cfg.Agent.LLMProvider, cfg.Agent.LLMURL, cfg.Agent.LLMModel, apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("configuring llm: %w", err)
 	}
@@ -213,10 +208,12 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 		cfg:      cfg,
 		store:    s,
 		runner:   r,
-		llm:      llm,
+		llm:      client,
 		notifier: &NoopNotifier{},
 		sessions: newSessionManager(time.Hour),
 	}
+	a.bus = NewEventBus()
+	a.SetNotifier(NewMultiNotifier(&BusNotifier{Bus: a.bus}, &MacNotifier{}))
 	a.registerDefaultTools()
 
 	if err := runner.SyncTeamFromConfig(cfg, s); err != nil {
@@ -231,7 +228,7 @@ func (a *Agent) SetNotifier(n Notifier) {
 }
 
 func TestLLM(provider, baseURL, model, apiKey string) error {
-	llm, err := NewLLM(provider, baseURL, model, apiKey)
+	client, err := llm.NewLLM(provider, baseURL, model, apiKey)
 	if err != nil {
 		return err
 	}
@@ -239,19 +236,19 @@ func TestLLM(provider, baseURL, model, apiKey string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	reply, _, err := llm.Chat(ctx, []ChatMessage{
+	reply, _, err := client.Chat(ctx, []llm.ChatMessage{
 		{Role: "user", Content: "Reply with a single short word to confirm you are reachable."},
 	})
 	if err != nil {
-		return fmt.Errorf("model %q did not respond: %w", llm.Model(), err)
+		return fmt.Errorf("model %q did not respond: %w", client.Model(), err)
 	}
 	if strings.TrimSpace(reply) == "" {
-		return fmt.Errorf("model %q returned an empty response", llm.Model())
+		return fmt.Errorf("model %q returned an empty response", client.Model())
 	}
 	return nil
 }
 
-func (a *Agent) LLM() LLM {
+func (a *Agent) LLM() llm.LLM {
 	return a.getLLM()
 }
 
@@ -275,19 +272,19 @@ func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 		return "", fmt.Errorf("building context: %w", err)
 	}
 
-	messages := []ChatMessage{
+	messages := []llm.ChatMessage{
 		{Role: "system", Content: sysCtx},
 		{Role: "user", Content: question},
 	}
 
-	llm := a.getLLM()
-	resp, usage, err := llm.Chat(ctx, messages)
+	client := a.getLLM()
+	resp, usage, err := client.Chat(ctx, messages)
 	if err != nil {
 		return "", fmt.Errorf("llm chat: %w", err)
 	}
 
 	if usage != nil {
-		if err := a.store.Tokens.Record("ask", llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
+		if err := a.store.Tokens.Record("ask", client.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
 			alog.Warn("failed to record token usage: %v", err)
 		}
 	}
@@ -298,7 +295,7 @@ func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 func (a *Agent) Status() (*StatusResult, error) {
 	cfg := a.getConfig()
 	result := &StatusResult{
-		Provider:    string(NormalizeProvider(cfg.Agent.LLMProvider)),
+		Provider:    string(llm.NormalizeProvider(cfg.Agent.LLMProvider)),
 		LLMURL:      cfg.Agent.LLMURL,
 		Model:       cfg.Agent.LLMModel,
 		RunInterval: cfg.Agent.RunIntervalDuration().String(),

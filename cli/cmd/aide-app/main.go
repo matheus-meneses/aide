@@ -7,6 +7,7 @@ import (
 	"aide/cli/internal/config"
 	"aide/cli/internal/runner"
 	"aide/cli/internal/store"
+	"aide/cli/internal/webui"
 	"context"
 	"fmt"
 	"net"
@@ -50,7 +51,6 @@ func main() {
 		fatal("creating agent: %v", err)
 	}
 	agent.Version = version
-	ag.SetNoBrowser(true)
 	ag.SetConfigPath(cfgPath)
 	ag.SetNativeNotifications(true)
 
@@ -62,8 +62,13 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		if err := ag.StartAutonomous(ctx, port); err != nil {
+		if err := ag.StartAutonomous(ctx); err != nil {
 			clog.Error("agent stopped: %v", err)
+		}
+	}()
+	go func() {
+		if err := webui.Serve(ctx, webui.Options{Port: port, NoBrowser: true, RegisterAPI: ag.RegisterRoutes}); err != nil {
+			clog.Error("web server stopped: %v", err)
 		}
 	}()
 

@@ -80,12 +80,14 @@ func firstNonEmpty(values ...string) string {
 }
 
 func emit(scope, lvl, msg string) {
+	ts := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	broadcast(LogEntry{TS: ts, Level: lvl, Scope: scope, Msg: msg})
+
 	mu.Lock()
 	defer mu.Unlock()
 	if levelValues[lvl] < level {
 		return
 	}
-	ts := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 	if format == "json" {
 		b, _ := json.Marshal(struct {
 			TS    string `json:"ts"`
@@ -97,6 +99,63 @@ func emit(scope, lvl, msg string) {
 		return
 	}
 	fmt.Fprintf(out, "%s [%s] %s: %s\n", ts, lvl, scope, msg)
+}
+
+type LogEntry struct {
+	TS    string `json:"ts"`
+	Level string `json:"level"`
+	Scope string `json:"scope"`
+	Msg   string `json:"msg"`
+}
+
+const logHistoryCap = 500
+
+var (
+	subMu       sync.RWMutex
+	subscribers = make(map[chan LogEntry]struct{})
+
+	histMu  sync.Mutex
+	history = make([]LogEntry, 0, logHistoryCap)
+)
+
+func Subscribe() (<-chan LogEntry, func()) {
+	ch := make(chan LogEntry, 256)
+	subMu.Lock()
+	subscribers[ch] = struct{}{}
+	subMu.Unlock()
+
+	return ch, func() {
+		subMu.Lock()
+		delete(subscribers, ch)
+		subMu.Unlock()
+		close(ch)
+	}
+}
+
+func Recent() []LogEntry {
+	histMu.Lock()
+	defer histMu.Unlock()
+	out := make([]LogEntry, len(history))
+	copy(out, history)
+	return out
+}
+
+func broadcast(e LogEntry) {
+	histMu.Lock()
+	if len(history) >= logHistoryCap {
+		history = history[1:]
+	}
+	history = append(history, e)
+	histMu.Unlock()
+
+	subMu.RLock()
+	for ch := range subscribers {
+		select {
+		case ch <- e:
+		default:
+		}
+	}
+	subMu.RUnlock()
 }
 
 func (l *Logger) Debug(f string, a ...any) { emit(l.scope, "debug", fmt.Sprintf(f, a...)) }

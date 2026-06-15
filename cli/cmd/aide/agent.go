@@ -2,11 +2,13 @@ package main
 
 import (
 	"aide/cli/internal/agent"
+	"aide/cli/internal/clog"
 	"aide/cli/internal/config"
 	"aide/cli/internal/provision"
 	"aide/cli/internal/runner"
 	"aide/cli/internal/store"
 	"aide/cli/internal/ui"
+	"aide/cli/internal/webui"
 	"context"
 	"fmt"
 	"os/signal"
@@ -121,7 +123,13 @@ func agentStartExecute(_ *cobra.Command, _ []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	return a.StartAutonomous(ctx, startPort)
+	go func() {
+		if err := a.StartAutonomous(ctx); err != nil {
+			clog.Error("agent stopped: %v", err)
+		}
+	}()
+
+	return webui.Serve(ctx, webui.Options{Port: startPort, RegisterAPI: a.RegisterRoutes})
 }
 
 func agentStatusExecute(_ *cobra.Command, _ []string) error {

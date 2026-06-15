@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Info, RefreshCw, X } from "lucide-react";
 import { fetchItems } from "@/lib/api";
 import type { ItemData as Item } from "@/lib/api";
+import { handleExternalClick } from "@/lib/openExternal";
 
 interface Props {
   source: string;
@@ -159,6 +160,7 @@ export function ItemsView({ source, onClose }: Props) {
                               href={item.link}
                               target="_blank"
                               rel="noopener noreferrer"
+                              onClick={(e) => handleExternalClick(e, item.link)}
                               className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
                             >
                               <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />

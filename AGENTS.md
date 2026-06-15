@@ -30,9 +30,13 @@ aide/
 ├── .pre-commit-config.yaml
 ├── cli/                  Go core — single static binary
 │   ├── cmd/aide/         Cobra entry-point commands (thin shells, logic in internal/)
+│   ├── cmd/aide-app/     desktop shell (webview) wrapping the same agent + webui
 │   └── internal/
-│       ├── agent/        HTTP server + SSE event bus + chat completions
+│       ├── agent/        autonomous brain: scheduler, tools, chat, SSE event bus
+│       │   └── llm/      provider-agnostic LLM clients (OpenAI/LiteLLM, Anthropic)
+│       ├── webui/        HTTP server + embedded Vite/React UI + /api/open + /api/logs
 │       │   └── frontend/ Vite/React UI (built → embedded via //go:embed)
+│       ├── clog/         scoped logging sink (stderr/file + live log subscribers)
 │       ├── config/       AIDE_HOME-rooted config loading
 │       ├── keychain/     per-OS credential storage (macOS, Linux, Windows)
 │       ├── plugin/       plugin lifecycle: resolve, install, execute, sandbox
@@ -129,8 +133,9 @@ publish one artifact per platform in the registry under `go/<goos>_<goarch>` key
 
 - Built by `npm run build` → `frontend/dist/`.
 - Embedded into the Go binary via `//go:embed frontend/dist` in `internal/webui`.
-- Served by the HTTP server (`internal/webui` static routes, registered from `internal/agent`) at the root path.
-- Communicates with the backend over SSE (`/api/events`) and fetch (`/api/chat`, `/api/items`, …).
+- Served by the `internal/webui` HTTP server at the root path; `internal/agent` domain routes are mounted via the
+  `webui.Options.RegisterAPI` registrar (so `webui` and `agent` stay decoupled).
+- Communicates with the backend over SSE (`/api/events`, `/api/logs`) and fetch (`/api/chat`, `/api/items`, `/api/open`, …).
 
 ---
 

@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { type Message, useChatStream } from "@/hooks/useChatStream";
 import { ChatMessage } from "./ChatMessage";
 import { ChatComposer } from "./ChatComposer";
 import { isSlashCommand } from "@/lib/commands";
 import { fetchWhoami } from "@/lib/api";
-import { type AgentEvent, describeEvent } from "@/hooks/useSSE";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useSlashCommands } from "@/hooks/useSlashCommands";
+import { useChat } from "@/hooks/useChat";
 
 const SUGGESTIONS = [
   "What meetings do I have today?",
@@ -15,26 +14,11 @@ const SUGGESTIONS = [
   "What should I focus on right now?",
 ];
 
-function pendingEventKey(event: AgentEvent): string {
-  if (event.id) return String(event.id);
-  try {
-    const parsed = JSON.parse(event.data) as Record<string, unknown>;
-    if (typeof parsed.fingerprint === "string") return parsed.fingerprint;
-  } catch {
-    // fall through to type/timestamp key
-  }
-  return `${event.type}-${event.timestamp}`;
-}
-
 interface Props {
-  onInjectMessage?: (msg: Message) => void;
-  pendingEvent?: AgentEvent | null;
-  onEventConsumed?: () => void;
-  onChatMessage?: (cb: (event: AgentEvent) => void) => void;
   onConfigure?: () => void;
 }
 
-export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage, onConfigure }: Props) {
+export function ChatPanel({ onConfigure }: Props) {
   const {
     messages,
     send,
@@ -43,16 +27,14 @@ export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage, onConf
     injectMessage,
     updateMessage,
     clearMessages,
-    appendAssistantFromSSE,
     retry,
-  } = useChatStream("/api/chat");
-  const [input, setInput] = useState("");
+    input,
+    setInput,
+  } = useChat();
   const [userName, setUserName] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const messagesRef = useRef(messages);
-  const processedEventsRef = useRef<Set<string>>(new Set());
 
-  const { scrollRef, handleScroll, markAtBottom, scrollToBottom } = useChatScroll(messages);
+  const { scrollRef, handleScroll, markAtBottom } = useChatScroll(messages);
   const {
     showCommands,
     setShowCommands,
@@ -69,10 +51,6 @@ export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage, onConf
   });
 
   useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
-  useEffect(() => {
     fetchWhoami()
       .then((p) => {
         if (p.preferred_name) setUserName(p.preferred_name);
@@ -81,49 +59,6 @@ export function ChatPanel({ pendingEvent, onEventConsumed, onChatMessage, onConf
         console.warn("failed to load identity:", err);
       });
   }, []);
-
-  useEffect(() => {
-    if (onChatMessage) {
-      onChatMessage((event) => {
-        if (event.data) appendAssistantFromSSE(event.data);
-      });
-    }
-  }, [onChatMessage, appendAssistantFromSSE]);
-
-  useEffect(() => {
-    if (!pendingEvent) return;
-
-    const key = pendingEventKey(pendingEvent);
-
-    const { title, body } = describeEvent(pendingEvent);
-    const content = title ? `**${title}**\n\n${body}` : body;
-
-    if (content.trim() === "") {
-      onEventConsumed?.();
-      return;
-    }
-
-    const matchText = (body || content).trim();
-    const existsInChat =
-      matchText.length > 0 &&
-      messagesRef.current.some((m) => m.role === "assistant" && m.content.includes(matchText));
-
-    if (existsInChat || processedEventsRef.current.has(key)) {
-      scrollToBottom();
-      onEventConsumed?.();
-      return;
-    }
-
-    processedEventsRef.current.add(key);
-    injectMessage({
-      id: `event-${key}`,
-      role: "assistant",
-      content,
-      timestamp: new Date(pendingEvent.timestamp).getTime() || Date.now(),
-    });
-    scrollToBottom();
-    onEventConsumed?.();
-  }, [pendingEvent, injectMessage, onEventConsumed, scrollToBottom]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

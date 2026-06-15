@@ -8,8 +8,9 @@ import (
 	"time"
 )
 
-func (a *Agent) StartAutonomous(ctx context.Context, port int) error {
+func (a *Agent) StartAutonomous(ctx context.Context) error {
 	a.loadMemory()
+	a.sessions.startJanitor(ctx)
 
 	a.schedMu.Lock()
 	a.autoCtx = ctx
@@ -25,7 +26,8 @@ func (a *Agent) StartAutonomous(ctx context.Context, port int) error {
 
 	a.maybeStartBriefingScheduler(ctx)
 
-	return a.Serve(ctx, port)
+	<-ctx.Done()
+	return nil
 }
 
 func (a *Agent) runScheduleLoop(ctx context.Context) {

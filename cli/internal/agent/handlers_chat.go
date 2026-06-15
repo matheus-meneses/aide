@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -43,15 +44,15 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 			http.Error(w, `{"error":"context build failed"}`, http.StatusInternalServerError)
 			return
 		}
-		systemMsg := ChatMessage{Role: "system", Content: sysCtx}
+		systemMsg := llm.ChatMessage{Role: "system", Content: sysCtx}
 
 		if len(sess.history) == 0 {
-			sess.history = []ChatMessage{systemMsg}
+			sess.history = []llm.ChatMessage{systemMsg}
 
 			if persisted, err := a.store.Chat.LoadMessages(req.SessionID); err == nil {
 				for _, m := range persisted {
 					if m.Role == "user" || m.Role == "assistant" {
-						sess.history = append(sess.history, ChatMessage{Role: m.Role, Content: m.Content})
+						sess.history = append(sess.history, llm.ChatMessage{Role: m.Role, Content: m.Content})
 					}
 				}
 			}
@@ -59,7 +60,7 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 			sess.history[0] = systemMsg
 		}
 
-		sess.history = append(sess.history, ChatMessage{Role: "user", Content: req.Message})
+		sess.history = append(sess.history, llm.ChatMessage{Role: "user", Content: req.Message})
 		sess.history = TrimHistory(sess.history, 30000)
 
 		flusher, ok := w.(http.Flusher)
@@ -92,8 +93,8 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 			alog.Warn("failed to persist user message: %v", err)
 		}
 
-		llm := a.getLLM()
-		full, usage, err := llm.ChatStream(ctx, sess.history, func(chunk string) {
+		client := a.getLLM()
+		full, usage, err := client.ChatStream(ctx, sess.history, func(chunk string) {
 			data, _ := json.Marshal(map[string]string{"content": chunk})
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
@@ -107,12 +108,12 @@ func (a *Agent) handleChat(_ *EventBus) http.HandlerFunc {
 		}
 
 		if usage != nil {
-		if err := a.store.Tokens.Record("chat", llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
-			alog.Warn("failed to record token usage: %v", err)
-		}
+			if err := a.store.Tokens.Record("chat", client.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
+				alog.Warn("failed to record token usage: %v", err)
+			}
 		}
 
-		sess.history = append(sess.history, ChatMessage{Role: "assistant", Content: full})
+		sess.history = append(sess.history, llm.ChatMessage{Role: "assistant", Content: full})
 
 		if err := a.store.Chat.InsertMessage(req.SessionID, "assistant", full, time.Now().UTC().Format(time.RFC3339)); err != nil {
 			alog.Warn("failed to persist assistant message: %v", err)

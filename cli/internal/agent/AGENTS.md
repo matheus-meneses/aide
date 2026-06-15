@@ -8,8 +8,8 @@ and serves a web UI with real-time event streaming.
 ## Key Types
 
 - `Agent` — Central orchestrator: holds config, store, runner, LLM client, notifier, event bus, tool registry.
-- `LLMClient` — HTTP streaming client for the configured LLM API (SSE format); endpoint set via `agent.llm` config or
-  `AIDE_LLM_URL` env var.
+- `llm.LLM` (subpackage `internal/agent/llm`) — provider-agnostic chat client (`Chat`, `ChatStream`, `Ping`, `Model`)
+  with OpenAI/LiteLLM and Anthropic implementations; built via `llm.NewLLM`.
 - `EventBus` — In-memory pub/sub for SSE events with subscriber channels.
 - `Event` — SSE event with type, data (JSON string), and timestamp.
 - `ToolRegistry` / `Tool` — Agent's available actions (scrape, diff, notify_user, send_message, check_items,
@@ -31,19 +31,21 @@ Timer tick → runAgentCycle → build context → LLM → parse tool calls → 
 
 | File          | Responsibility                                                                         |
 |---------------|----------------------------------------------------------------------------------------|
-| `agent.go`    | Agent struct, constructor, status check                                                |
-| `loop.go`     | `StartAutonomous`, `runAgentCycle`, timer, system prompt, tool-call parsing            |
+| `agent.go`    | Agent struct, constructor (`New`), status check, LLM wiring                            |
+| `scheduler.go`| `StartAutonomous(ctx)` — schedule + briefing loops; blocks on `ctx.Done()` (no HTTP)   |
 | `context.go`  | Builds system prompt context (state, rules, ack list, briefing schedule)               |
+| `routes.go`   | `RegisterRoutes(mux)` — domain + admin API; mounted by `webui.Serve` via `RegisterAPI` |
 | `tools.go`    | Tool definitions and `postToChatAndSSE`                                                |
-| `server.go`   | HTTP server, routes, CORS, embedded frontend                                           |
-| `handlers.go` | REST handlers (chat, items, today, status, ack, sessions, stats, memory, whoami, exec) |
+| `handlers_*.go` | REST handlers (chat, items, today, status, ack, sessions, stats, memory, whoami, …)  |
 | `sse.go`      | EventBus (pub/sub), ServeSSE, BusNotifier                                              |
 | `notify.go`   | MacNotifier (osascript), MultiNotifier, NoopNotifier                                   |
-| `llm.go`      | LLM streaming client                                                                   |
+| `llm/`        | Provider-agnostic LLM clients (subpackage; `llm.go`, `openai.go`, `anthropic.go`)      |
 | `exec.go`     | Slash command execution (/scrape, /status, /stats, /ack, /memory)                      |
 | `diff.go`     | ComputeDiff between scrape runs                                                        |
 
-The embedded frontend and its static routes now live in the `internal/webui` package (`embed.go`, `static.go`); `routes.go` registers them via `webui.RegisterRoutes`.
+The HTTP server, embedded frontend/static serving, `POST /api/open`, and `GET /api/logs` live in the `internal/webui`
+package. `cmd` runs `agent.StartAutonomous(ctx)` and `webui.Serve(ctx, webui.Options{RegisterAPI: agent.RegisterRoutes})`,
+so `agent` never imports `webui` and `webui` never imports `agent`.
 
 ## Important Invariants
 
@@ -67,5 +69,5 @@ The embedded frontend and its static routes now live in the `internal/webui` pac
 
 ## Relations
 
-- Depends on: `config`, `store`, `runner`, `keychain`, `updater`
-- Used by: `cmd/aide` (agent command)
+- Depends on: `config`, `store`, `runner`, `keychain`, `updater`, `agent/llm`
+- Used by: `cmd/aide` (agent command), `cmd/aide-app` (desktop); `webui` mounts its routes via the `RegisterAPI` registrar

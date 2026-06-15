@@ -1,6 +1,7 @@
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { handleExternalClick } from "@/lib/openExternal";
 
 interface Props {
   content: string;
@@ -46,6 +47,7 @@ export function MarkdownRenderer({ content, onSuggestionClick }: Props) {
           href={safeHref}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => handleExternalClick(e, safeHref)}
           className="underline text-blue-600 dark:text-blue-400"
         >
           {children}

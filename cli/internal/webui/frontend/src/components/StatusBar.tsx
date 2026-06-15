@@ -5,6 +5,7 @@ import {
   Inbox,
   Moon,
   PanelLeft,
+  ScrollText,
   Settings,
   Sparkles,
   Sun,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { fetchStatus, fetchVersion, fetchWhoami } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { handleExternalClick } from "@/lib/openExternal";
 
 interface StatusData {
   counts: Record<string, number>;
@@ -26,6 +28,7 @@ interface Props {
   activeSource?: string | null;
   onSourceClick?: (source: string | null) => void;
   onOpenSettings?: () => void;
+  onOpenLogs?: () => void;
 }
 
 export function StatusBar({
@@ -34,6 +37,7 @@ export function StatusBar({
   activeSource,
   onSourceClick,
   onOpenSettings,
+  onOpenLogs,
 }: Props) {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [statusError, setStatusError] = useState(false);
@@ -109,6 +113,9 @@ export function StatusBar({
             href="https://github.com/matheus-meneses/aide/releases/latest"
             target="_blank"
             rel="noreferrer"
+            onClick={(e) =>
+              handleExternalClick(e, "https://github.com/matheus-meneses/aide/releases/latest")
+            }
             className="ml-auto inline-flex items-center gap-1 rounded bg-warning/15 px-2 py-0.5 font-medium transition-colors hover:bg-warning/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             View release
@@ -202,6 +209,15 @@ export function StatusBar({
           >
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
+          {onOpenLogs && (
+            <button
+              onClick={onOpenLogs}
+              className="rounded-md p-1.5 transition-colors hover:bg-accent"
+              aria-label="Open logs"
+            >
+              <ScrollText className="h-4 w-4" />
+            </button>
+          )}
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}

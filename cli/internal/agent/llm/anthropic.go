@@ -1,4 +1,4 @@
-package agent
+package llm
 
 import (
 	"bufio"
@@ -203,7 +203,6 @@ func (c *anthropicClient) ChatStream(ctx context.Context, messages []ChatMessage
 				usage.OutputTokens = event.Usage.OutputTokens
 			}
 		case "message_stop":
-			// stream complete
 		}
 	}
 

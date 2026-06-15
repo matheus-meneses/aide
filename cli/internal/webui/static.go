@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func RegisterRoutes(mux *http.ServeMux) {
+func registerStatic(mux *http.ServeMux) {
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
 	if err != nil {
 		mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {

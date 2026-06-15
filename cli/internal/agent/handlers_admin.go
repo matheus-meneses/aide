@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var Version = "dev"
+
 func (a *Agent) handleMemory(w http.ResponseWriter, _ *http.Request) {
 	mem, err := a.store.Memory.LoadLast()
 	if err != nil {

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aide/cli/internal/agent"
+	"aide/cli/internal/agent/llm"
 	"aide/cli/internal/config"
 	"aide/cli/internal/keychain"
 	"aide/cli/internal/provision"
@@ -22,7 +22,7 @@ var providerOptions = []struct {
 }
 
 func promptProvider(current string) (string, error) {
-	current = string(agent.NormalizeProvider(current))
+	current = string(llm.NormalizeProvider(current))
 
 	labels := make([]string, len(providerOptions))
 	defaultLabel := providerOptions[0].label
@@ -72,7 +72,7 @@ func agentConfigExecute(_ *cobra.Command, _ []string) error {
 
 	llmURL := cfg.Agent.LLMURL
 	if llmURL == "" {
-		llmURL = agent.DefaultBaseURL(provider)
+		llmURL = llm.DefaultBaseURL(provider)
 	}
 	if err := survey.AskOne(&survey.Input{
 		Message: "LLM base URL",

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,19 +17,19 @@ type toolCall struct {
 func (a *Agent) think(ctx context.Context, state agentState, history []string) toolCall {
 	prompt := a.buildAgentPrompt(state, history)
 
-	messages := []ChatMessage{
+	messages := []llm.ChatMessage{
 		{Role: "user", Content: prompt},
 	}
 
-	llm := a.getLLM()
-	resp, usage, err := llm.Chat(ctx, messages)
+	client := a.getLLM()
+	resp, usage, err := client.Chat(ctx, messages)
 	if err != nil {
 		alog.Error("LLM error: %v", err)
 		return toolCall{Tool: "done", Reason: "LLM unreachable"}
 	}
 
 	if usage != nil {
-		if err := a.store.Tokens.Record("agent", llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
+		if err := a.store.Tokens.Record("agent", client.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
 			alog.Warn("failed to record token usage: %v", err)
 		}
 	}

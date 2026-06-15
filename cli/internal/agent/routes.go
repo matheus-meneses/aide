@@ -2,11 +2,9 @@ package agent
 
 import (
 	"net/http"
-
-	"aide/cli/internal/webui"
 )
 
-func (a *Agent) registerRoutes(mux *http.ServeMux) {
+func (a *Agent) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/events", a.bus.ServeSSE)
 	mux.HandleFunc("GET /api/notifications", a.handleNotifications)
 	mux.HandleFunc("POST /api/chat", a.handleChat(a.bus))
@@ -48,6 +46,4 @@ func (a *Agent) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/registries/add", a.handleAddRegistry)
 	mux.HandleFunc("POST /api/registries/remove", a.handleRemoveRegistry)
 	mux.HandleFunc("POST /api/registries/refresh", a.handleRefreshRegistries)
-
-	webui.RegisterRoutes(mux)
 }

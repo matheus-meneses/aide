@@ -6,7 +6,9 @@ import { TitleBar } from "@/components/TitleBar";
 import { StatusBar } from "@/components/StatusBar";
 import { NotificationFeed } from "@/components/NotificationFeed";
 import { ChatPanel } from "@/components/ChatPanel";
+import { ChatProvider } from "@/components/ChatProvider";
 import { ItemsView } from "@/components/ItemsView";
+import { LogsView } from "@/components/LogsView";
 import { LLMBanner } from "@/components/LLMBanner";
 import { SettingsView, type TabId } from "@/components/settings/SettingsView";
 import SetupWizard from "@/components/setup/SetupWizard";
@@ -51,6 +53,7 @@ function MainApp() {
   const [pendingEvent, setPendingEvent] = useState<AgentEvent | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<TabId>("profile");
+  const [showLogs, setShowLogs] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
 
   useEffect(() => {
@@ -89,16 +92,27 @@ function MainApp() {
         setShowSettings((v) => !v);
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "l" || e.key === "L")) {
+        e.preventDefault();
+        setShowLogs((v) => !v);
+        return;
+      }
       if (e.key === "Escape") {
-        if (showSettings) setShowSettings(false);
+        if (showLogs) setShowLogs(false);
+        else if (showSettings) setShowSettings(false);
         else if (activeSource) setActiveSource(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showSettings, activeSource]);
+  }, [showSettings, showLogs, activeSource]);
 
   return (
+    <ChatProvider
+      registerChatMessage={onChatMessage}
+      pendingEvent={pendingEvent}
+      onEventConsumed={() => setPendingEvent(null)}
+    >
     <div className="h-full flex flex-col">
       <StatusBar
         connected={connected}
@@ -106,6 +120,7 @@ function MainApp() {
         activeSource={activeSource}
         onSourceClick={setActiveSource}
         onOpenSettings={() => openSettings()}
+        onOpenLogs={() => setShowLogs(true)}
       />
       {!connected && (
         <div
@@ -117,12 +132,16 @@ function MainApp() {
           {everConnected ? "Reconnecting to the agent…" : "Connecting to the agent…"}
         </div>
       )}
-      {showSettings && (
+      {showLogs ? (
+        <div className="flex-1 overflow-hidden">
+          <LogsView onClose={() => setShowLogs(false)} />
+        </div>
+      ) : showSettings ? (
         <div className="flex-1 overflow-hidden">
           <SettingsView onClose={() => setShowSettings(false)} initialTab={settingsTab} />
         </div>
-      )}
-      <div className={`${showSettings ? "hidden" : "flex"} flex-1 flex-col overflow-hidden`}>
+      ) : (
+      <div className="flex flex-1 flex-col overflow-hidden">
         <LLMBanner onConfigure={() => openSettings("agent")} />
         <div className="flex flex-1 overflow-hidden relative">
         {isMobile && sidebarOpen && (
@@ -175,23 +194,17 @@ function MainApp() {
               <PanelLeft className="w-4 h-4" />
             </button>
           )}
-          {activeSource && (
+          {activeSource ? (
             <ItemsView source={activeSource} onClose={() => setActiveSource(null)} />
+          ) : (
+            <ChatPanel onConfigure={() => openSettings("agent")} />
           )}
-          <div
-            className={`${activeSource ? "hidden" : "flex"} min-h-0 flex-1 flex-col overflow-hidden`}
-          >
-            <ChatPanel
-              pendingEvent={pendingEvent}
-              onEventConsumed={() => setPendingEvent(null)}
-              onChatMessage={onChatMessage}
-              onConfigure={() => openSettings("agent")}
-            />
-          </div>
         </main>
         </div>
       </div>
+      )}
     </div>
+    </ChatProvider>
   );
 }
 

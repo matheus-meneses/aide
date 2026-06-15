@@ -1,13 +1,14 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"context"
 	"sync"
 	"time"
 )
 
 type chatSession struct {
-	history    []ChatMessage
+	history    []llm.ChatMessage
 	mu         sync.Mutex
 	lastAccess time.Time
 }
