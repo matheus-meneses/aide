@@ -10,13 +10,28 @@ import (
 
 var validPluginName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
+// ValidName reports whether name is a bare plugin name safe to join onto the
+// plugins root without escaping it (no path separators, not "." or "..").
+func ValidName(name string) bool {
+	return name != "." && name != ".." && validPluginName.MatchString(name)
+}
+
+// safeDir resolves a plugin directory under the plugins root, rejecting any
+// name that could escape it via path separators or relative components.
+func (mgr *Manager) safeDir(name string) (string, error) {
+	if !ValidName(name) {
+		return "", fmt.Errorf("invalid plugin name %q", name)
+	}
+	return filepath.Join(mgr.root, name), nil
+}
+
 // Remove deletes an installed plugin's directory. The name must be a bare
 // plugin name (no path separators) to avoid escaping the plugins root.
 func (mgr *Manager) Remove(name string) error {
-	if name == "." || name == ".." || !validPluginName.MatchString(name) {
-		return fmt.Errorf("invalid plugin name %q", name)
+	dir, err := mgr.safeDir(name)
+	if err != nil {
+		return err
 	}
-	dir := filepath.Join(mgr.root, name)
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("plugin %q is not installed", name)
@@ -58,7 +73,10 @@ func (mgr *Manager) List() ([]*Manifest, error) {
 }
 
 func (mgr *Manager) Get(name string) (*Manifest, error) {
-	dir := filepath.Join(mgr.root, name)
+	dir, err := mgr.safeDir(name)
+	if err != nil {
+		return nil, err
+	}
 	m, err := LoadManifest(dir)
 	if err != nil {
 		return nil, fmt.Errorf("plugin %q not found: %w", name, err)

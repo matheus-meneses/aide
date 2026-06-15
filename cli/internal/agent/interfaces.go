@@ -11,6 +11,7 @@ import (
 // cycle without spawning real plugins.
 type Scraper interface {
 	Run(ctx context.Context, sources []string) (*runner.RunResult, error)
+	ValidateFilter(filter []string) error
 }
 
 // Publisher fans agent events out to subscribers. *events.EventBus satisfies it;

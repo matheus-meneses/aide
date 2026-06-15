@@ -43,7 +43,7 @@ export async function installPlugin(name: string): Promise<void> {
   await checkedFetch(`${BASE}/api/plugins/install`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, acknowledge_capabilities: true }),
   });
 }
 

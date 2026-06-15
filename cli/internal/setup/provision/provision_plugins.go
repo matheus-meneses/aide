@@ -81,8 +81,13 @@ func PluginManifest(name string) (*plugin.Manifest, error) {
 }
 
 // InstallPlugin downloads and installs a plugin from the registry into the
-// aide home, building its runtime (Python venv) as needed.
-func InstallPlugin(ctx context.Context, name, version string) (*plugin.Manifest, error) {
+// aide home, building its runtime (Python venv) as needed. The caller must set
+// ackCapabilities to confirm the user has acknowledged the plugin's declared
+// network/filesystem capabilities; installation is refused otherwise.
+func InstallPlugin(ctx context.Context, name, version string, ackCapabilities bool) (*plugin.Manifest, error) {
+	if !ackCapabilities {
+		return nil, fmt.Errorf("plugin capabilities must be acknowledged before install")
+	}
 	idx, err := plugin.LoadCachedIndex()
 	if err != nil {
 		idx, err = plugin.MergedIndex(nil)

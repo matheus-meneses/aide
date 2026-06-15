@@ -201,6 +201,10 @@ func (a *Agent) runScrape(ctx context.Context, sources []string) (*runner.RunRes
 	a.scrapeMu.Lock()
 	defer a.scrapeMu.Unlock()
 
+	if err := a.scraper.ValidateFilter(sources); err != nil {
+		return nil, err
+	}
+
 	result, err := a.scraper.Run(ctx, sources)
 	if err != nil {
 		return nil, err

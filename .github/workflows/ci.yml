@@ -54,7 +54,9 @@ jobs:
 
       - name: Test
         working-directory: cli
-        run: go test ${{ steps.pkgs.outputs.list }}
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -coverprofile=coverage.out ${{ steps.pkgs.outputs.list }}
 
   lint:
     runs-on: ubuntu-latest

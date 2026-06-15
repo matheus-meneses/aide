@@ -54,6 +54,9 @@ func InstallLocal(_ context.Context, srcDir string, consent func(*Manifest) bool
 }
 
 func Install(_ context.Context, idx *Index, name, version string, consent func(*Manifest) bool) (*Manifest, error) {
+	if !ValidName(name) {
+		return nil, fmt.Errorf("invalid plugin name %q", name)
+	}
 	entry, ok := idx.Plugins[name]
 	if !ok {
 		return nil, fmt.Errorf("plugin %q not found in registry", name)

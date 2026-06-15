@@ -60,6 +60,20 @@ type FileAccess struct {
 	Write string `yaml:"write,omitempty"`
 }
 
+// fsPaths splits the declared filesystem capabilities into read and write
+// path lists for the sandbox policy.
+func (c Capabilities) fsPaths() (reads, writes []string) {
+	for _, f := range c.Filesystem {
+		if f.Read != "" {
+			reads = append(reads, f.Read)
+		}
+		if f.Write != "" {
+			writes = append(writes, f.Write)
+		}
+	}
+	return reads, writes
+}
+
 type RenderSpec struct {
 	Custom bool `yaml:"custom"`
 }
@@ -89,6 +103,9 @@ func LoadManifest(dir string) (*Manifest, error) {
 func (m *Manifest) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("name is required")
+	}
+	if !ValidName(m.Name) {
+		return fmt.Errorf("name %q must contain only letters, digits, '.', '_' or '-'", m.Name)
 	}
 	if m.Version == "" {
 		return fmt.Errorf("version is required")

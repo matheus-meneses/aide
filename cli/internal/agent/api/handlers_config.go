@@ -61,17 +61,22 @@ func (h *handlers) handlePluginManifest(w http.ResponseWriter, r *http.Request) 
 
 func (h *handlers) handleInstallPlugin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
+		Name                    string `json:"name"`
+		Version                 string `json:"version"`
+		AcknowledgeCapabilities bool   `json:"acknowledge_capabilities"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "plugin name required"})
 		return
 	}
+	if !req.AcknowledgeCapabilities {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "plugin capabilities must be acknowledged before install"})
+		return
+	}
 
 	go func() {
 		h.a.PublishProgress("install_progress", "Installing "+req.Name+"…")
-		if _, err := provision.InstallPlugin(detachedCtx(), req.Name, req.Version); err != nil {
+		if _, err := provision.InstallPlugin(detachedCtx(), req.Name, req.Version, req.AcknowledgeCapabilities); err != nil {
 			h.a.PublishProgress("install_error", err.Error())
 			return
 		}

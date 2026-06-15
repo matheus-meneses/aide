@@ -38,11 +38,14 @@ func execute(ctx context.Context, m *Manifest, req *Request, interactive bool) (
 
 	procexec.Configure(cmd)
 
+	reads, writes := m.Capabilities.fsPaths()
 	if err := sandbox.Wrap(cmd, sandbox.Policy{
 		Name:    m.Name,
 		Dir:     m.Dir,
 		Browser: m.Capabilities.Browser,
 		Network: m.Capabilities.Network,
+		Reads:   reads,
+		Writes:  writes,
 	}); err != nil {
 		return nil, "", fmt.Errorf("sandbox wrap: %w", err)
 	}

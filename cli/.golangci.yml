@@ -35,43 +35,24 @@ linters:
             - pkg: "io/ioutil"
               desc: "Deprecated: use io and os packages"
         platform:
-          list-mode: lax
+          # strict: platform is an inert leaf, so deny every import by default
+          # and allow only stdlib, its own subpackages, and its external deps.
+          list-mode: strict
           files:
             - "**/internal/platform/**"
-          deny:
-            - pkg: "aide/cli/internal/persistence"
-              desc: "platform is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/security"
-              desc: "platform is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/runtime"
-              desc: "platform is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/setup"
-              desc: "platform is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/notification"
-              desc: "platform is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/agent"
-              desc: "platform is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/ui"
-              desc: "platform is an inert leaf: it must not import other concepts"
+          allow:
+            - "$gostd"
+            - "aide/cli/internal/platform"
+            - "gopkg.in/yaml.v3"
         persistence:
-          list-mode: lax
+          # strict: persistence is an inert leaf (SQLite store only).
+          list-mode: strict
           files:
             - "**/internal/persistence/**"
-          deny:
-            - pkg: "aide/cli/internal/platform"
-              desc: "persistence is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/security"
-              desc: "persistence is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/runtime"
-              desc: "persistence is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/setup"
-              desc: "persistence is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/notification"
-              desc: "persistence is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/agent"
-              desc: "persistence is an inert leaf: it must not import other concepts"
-            - pkg: "aide/cli/internal/ui"
-              desc: "persistence is an inert leaf: it must not import other concepts"
+          allow:
+            - "$gostd"
+            - "aide/cli/internal/persistence"
+            - "modernc.org/sqlite"
         security:
           list-mode: lax
           files:
@@ -133,24 +114,14 @@ linters:
             - pkg: "aide/cli/internal/ui"
               desc: "notification may depend on agent/events (leaf) and platform only"
         agent-events:
-          list-mode: lax
+          # strict: agent/events is a leaf; it may reach platform only.
+          list-mode: strict
           files:
             - "**/internal/agent/events/**"
-          deny:
-            - pkg: "aide/cli/internal/persistence"
-              desc: "agent/events is a leaf: it may depend on platform only"
-            - pkg: "aide/cli/internal/security"
-              desc: "agent/events is a leaf: it may depend on platform only"
-            - pkg: "aide/cli/internal/runtime"
-              desc: "agent/events is a leaf: it may depend on platform only"
-            - pkg: "aide/cli/internal/setup"
-              desc: "agent/events is a leaf: it may depend on platform only"
-            - pkg: "aide/cli/internal/notification"
-              desc: "agent/events is a leaf: it may depend on platform only"
-            - pkg: "aide/cli/internal/agent"
-              desc: "agent/events is a leaf: it must not import the rest of agent"
-            - pkg: "aide/cli/internal/ui"
-              desc: "agent/events is a leaf: it may depend on platform only"
+          allow:
+            - "$gostd"
+            - "aide/cli/internal/agent/events"
+            - "aide/cli/internal/platform"
         agent:
           list-mode: lax
           files:
@@ -202,6 +173,12 @@ linters:
           - gosec
           - unparam
           - bodyclose
+        path: _test\.go
+      # The import DAG is enforced on production code only; tests may cross
+      # concept boundaries and import internal/testutil (matches internal/archtest,
+      # which also skips _test.go).
+      - linters:
+          - depguard
         path: _test\.go
       # Taint analysis on hardcoded system-keychain paths and the macOS
       # `security` CLI — inputs are constants, not attacker-controlled.

@@ -11,17 +11,15 @@ import (
 )
 
 func Wrap(cmd *exec.Cmd, p Policy) error {
-	if p.Browser {
-		return nil
-	}
-	if _, err := exec.LookPath("sandbox-exec"); err != nil {
+	sandboxExec, err := exec.LookPath("sandbox-exec")
+	if err != nil {
 		fmt.Fprintf(cmd.Stderr.(interface{ Write([]byte) (int, error) }), "warning: sandbox-exec not found, running %s unsandboxed\n", p.Name)
 		return nil //nolint:nilerr // missing sandbox-exec is a soft warning; plugin runs unsandboxed
 	}
 
 	profile := buildDarwinProfile(p)
 	originalArgs := cmd.Args
-	cmd.Path, _ = exec.LookPath("sandbox-exec")
+	cmd.Path = sandboxExec
 	cmd.Args = append([]string{"sandbox-exec", "-p", profile}, originalArgs...)
 	return nil
 }
@@ -32,6 +30,9 @@ func buildDarwinProfile(p Policy) string {
 	b.WriteString("(allow process*)\n")
 	b.WriteString("(allow file-read*)\n")
 	fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", p.Dir)
+	for _, w := range p.Writes {
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", w)
+	}
 	if p.Browser {
 		b.WriteString("(allow mach*)\n")
 		b.WriteString("(allow ipc*)\n")
