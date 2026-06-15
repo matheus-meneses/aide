@@ -14,6 +14,10 @@ type Options struct {
 	Port        int
 	NoBrowser   bool
 	RegisterAPI func(*http.ServeMux)
+	// LogFile, when set, enables the tail-follow logs endpoints (GET/DELETE
+	// /api/logs) sourced from this file. Left empty by the plain CLI server so
+	// the Logs feature stays exclusive to the desktop app runtime.
+	LogFile string
 }
 
 func Serve(ctx context.Context, opts Options) error {
@@ -22,7 +26,9 @@ func Serve(ctx context.Context, opts Options) error {
 		opts.RegisterAPI(mux)
 	}
 	registerOpen(mux)
-	registerLogs(mux)
+	if opts.LogFile != "" {
+		registerLogs(mux, opts.LogFile)
+	}
 	registerStatic(mux)
 
 	handler := corsMiddleware(mux)

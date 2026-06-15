@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Info, RefreshCw, X } 
 import { fetchItems } from "@/lib/api";
 import type { ItemData as Item } from "@/lib/api";
 import { handleExternalClick } from "@/lib/openExternal";
+import { Button, EmptyState, Skeleton, useToast } from "@/components/ui";
 
 interface Props {
   source: string;
@@ -10,10 +11,10 @@ interface Props {
 }
 
 const priorityConfig: Record<string, { icon: typeof AlertTriangle; color: string; bg: string }> = {
-  critical: { icon: AlertTriangle, color: "text-red-500", bg: "bg-red-500/10" },
-  warning: { icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-500/10" },
-  info: { icon: Info, color: "text-blue-500", bg: "bg-blue-500/10" },
-  low: { icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10" },
+  critical: { icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10" },
+  warning: { icon: AlertTriangle, color: "text-warning", bg: "bg-warning/10" },
+  info: { icon: Info, color: "text-info", bg: "bg-info/10" },
+  low: { icon: CheckCircle2, color: "text-success", bg: "bg-success/10" },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -33,6 +34,7 @@ export function ItemsView({ source, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState<"category" | "member" | "priority">("category");
+  const { toast } = useToast();
 
   const displaySource =
     source === "__all" ? undefined : source === "__meetings" ? undefined : source;
@@ -48,9 +50,13 @@ export function ItemsView({ source, onClose }: Props) {
           setItems(data);
         }
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : String(e);
+        setError(message);
+        toast(`Failed to load items: ${message}`, "error");
+      })
       .finally(() => setLoading(false));
-  }, [displaySource, source]);
+  }, [displaySource, source, toast]);
 
   useEffect(() => {
     load();
@@ -102,10 +108,15 @@ export function ItemsView({ source, onClose }: Props) {
             onClick={load}
             className="p-1.5 rounded hover:bg-accent transition-colors"
             title="Refresh"
+            aria-label="Refresh items"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <button onClick={onClose} className="p-1.5 rounded hover:bg-accent transition-colors">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-accent transition-colors"
+            aria-label="Close panel"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -113,22 +124,28 @@ export function ItemsView({ source, onClose }: Props) {
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
         {loading && items.length === 0 && (
-          <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-            <RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading...
+          <div className="space-y-1.5 max-w-4xl mx-auto" aria-busy="true" aria-label="Loading items">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
           </div>
         )}
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-            {error}
-          </div>
+        {!loading && error && (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Couldn't load items"
+            description={error}
+            action={
+              <Button size="sm" variant="secondary" onClick={load}>
+                Retry
+              </Button>
+            }
+          />
         )}
 
         {!loading && items.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
-            <CheckCircle2 className="w-8 h-8 mb-2 opacity-40" />
-            No open items
-          </div>
+          <EmptyState icon={CheckCircle2} title="No open items" description="You're all caught up." />
         )}
 
         <div className="space-y-4 max-w-4xl mx-auto">

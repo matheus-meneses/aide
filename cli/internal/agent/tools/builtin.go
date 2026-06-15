@@ -28,6 +28,7 @@ type Capabilities interface {
 	Config() *config.Config
 	Bus() *events.EventBus
 	PostMessage(content, timestamp string)
+	NotifyOS(title, body string)
 }
 
 func sha256Sum(s string) []byte {
@@ -191,6 +192,8 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 				})
 			}
 
+			c.NotifyOS(title, body)
+
 			now := time.Now().UTC().Format(time.RFC3339)
 			chatContent := fmt.Sprintf("**%s**\n\n%s\n\n---\n_Notified at %s_",
 				title, body, time.Now().Format("15:04"))
@@ -314,7 +317,7 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 func formatToolItem(item store.Item) string {
 	line := fmt.Sprintf("[%s/%s] %s", item.Source, item.Category, item.Title)
 	if item.EntryDate != "" {
-		line += " (" + humanizeDate(item.EntryDate) + ")"
+		line += " (" + HumanizeDate(item.EntryDate) + ")"
 	}
 	if item.Detail != "" {
 		line += " | " + item.Detail
@@ -325,7 +328,10 @@ func formatToolItem(item store.Item) string {
 	return line
 }
 
-func humanizeDate(dateStr string) string {
+// HumanizeDate renders an ISO date (YYYY-MM-DD) relative to today (TODAY,
+// TOMORROW, "in N days", etc.). It is the single shared implementation used by
+// both the tool output and the agent's item formatting.
+func HumanizeDate(dateStr string) string {
 	t, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
 	if err != nil {
 		return dateStr

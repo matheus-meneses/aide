@@ -2,7 +2,6 @@ package main
 
 import (
 	"aide/cli/internal/agent/llm"
-	"aide/cli/internal/platform/config"
 	"aide/cli/internal/security/keychain"
 	"aide/cli/internal/setup/provision"
 	"fmt"
@@ -57,7 +56,7 @@ var agentConfigCmd = &cobra.Command{
 }
 
 func agentConfigExecute(_ *cobra.Command, _ []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

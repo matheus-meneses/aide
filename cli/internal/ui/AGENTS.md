@@ -8,8 +8,11 @@ from `cmd`.
 
 ## Packages
 
-- `webui` — HTTP server + embedded Vite/React frontend (`//go:embed frontend/dist`), `/api/open`,
-  `/api/logs`. Mounts agent routes through `webui.Options.RegisterAPI` so it never imports `agent`.
+- `webui` — HTTP server + embedded Vite/React frontend (`//go:embed frontend/dist`), `/api/open`.
+  `GET`/`DELETE /api/logs` tail (and prune) the on-disk log file and are registered only when
+  `webui.Options.LogFile` is set, so the Logs view is exclusive to the desktop app runtime; the plain
+  CLI server leaves it empty. Mounts agent routes through `webui.Options.RegisterAPI` so it never
+  imports `agent`.
   - `frontend/` — Vite/React/TypeScript app (built to `frontend/dist`).
 - `render` — terminal and structured output rendering for CLI commands.
 - `prompt` — interactive terminal prompts (select, confirm) built on survey/bubbletea.

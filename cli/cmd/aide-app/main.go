@@ -1,12 +1,11 @@
 package main
 
 import (
-	"aide/cli/internal/agent"
 	agentapi "aide/cli/internal/agent/api"
-	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/app"
 	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/config"
-	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/platform/xdg"
 	"aide/cli/internal/setup/bootstrap"
 	"aide/cli/internal/ui/webui"
 	"context"
@@ -14,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -38,26 +38,23 @@ func main() {
 	level, format := clog.Resolve("", "", cfg.Settings.LogLevel, cfg.Settings.LogFormat)
 	clog.Configure(level, format)
 
-	st, err := store.Open(cfg.Settings.DataDir)
-	if err != nil {
-		fatal("opening store: %v", err)
+	logPath := filepath.Join(xdg.AideHome(), "logs", "aide.log")
+	if err := clog.SetFile(logPath); err != nil {
+		fatal("opening log file: %v", err)
 	}
 
-	r := runner.New(cfg, st)
-	r.SetLogLevel(level)
-	r.SetLogFormat(format)
-	ag, err := agent.New(cfg, st, r)
+	stk, err := app.New(cfg, level, format, version)
 	if err != nil {
-		st.Close()
-		fatal("creating agent: %v", err)
+		fatal("%v", err)
 	}
-	agent.Version = version
+	ag := stk.Agent
+	st := stk.Store
 	ag.SetConfigPath(cfgPath)
 	ag.SetNativeNotifications(true)
 
 	port, err := freePort()
 	if err != nil {
-		st.Close()
+		stk.Close()
 		fatal("finding port: %v", err)
 	}
 
@@ -68,7 +65,7 @@ func main() {
 		}
 	}()
 	go func() {
-		if err := webui.Serve(ctx, webui.Options{Port: port, NoBrowser: true, RegisterAPI: func(mux *http.ServeMux) {
+		if err := webui.Serve(ctx, webui.Options{Port: port, NoBrowser: true, LogFile: logPath, RegisterAPI: func(mux *http.ServeMux) {
 			agentapi.Register(ag, mux)
 		}}); err != nil {
 			clog.Error("web server stopped: %v", err)

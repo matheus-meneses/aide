@@ -1,7 +1,6 @@
 package main
 
 import (
-	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
 	"fmt"
 	"sort"
@@ -10,7 +9,7 @@ import (
 )
 
 func sourceListExecute(_ *cobra.Command, _ []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

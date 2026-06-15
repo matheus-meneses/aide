@@ -18,7 +18,7 @@ func EstimateTokens(text string) int {
 	return len(text) / tokensPerChar
 }
 
-func BuildContext(s *store.Store) (string, error) {
+func BuildContext(s *store.Store, now time.Time) (string, error) {
 	var b strings.Builder
 
 	profile, _ := s.Profile.All()
@@ -28,7 +28,7 @@ func BuildContext(s *store.Store) (string, error) {
 	} else {
 		b.WriteString("You are Aide, a personal work assistant.\n")
 	}
-	b.WriteString("Today is " + time.Now().Format("Monday, January 2, 2006 15:04") + ".\n")
+	b.WriteString("Today is " + now.Format("Monday, January 2, 2006 15:04") + ".\n")
 	b.WriteString("Below is the user's current operational data.\n\n")
 
 	openItems, err := s.Items.QueryOpen("", "", "")
@@ -36,7 +36,7 @@ func BuildContext(s *store.Store) (string, error) {
 		return "", fmt.Errorf("querying open items: %w", err)
 	}
 
-	prioritized := prioritizeItems(openItems)
+	prioritized := prioritizeItems(openItems, now)
 	budget := maxContextTokens - 2000
 
 	grouped := make(map[string][]store.Item)
@@ -148,9 +148,9 @@ func BuildContext(s *store.Store) (string, error) {
 	return b.String(), nil
 }
 
-func prioritizeItems(items []store.Item) []store.Item {
-	today := time.Now().Format("2006-01-02")
-	tomorrow := time.Now().Add(24 * time.Hour).Format("2006-01-02")
+func prioritizeItems(items []store.Item, now time.Time) []store.Item {
+	today := now.Format("2006-01-02")
+	tomorrow := now.Add(24 * time.Hour).Format("2006-01-02")
 
 	type scored struct {
 		item  store.Item

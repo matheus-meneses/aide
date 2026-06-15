@@ -2,6 +2,7 @@ package render
 
 import (
 	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 )
 
@@ -19,14 +20,14 @@ func printRunSummaryTable(result *runner.RunResult) {
 
 	var failures []string
 	for _, r := range result.Results {
-		status := "OK"
+		status := widgets.Success("OK")
 		entries := fmt.Sprintf("%d", len(r.Entries))
 		newCol := fmt.Sprintf("+%d", r.NewItems)
 		if r.Error != nil {
-			status = "FAIL"
+			status = widgets.Danger("FAIL")
 			entries = "-"
 			newCol = "-"
-			failures = append(failures, fmt.Sprintf("  [%s] %s", r.Source, r.Error))
+			failures = append(failures, fmt.Sprintf("  [%s] %s", widgets.Bold(r.Source), r.Error))
 		}
 		fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%dms\n", r.Source, status, entries, newCol, r.DurationMs)
 	}
@@ -34,7 +35,7 @@ func printRunSummaryTable(result *runner.RunResult) {
 	w.Flush()
 
 	if len(failures) > 0 {
-		fprintf("\n  Errors:\n")
+		fprintf("\n  %s\n", widgets.Danger("Errors:"))
 		for _, f := range failures {
 			fprintln(f)
 		}

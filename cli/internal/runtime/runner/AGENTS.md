@@ -7,7 +7,9 @@ and upserts entries into the store.
 
 ## Key Types
 
-- `Runner` — holds config, store, and a log writer (defaults to `os.Stderr`).
+- `Runner` — holds config and store; logs through `clog` (scope `runner`) and forwards plugin stderr
+  through `clog.Emit` so it lands in the shared sinks. Tracks `logLevel`/`logFormat` only to propagate
+  them to plugin subprocesses.
 - `RunResult` — aggregate outcome: run ID, per-source counts, slice of `SourceResult`.
 - `SourceResult` — per-source result: entries, team members, plugin response, timing, stderr.
 

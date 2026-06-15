@@ -1,7 +1,6 @@
 package main
 
 import (
-	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/ui/prompt"
 	"fmt"
@@ -11,7 +10,7 @@ import (
 )
 
 func sourceConfigureExecute(_ *cobra.Command, args []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

@@ -42,10 +42,12 @@ type Agent struct {
 
 	store    *store.Store
 	runner   *runner.Runner
+	scraper  Scraper
 	notifier notification.Notifier
 	tools    *tools.ToolRegistry
 	bus      *events.EventBus
 	sessions *sessionManager
+	clock    Clock
 
 	scrapeMu sync.Mutex
 
@@ -74,15 +76,12 @@ func (a *Agent) NativeNotifications() bool {
 	return a.nativeNotifications
 }
 
-// SetNativeNotifier routes OS notifications through the given notifier (while
-// keeping the in-app activity feed via the event bus) and flags native delivery
-// so the web UI suppresses its own browser notifications.
+// SetNativeNotifier routes OS-level notifications through the given notifier and
+// flags native delivery so the web UI suppresses its own browser notifications.
+// The in-app activity feed is fed separately by explicit bus events at each call
+// site, so the notifier here is OS-only to avoid duplicate feed entries.
 func (a *Agent) SetNativeNotifier(n notification.Notifier) {
-	if a.bus != nil {
-		a.SetNotifier(notification.NewMultiNotifier(&notification.BusNotifier{Bus: a.bus}, n))
-	} else {
-		a.SetNotifier(n)
-	}
+	a.SetNotifier(n)
 	a.SetNativeNotifications(true)
 }
 
@@ -202,11 +201,11 @@ func (a *Agent) runScrape(ctx context.Context, sources []string) (*runner.RunRes
 	a.scrapeMu.Lock()
 	defer a.scrapeMu.Unlock()
 
-	result, err := a.runner.Run(ctx, sources)
+	result, err := a.scraper.Run(ctx, sources)
 	if err != nil {
 		return nil, err
 	}
-	a.setLastRun(time.Now())
+	a.setLastRun(a.clock.Now())
 	return result, nil
 }
 
@@ -223,16 +222,18 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 		return nil, fmt.Errorf("configuring llm: %w", err)
 	}
 
+	clk := realClock{}
 	a := &Agent{
 		cfg:      cfg,
 		store:    s,
 		runner:   r,
+		scraper:  r,
 		llm:      client,
-		notifier: &notification.NoopNotifier{},
-		sessions: newSessionManager(time.Hour),
+		notifier: &notification.MacNotifier{},
+		sessions: newSessionManager(time.Hour, clk),
+		clock:    clk,
 	}
 	a.bus = events.NewEventBus()
-	a.SetNotifier(notification.NewMultiNotifier(&notification.BusNotifier{Bus: a.bus}, &notification.MacNotifier{}))
 	a.registerDefaultTools()
 
 	if err := runner.SyncTeamFromConfig(cfg, s); err != nil {
@@ -286,7 +287,7 @@ func (a *Agent) Runner() *runner.Runner {
 func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 	a.ensureFreshData(ctx)
 
-	sysCtx, err := BuildContext(a.store)
+	sysCtx, err := BuildContext(a.store, a.clock.Now())
 	if err != nil {
 		return "", fmt.Errorf("building context: %w", err)
 	}
@@ -348,7 +349,7 @@ func (a *Agent) ensureFreshData(ctx context.Context) {
 		}
 	}
 
-	if time.Since(mostRecent) > a.getConfig().Agent.RunIntervalDuration() {
+	if a.clock.Now().Sub(mostRecent) > a.getConfig().Agent.RunIntervalDuration() {
 		if _, err := a.runScrape(ctx, nil); err != nil {
 			alog.Error("ensure fresh data: %v", err)
 		}

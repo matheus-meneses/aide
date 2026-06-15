@@ -1,7 +1,6 @@
 package main
 
 import (
-	"aide/cli/internal/platform/config"
 	"encoding/json"
 	"fmt"
 
@@ -17,7 +16,7 @@ func sourceDisableExecute(_ *cobra.Command, args []string) error {
 }
 
 func toggleSource(name string, enabled bool) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}
@@ -45,7 +44,7 @@ func toggleSource(name string, enabled bool) error {
 func sourceSetExecute(_ *cobra.Command, args []string) error {
 	name, key, value := args[0], args[1], args[2]
 
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

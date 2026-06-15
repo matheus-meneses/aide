@@ -148,7 +148,7 @@ func fingerprint(cert *x509.Certificate) string {
 }
 
 func wireCABundle(path string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

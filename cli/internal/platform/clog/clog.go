@@ -5,17 +5,24 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
 
 var levelValues = map[string]int{"debug": 10, "info": 20, "warn": 30, "error": 40}
 
+const maxLogBytes = 5 << 20
+
 var (
 	mu     sync.Mutex
 	out    io.Writer = os.Stderr
 	level            = levelValues["info"]
 	format           = "text"
+
+	logFile  *os.File
+	logPath  string
+	logBytes int64
 )
 
 // Logger is a lightweight, scoped front-end to the shared global sink. All
@@ -41,11 +48,59 @@ func Configure(lvl, fmtName string) {
 	}
 }
 
-// SetOutput redirects log output to w (defaults to os.Stderr).
+// SetOutput redirects console log output to w (defaults to os.Stderr).
 func SetOutput(w io.Writer) {
 	mu.Lock()
 	defer mu.Unlock()
 	out = w
+}
+
+// SetFile mirrors every emitted entry as a JSON line into path, creating the
+// parent directory if needed. The file sink is independent of the console
+// format so the tailing log viewer can always parse it. Subsequent calls
+// replace the previous sink.
+func SetFile(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("creating log dir: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return fmt.Errorf("opening log file: %w", err)
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return fmt.Errorf("stat log file: %w", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if logFile != nil {
+		_ = logFile.Close()
+	}
+	logFile = f
+	logPath = path
+	logBytes = info.Size()
+	return nil
+}
+
+// ClearFile prunes the persisted logs: it truncates the active file and removes
+// the rotated backup. It is a no-op when no file sink is configured.
+func ClearFile() error {
+	mu.Lock()
+	defer mu.Unlock()
+	if logFile == nil {
+		return nil
+	}
+	if err := logFile.Truncate(0); err != nil {
+		return fmt.Errorf("truncating log file: %w", err)
+	}
+	if _, err := logFile.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("seeking log file: %w", err)
+	}
+	logBytes = 0
+	_ = os.Remove(logPath + ".1")
+	return nil
 }
 
 // New returns a logger that tags its lines with the given scope.
@@ -79,26 +134,76 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+// Emit routes a pre-scoped entry from another subsystem (e.g. the runner or a
+// plugin subprocess) through the shared sinks, honoring the global level so
+// everything lands in the same console and file output.
+func Emit(scope, level, msg string) {
+	if scope == "" {
+		scope = "cli"
+	}
+	if _, ok := levelValues[level]; !ok {
+		level = "info"
+	}
+	emit(scope, level, msg)
+}
+
 func emit(scope, lvl, msg string) {
 	ts := time.Now().UTC().Format("2006-01-02T15:04:05Z")
-	broadcast(LogEntry{TS: ts, Level: lvl, Scope: scope, Msg: msg})
 
 	mu.Lock()
 	defer mu.Unlock()
+
+	// The file sink captures every level so the Logs viewer is full-fidelity and
+	// filters client-side; only the console honors the configured threshold.
+	line := marshalEntry(ts, lvl, scope, msg)
+	if logFile != nil {
+		writeFileLocked(line)
+	}
+
 	if levelValues[lvl] < level {
 		return
 	}
+
 	if format == "json" {
-		b, _ := json.Marshal(struct {
-			TS    string `json:"ts"`
-			Level string `json:"level"`
-			Scope string `json:"scope"`
-			Msg   string `json:"msg"`
-		}{TS: ts, Level: lvl, Scope: scope, Msg: msg})
-		fmt.Fprintln(out, string(b))
+		fmt.Fprintln(out, line)
 		return
 	}
 	fmt.Fprintf(out, "%s [%s] %s: %s\n", ts, lvl, scope, msg)
+}
+
+func marshalEntry(ts, lvl, scope, msg string) string {
+	b, _ := json.Marshal(LogEntry{TS: ts, Level: lvl, Scope: scope, Msg: msg})
+	return string(b)
+}
+
+// writeFileLocked appends a JSON line to the active sink and rotates when the
+// configured size cap is exceeded. Callers must hold mu.
+func writeFileLocked(line string) {
+	n, err := io.WriteString(logFile, line+"\n")
+	if err != nil {
+		return
+	}
+	logBytes += int64(n)
+	if logBytes >= maxLogBytes {
+		rotateLocked()
+	}
+}
+
+// rotateLocked renames the active file to a single ".1" backup and reopens a
+// fresh file. Callers must hold mu.
+func rotateLocked() {
+	_ = logFile.Close()
+	_ = os.Remove(logPath + ".1")
+	_ = os.Rename(logPath, logPath+".1")
+
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		logFile = nil
+		logBytes = 0
+		return
+	}
+	logFile = f
+	logBytes = 0
 }
 
 type LogEntry struct {
@@ -106,56 +211,6 @@ type LogEntry struct {
 	Level string `json:"level"`
 	Scope string `json:"scope"`
 	Msg   string `json:"msg"`
-}
-
-const logHistoryCap = 500
-
-var (
-	subMu       sync.RWMutex
-	subscribers = make(map[chan LogEntry]struct{})
-
-	histMu  sync.Mutex
-	history = make([]LogEntry, 0, logHistoryCap)
-)
-
-func Subscribe() (<-chan LogEntry, func()) {
-	ch := make(chan LogEntry, 256)
-	subMu.Lock()
-	subscribers[ch] = struct{}{}
-	subMu.Unlock()
-
-	return ch, func() {
-		subMu.Lock()
-		delete(subscribers, ch)
-		subMu.Unlock()
-		close(ch)
-	}
-}
-
-func Recent() []LogEntry {
-	histMu.Lock()
-	defer histMu.Unlock()
-	out := make([]LogEntry, len(history))
-	copy(out, history)
-	return out
-}
-
-func broadcast(e LogEntry) {
-	histMu.Lock()
-	if len(history) >= logHistoryCap {
-		history = history[1:]
-	}
-	history = append(history, e)
-	histMu.Unlock()
-
-	subMu.RLock()
-	for ch := range subscribers {
-		select {
-		case ch <- e:
-		default:
-		}
-	}
-	subMu.RUnlock()
 }
 
 func (l *Logger) Debug(f string, a ...any) { emit(l.scope, "debug", fmt.Sprintf(f, a...)) }

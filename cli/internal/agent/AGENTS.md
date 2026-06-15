@@ -11,7 +11,7 @@ and serves a web UI with real-time event streaming.
 
 - `agent` (this dir) — `Agent` orchestrator: config, store, runner, LLM client, notifier, event bus,
   tool registry; scheduler, chat, cycle, slash-command exec. Exposes accessors used by `agent/api`
-  (`Bus()`, `HandleChat()`, `ExecuteCommand()`, `PublishProgress()`, `ConfigPath()`, `StoredAPIKey()`).
+  (`Bus()`, `StreamChat()`, `ExecuteCommand()`, `PublishProgress()`, `ConfigPath()`, `StoredAPIKey()`).
 - `agent/events` — **leaf**: `Event`, `EventRing`, `EventBus` (in-memory SSE pub/sub). Imports `platform` only.
 - `agent/llm` — provider-agnostic chat client (`Chat`, `ChatStream`, `Ping`, `Model`); OpenAI/LiteLLM + Anthropic.
 - `agent/tools` — `Tool` / `ToolRegistry` + builtins, behind a `Capabilities` interface implemented by `*Agent`
@@ -41,7 +41,7 @@ Timer tick → runAgentCycle → build context → LLM → parse tool calls → 
 | `cycle.go`        | `runAgentCycle` — context → LLM → tool calls → loop                                  |
 | `think.go`        | LLM reasoning / tool-call parsing                                                    |
 | `context.go` / `prompt.go` | Build system prompt context (state, rules, ack list, briefing schedule)     |
-| `chat.go` / `sessions.go` | `HandleChat`, in-memory chat sessions (`"web-default"`)                       |
+| `chat.go` / `sessions.go` | `StreamChat` (transport-free), in-memory chat sessions (`"web-default"`)      |
 | `exec.go`         | Slash command execution (/scrape, /status, /stats, /ack, /memory)                   |
 | `publish.go`      | `PublishProgress` and SSE event emission helpers                                     |
 | `format.go`       | Output formatting helpers                                                            |
@@ -51,8 +51,8 @@ Code that moved out of this directory: `agent/events` (SSE bus), `agent/tools` (
 `ComputeDiff`), `agent/api` (REST handlers + `Register`), and the top-level `notification` concept
 (`MacNotifier`, `BusNotifier`, `MultiNotifier`, `NoopNotifier`).
 
-The HTTP server, embedded frontend/static serving, `POST /api/open`, and `GET /api/logs` live in the
-`internal/ui/webui` package. `cmd` runs `agent.StartAutonomous(ctx)` and
+The HTTP server, embedded frontend/static serving, `POST /api/open`, and the desktop-only
+`GET`/`DELETE /api/logs` (file tail + prune) live in the `internal/ui/webui` package. `cmd` runs `agent.StartAutonomous(ctx)` and
 `webui.Serve(ctx, webui.Options{RegisterAPI: func(mux){ agentapi.Register(a, mux) }})`, so `agent`
 never imports `ui` and `ui` never imports `agent`.
 

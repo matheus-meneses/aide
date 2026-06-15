@@ -20,9 +20,9 @@ bin/config.yaml
 **/*.egg-info/
 
 # node / frontend build
-cli/internal/webui/frontend/node_modules/
-cli/internal/webui/frontend/dist/*
-!cli/internal/webui/frontend/dist/.gitkeep
+cli/internal/ui/webui/frontend/node_modules/
+cli/internal/ui/webui/frontend/dist/*
+!cli/internal/ui/webui/frontend/dist/.gitkeep
 
 # ide
 *.iml

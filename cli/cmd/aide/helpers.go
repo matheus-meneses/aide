@@ -53,7 +53,17 @@ func requireConfirm(prompt string) error {
 }
 
 func loadConfig() (*config.Config, error) {
-	cfg, err := config.Load(cfgFile)
+	return wrapConfigLoad(config.Load(cfgFile))
+}
+
+// loadRawConfig reads the config without injecting defaults or resolving paths
+// (for edit-then-Save round trips) while sharing loadConfig's friendly
+// not-found error message.
+func loadRawConfig() (*config.Config, error) {
+	return wrapConfigLoad(config.LoadRaw(cfgFile))
+}
+
+func wrapConfigLoad(cfg *config.Config, err error) (*config.Config, error) {
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("no config found at %s — run 'aide init' to set up", cfgFile)

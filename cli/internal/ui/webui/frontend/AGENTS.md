@@ -52,7 +52,7 @@ Single-page React application served by the Go agent HTTP server. Provides real-
 ## Build
 
 ```bash
-cd cli/internal/webui/frontend
+cd cli/internal/ui/webui/frontend
 npm install
 npm run build   # outputs to dist/, embedded by Go at compile time
 ```

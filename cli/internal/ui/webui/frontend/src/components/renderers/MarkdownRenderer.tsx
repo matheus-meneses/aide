@@ -48,7 +48,7 @@ export function MarkdownRenderer({ content, onSuggestionClick }: Props) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => handleExternalClick(e, safeHref)}
-          className="underline text-blue-600 dark:text-blue-400"
+          className="underline text-info"
         >
           {children}
         </a>

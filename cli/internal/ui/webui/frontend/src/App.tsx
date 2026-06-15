@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { Loader2, PanelLeft, PanelLeftClose } from "lucide-react";
+import { AlertTriangle, Loader2, PanelLeft, PanelLeftClose } from "lucide-react";
 import { type AgentEvent, useSSE } from "@/hooks/useSSE";
 import { isDesktopApp } from "@/lib/platform";
 import { TitleBar } from "@/components/TitleBar";
@@ -13,18 +13,42 @@ import { LLMBanner } from "@/components/LLMBanner";
 import { SettingsView, type TabId } from "@/components/settings/SettingsView";
 import SetupWizard from "@/components/setup/SetupWizard";
 import { fetchSetupStatus } from "@/lib/api";
+import { Button, EmptyState } from "@/components/ui";
+import { ShortcutsDialog } from "@/components/ShortcutsDialog";
 
 function App() {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadSetup = useCallback(() => {
+    setSetupError(null);
+    setNeedsSetup(null);
     fetchSetupStatus()
       .then((s) => setNeedsSetup(s.needs_setup))
-      .catch(() => setNeedsSetup(false));
+      .catch((e: unknown) => setSetupError(e instanceof Error ? e.message : String(e)));
   }, []);
 
+  useEffect(() => {
+    loadSetup();
+  }, [loadSetup]);
+
   let content: ReactNode;
-  if (needsSetup === null) {
+  if (setupError !== null) {
+    content = (
+      <div className="flex h-full items-center justify-center p-6">
+        <EmptyState
+          icon={AlertTriangle}
+          title="Couldn't reach the agent"
+          description={setupError}
+          action={
+            <Button size="sm" variant="secondary" onClick={loadSetup}>
+              Retry
+            </Button>
+          }
+        />
+      </div>
+    );
+  } else if (needsSetup === null) {
     content = (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
@@ -54,6 +78,7 @@ function MainApp() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<TabId>("profile");
   const [showLogs, setShowLogs] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
 
   useEffect(() => {
@@ -61,8 +86,14 @@ function MainApp() {
   }, [connected]);
 
   const openSettings = useCallback((tab: TabId = "profile") => {
+    setShowLogs(false);
     setSettingsTab(tab);
     setShowSettings(true);
+  }, []);
+
+  const openLogs = useCallback(() => {
+    setShowSettings(false);
+    setShowLogs(true);
   }, []);
 
   const handleEventClick = useCallback((event: AgentEvent) => {
@@ -86,26 +117,38 @@ function MainApp() {
   }, [isMobile]);
 
   useEffect(() => {
+    const isTextField = (el: EventTarget | null): boolean => {
+      const node = el as HTMLElement | null;
+      if (!node) return false;
+      const tag = node.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || node.isContentEditable;
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === ",") {
         e.preventDefault();
         setShowSettings((v) => !v);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && (e.key === "l" || e.key === "L")) {
+      if (isDesktopApp && (e.metaKey || e.ctrlKey) && (e.key === "l" || e.key === "L")) {
         e.preventDefault();
         setShowLogs((v) => !v);
         return;
       }
+      if (e.key === "?" && !isTextField(e.target)) {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+        return;
+      }
       if (e.key === "Escape") {
-        if (showLogs) setShowLogs(false);
+        if (showShortcuts) setShowShortcuts(false);
+        else if (showLogs) setShowLogs(false);
         else if (showSettings) setShowSettings(false);
         else if (activeSource) setActiveSource(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showSettings, showLogs, activeSource]);
+  }, [showSettings, showLogs, activeSource, showShortcuts]);
 
   return (
     <ChatProvider
@@ -120,7 +163,7 @@ function MainApp() {
         activeSource={activeSource}
         onSourceClick={setActiveSource}
         onOpenSettings={() => openSettings()}
-        onOpenLogs={() => setShowLogs(true)}
+        onOpenLogs={isDesktopApp ? openLogs : undefined}
       />
       {!connected && (
         <div
@@ -132,7 +175,7 @@ function MainApp() {
           {everConnected ? "Reconnecting to the agent…" : "Connecting to the agent…"}
         </div>
       )}
-      {showLogs ? (
+      {isDesktopApp && showLogs ? (
         <div className="flex-1 overflow-hidden">
           <LogsView onClose={() => setShowLogs(false)} />
         </div>
@@ -203,6 +246,7 @@ function MainApp() {
         </div>
       </div>
       )}
+      <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
     </ChatProvider>
   );

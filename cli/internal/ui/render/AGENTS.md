@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Terminal output formatting for CLI reports: run summaries, item reports, diffs, stats with sparklines, source health tables, and run history.
+Terminal output formatting for CLI reports: run summaries, item reports, diffs, source health tables, and run history.
 
 ## Exported API
 
@@ -11,7 +11,6 @@ All exported symbols are functions (no exported types):
 - `PrintRunSummary(*runner.RunResult)` — post-scrape table
 - `PrintReport(*store.Store, member, category)` — open items grouped by source
 - `PrintDiff(*store.Store, source)` — 24h new vs resolved items
-- `PrintStats(*store.Store, source, days)` — historical counts + sparklines
 - `PrintSources(*config.Config, *store.Store)` — source health overview
 - `PrintHistory(*store.Store)` — recent run history with duration
 
@@ -25,7 +24,6 @@ All exported symbols are functions (no exported types):
 ## Pitfalls
 
 - `sourcePlugin` is unexported — new source display logic requires adding a new file in this package.
-- Sparkline characters assume UTF-8 terminal support.
 - ANSI hyperlinks (`\033]8;;url\a`) may not render in all terminals.
 
 ## Relations

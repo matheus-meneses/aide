@@ -35,3 +35,16 @@ func (a *Agent) Bus() *events.EventBus {
 func (a *Agent) PostMessage(content, timestamp string) {
 	a.postToChatAndSSE(content, timestamp)
 }
+
+// NotifyOS surfaces an urgent notification through the OS-level notifier (the
+// desktop app's native notifier when present, osascript/notify-send otherwise).
+// It only fires when the host delivers native notifications; otherwise the web
+// UI already shows the bus event as a browser notification.
+func (a *Agent) NotifyOS(title, body string) {
+	if !a.NativeNotifications() {
+		return
+	}
+	if err := a.notifier.Notify(title, body); err != nil {
+		alog.Warn("os notification: %v", err)
+	}
+}

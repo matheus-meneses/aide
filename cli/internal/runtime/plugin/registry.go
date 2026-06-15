@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/xdg"
 	"aide/cli/internal/security/keychain"
 	"crypto/sha256"
@@ -212,13 +213,13 @@ func MergedIndex(userRegistries []string) (*Index, error) {
 		if len(userRegistries) == 0 {
 			return nil, fmt.Errorf("fetching registry %s: %w", DefaultRegistryURL(), err)
 		}
-		fmt.Fprintf(os.Stderr, "warning: skipping default registry %s: %v\n", DefaultRegistryURL(), err)
+		clog.Warn("skipping default registry %s: %v", DefaultRegistryURL(), err)
 		base = &Index{Plugins: make(map[string]PluginEntry)}
 	}
 	for _, url := range userRegistries {
 		extra, err := FetchIndex(url)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: skipping registry %s: %v\n", url, err)
+			clog.Warn("skipping registry %s: %v", url, err)
 			continue
 		}
 		for name, entry := range extra.Plugins {

@@ -9,7 +9,8 @@ orchestration**.
 ## Packages
 
 - `xdg` — platform-specific data/config/cache paths (`AideHome`, etc.).
-- `clog` — scoped logging sink (stderr/file + live log subscribers).
+- `clog` — scoped logging sink: stderr plus an optional rotating JSON file sink (`SetFile`/`ClearFile`)
+  that the desktop app tails for its Logs view.
 - `config` — `AIDE_HOME`-rooted config loading/saving (`config.Config`).
 
 `config` may import `xdg`. Otherwise these are independent.

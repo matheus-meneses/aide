@@ -3,9 +3,24 @@ package render
 import (
 	"aide/cli/internal/persistence/store"
 	"aide/cli/internal/platform/config"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 	"sort"
+	"strings"
 )
+
+func colorStatus(status string) string {
+	switch strings.ToLower(status) {
+	case "ok", "healthy", "success":
+		return widgets.Success(status)
+	case "error", "fail", "failed", "unhealthy":
+		return widgets.Danger(status)
+	case "stale", "warning", "degraded":
+		return widgets.Warn(status)
+	default:
+		return status
+	}
+}
 
 func printSourcesTable(cfg *config.Config, health []store.SourceHealth) {
 	fprintf("\n Sources\n\n")
@@ -38,7 +53,7 @@ func printSourcesTable(cfg *config.Config, health []store.SourceHealth) {
 		duration := "-"
 
 		if h, ok := healthMap[name]; ok {
-			status = h.Status
+			status = colorStatus(h.Status)
 			if h.LastRun != "" && len(h.LastRun) >= 19 {
 				lastRun = h.LastRun[:19]
 			}

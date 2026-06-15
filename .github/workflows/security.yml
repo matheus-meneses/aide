@@ -33,7 +33,7 @@ jobs:
       - name: govulncheck
         working-directory: cli
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
           "$(go env GOPATH)/bin/govulncheck" $(go list ./... | grep -v '/cmd/aide-app')
 
   gosec:
@@ -53,7 +53,7 @@ jobs:
       - name: gosec
         working-directory: cli
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.27.1
           "$(go env GOPATH)/bin/gosec" $(go list ./... | grep -v '/cmd/aide-app')
 
   osv-scan:
@@ -75,7 +75,7 @@ jobs:
           go install github.com/google/osv-scanner/cmd/osv-scanner@v1.9.2
           "$(go env GOPATH)/bin/osv-scanner" \
             --lockfile cli/go.mod \
-            --lockfile cli/internal/webui/frontend/package-lock.json
+            --lockfile cli/internal/ui/webui/frontend/package-lock.json
 
   npm-audit:
     runs-on: ubuntu-latest
@@ -91,9 +91,9 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: cli/internal/webui/frontend/package-lock.json
+          cache-dependency-path: cli/internal/ui/webui/frontend/package-lock.json
       - name: npm audit
-        working-directory: cli/internal/webui/frontend
+        working-directory: cli/internal/ui/webui/frontend
         run: |
           npm ci
           npm audit --audit-level=high

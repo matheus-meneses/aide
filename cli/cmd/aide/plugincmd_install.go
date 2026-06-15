@@ -117,7 +117,7 @@ func selectPluginInteractive(idx *plugin.Index) (string, error) {
 	if idx == nil || len(idx.Plugins) == 0 {
 		return "", fmt.Errorf("no plugins available — run 'aide plugin update' to refresh the registry")
 	}
-	if !isInteractive() {
+	if !stdinIsTerminal() {
 		return "", fmt.Errorf("no plugin name given; pass a name (e.g. 'aide plugin install jira') or run in a terminal")
 	}
 

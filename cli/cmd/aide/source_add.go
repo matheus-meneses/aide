@@ -11,7 +11,7 @@ import (
 )
 
 func sourceAddExecute(_ *cobra.Command, args []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

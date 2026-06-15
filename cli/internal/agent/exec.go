@@ -69,18 +69,7 @@ func (a *Agent) execMemory() *ExecResult {
 }
 
 func (a *Agent) execStatus() *ExecResult {
-	counts, _ := a.store.Items.CountOpenBySource()
-	health, _ := a.store.Runs.AllHealth()
-	metrics, _ := a.store.Metrics.Latest("")
-	events, _ := a.store.Items.TodayEvents()
-
-	data := map[string]interface{}{
-		"counts":       counts,
-		"health":       health,
-		"metrics":      metrics,
-		"today_events": len(events),
-	}
-	return &ExecResult{Type: "status", Data: data}
+	return &ExecResult{Type: "status", Data: a.StatusSnapshot()}
 }
 
 func (a *Agent) execToday() *ExecResult {

@@ -74,7 +74,8 @@
   }
 
   :focus-visible {
-    outline: none;
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }
 

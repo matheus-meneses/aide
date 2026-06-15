@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Pause, Play, Trash2 } from "lucide-react";
 import { Button, Input, Select } from "@/components/ui";
 import { useLogStream } from "@/hooks/useLogStream";
@@ -36,6 +36,28 @@ export function LogsView({ onClose }: Props) {
   }, [logs, minLevel, filter]);
 
   const { scrollRef, handleScroll } = useChatScroll(filtered);
+
+  const [confirmingPrune, setConfirmingPrune] = useState(false);
+
+  useEffect(() => {
+    if (!confirmingPrune) return;
+    const t = setTimeout(() => setConfirmingPrune(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmingPrune]);
+
+  const prune = useCallback(async () => {
+    if (!confirmingPrune) {
+      setConfirmingPrune(true);
+      return;
+    }
+    setConfirmingPrune(false);
+    try {
+      await fetch("/api/logs", { method: "DELETE" });
+    } catch {
+      // The tail stream reflects the real file state regardless.
+    }
+    clear();
+  }, [confirmingPrune, clear]);
 
   return (
     <div className="flex h-full flex-col">
@@ -84,9 +106,13 @@ export function LogsView({ onClose }: Props) {
             {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             {paused ? "Resume" : "Pause"}
           </Button>
-          <Button variant="outline" size="sm" onClick={clear}>
+          <Button
+            variant={confirmingPrune ? "destructive" : "outline"}
+            size="sm"
+            onClick={() => void prune()}
+          >
             <Trash2 className="h-4 w-4" />
-            Clear
+            {confirmingPrune ? "Confirm" : "Prune"}
           </Button>
         </div>
       </div>

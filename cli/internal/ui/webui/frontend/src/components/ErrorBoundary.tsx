@@ -35,12 +35,20 @@ export class ErrorBoundary extends Component<Props, State> {
             {this.state.error.message}
           </pre>
         </div>
-        <button
-          onClick={() => window.location.reload()}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          Reload
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={this.reset}
+            className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            Try again
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Reload
+          </button>
+        </div>
       </div>
     );
   }

@@ -107,7 +107,7 @@ func configSetExecute(_ *cobra.Command, args []string) error {
 }
 
 func configShowExecute(_ *cobra.Command, _ []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func configShowExecute(_ *cobra.Command, _ []string) error {
 }
 
 func configCheckExecute(_ *cobra.Command, _ []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return fmt.Errorf("config load failed: %w", err)
 	}

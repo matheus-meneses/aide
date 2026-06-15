@@ -30,7 +30,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: npm
-    directory: "/cli/internal/webui/frontend"
+    directory: "/cli/internal/ui/webui/frontend"
     schedule:
       interval: weekly
     groups:

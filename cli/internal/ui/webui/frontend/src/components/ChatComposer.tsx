@@ -46,6 +46,7 @@ export function ChatComposer({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Ask something or type / for commands..."
+          aria-label="Message Aide"
           rows={1}
           disabled={isStreaming}
           className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[38px] max-h-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -60,7 +61,7 @@ export function ChatComposer({
           <button
             type="button"
             onClick={onCancel}
-            className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+            className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
             aria-label="Stop generating"
           >
             <Square className="w-4 h-4" />

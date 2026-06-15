@@ -5,8 +5,6 @@ import (
 	"aide/cli/internal/platform/config"
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +15,6 @@ import (
 type Runner struct {
 	cfg               *config.Config
 	store             *store.Store
-	log               io.Writer
 	logLevel          string
 	logFormat         string
 	tlsVerifyOverride *bool
@@ -25,11 +22,7 @@ type Runner struct {
 }
 
 func New(cfg *config.Config, s *store.Store) *Runner {
-	return &Runner{cfg: cfg, store: s, log: os.Stderr, logLevel: "info", logFormat: "text"}
-}
-
-func NewWithLogger(cfg *config.Config, s *store.Store, log io.Writer) *Runner {
-	return &Runner{cfg: cfg, store: s, log: log, logLevel: "info", logFormat: "text"}
+	return &Runner{cfg: cfg, store: s, logLevel: "info", logFormat: "text"}
 }
 
 func (r *Runner) SetConfig(cfg *config.Config)     { r.cfg = cfg }
@@ -118,13 +111,13 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 
 			for _, m := range metrics {
 				if err := r.store.Metrics.Record(result.Source, m.name, m.value); err != nil {
-					r.logf("[%s] metric store error: %v", result.Source, err)
+					r.errorf("[%s] metric store error: %v", result.Source, err)
 				}
 			}
 
 			if len(members) > 0 {
 				if err := r.store.Team.Upsert(members); err != nil {
-					r.logf("[%s] team upsert error: %v", result.Source, err)
+					r.errorf("[%s] team upsert error: %v", result.Source, err)
 				}
 			} else if len(result.TeamMembers) > 0 {
 				legacy := make([]store.Member, 0, len(result.TeamMembers))
@@ -141,14 +134,14 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 					})
 				}
 				if err := r.store.Team.Upsert(legacy); err != nil {
-					r.logf("[%s] team upsert error: %v", result.Source, err)
+					r.errorf("[%s] team upsert error: %v", result.Source, err)
 				}
 			}
 		}
 
 		runResult.Results = append(runResult.Results, result)
 		if err := r.store.Runs.UpsertHealth(health); err != nil {
-			r.logf("[%s] health upsert error: %v", result.Source, err)
+			r.errorf("[%s] health upsert error: %v", result.Source, err)
 		}
 	}
 
@@ -158,7 +151,7 @@ func (r *Runner) Run(ctx context.Context, filterSources []string) (*RunResult, e
 	run.SourcesOK = runResult.SourcesOK
 	run.SourcesFailed = runResult.SourcesFailed
 	if err := r.store.Runs.Update(run); err != nil {
-		r.logf("failed to update run record: %v", err)
+		r.errorf("failed to update run record: %v", err)
 	}
 
 	return runResult, nil

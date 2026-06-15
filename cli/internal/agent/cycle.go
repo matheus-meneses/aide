@@ -91,7 +91,7 @@ func (a *Agent) saveMemory(history []string) {
 
 	summary := fmt.Sprintf(
 		"Cycle at %s | %s",
-		time.Now().Format("Monday 15:04"),
+		a.clock.Now().Format("Monday 15:04"),
 		strings.Join(history, " | "),
 	)
 
@@ -113,7 +113,7 @@ func (a *Agent) saveMemory(history []string) {
 }
 
 func (a *Agent) observeState() agentState {
-	now := time.Now()
+	now := a.clock.Now()
 	state := agentState{
 		Today: now.Format("Monday, 2006-01-02 (Mon Jan 2)"),
 		Time:  now.Format("15:04"),
@@ -122,7 +122,7 @@ func (a *Agent) observeState() agentState {
 	lastRun := a.getLastRun()
 	if !lastRun.IsZero() {
 		state.LastScrape = lastRun.Format("15:04")
-		state.MinutesSinceScrape = int(time.Since(lastRun).Minutes())
+		state.MinutesSinceScrape = int(now.Sub(lastRun).Minutes())
 	} else {
 		state.LastScrape = "never"
 		state.MinutesSinceScrape = 9999

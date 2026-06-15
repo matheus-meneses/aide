@@ -35,7 +35,7 @@ export async function execCommand(command: string): Promise<ExecResult> {
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    return { type: "text", text: text || `HTTP ${resp.status}` };
+    throw new Error(text.trim() || `HTTP ${resp.status}`);
   }
   return resp.json() as Promise<ExecResult>;
 }

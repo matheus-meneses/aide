@@ -4,8 +4,8 @@ import (
 	"aide/cli/internal/persistence/store"
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/ui/widgets"
 	"context"
-	"fmt"
 )
 
 func sourcePluginMap(cfg *config.Config) map[string]string {
@@ -72,7 +72,7 @@ func (p *pluginRenderer) RenderSection(heading string, items []store.Item) {
 
 	resp, _, err := plugin.Execute(context.Background(), p.manifest, req)
 	if err != nil {
-		fmt.Printf("  [!] plugin render failed (%s): %v\n", p.manifest.Name, err)
+		widgets.PrintError("plugin render failed (%s): %v", p.manifest.Name, err)
 		(&defaultPlugin{}).RenderSection(heading, items)
 		return
 	}

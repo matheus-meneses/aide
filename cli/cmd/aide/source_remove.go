@@ -1,7 +1,6 @@
 package main
 
 import (
-	"aide/cli/internal/platform/config"
 	"aide/cli/internal/security/keychain"
 	"fmt"
 
@@ -10,7 +9,7 @@ import (
 
 func sourceRemoveExecute(_ *cobra.Command, args []string) error {
 	name := args[0]
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

@@ -12,7 +12,7 @@ func Register(a *agent.Agent, mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/events", h.serveSSE)
 	mux.HandleFunc("GET /api/notifications", h.handleNotifications)
-	mux.HandleFunc("POST /api/chat", a.HandleChat())
+	mux.HandleFunc("POST /api/chat", h.handleChat)
 	mux.HandleFunc("GET /api/items", h.handleItems)
 	mux.HandleFunc("GET /api/today", h.handleToday)
 	mux.HandleFunc("GET /api/status", h.handleStatus)

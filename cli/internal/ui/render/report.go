@@ -38,48 +38,6 @@ func PrintDiff(s *store.Store, source string) error {
 	return nil
 }
 
-func PrintStats(s *store.Store, cfg *config.Config, source string, days int) error {
-	openItems, err := s.Items.QueryOpen(source, "", "")
-	if err != nil {
-		return err
-	}
-
-	since := time.Now().UTC().AddDate(0, 0, -days)
-	resolvedCounts, err := s.Items.CountResolvedSince(since)
-	if err != nil {
-		return err
-	}
-
-	history, err := s.Metrics.HistoricalOpenCounts(source, days)
-	if err != nil {
-		return err
-	}
-
-	avgAge, err := s.Metrics.AverageResolutionAge(source, since)
-	if err != nil {
-		return err
-	}
-
-	latestMetrics, err := s.Metrics.Latest(source)
-	if err != nil {
-		return err
-	}
-
-	var metricHistories map[string][]store.DailyMetric
-	if len(latestMetrics) > 0 {
-		metricHistories = make(map[string][]store.DailyMetric)
-		for _, m := range latestMetrics {
-			h, hErr := s.Metrics.History(m.Source, m.Name, days)
-			if hErr == nil && len(h) > 0 {
-				metricHistories[m.Source+"|"+m.Name] = h
-			}
-		}
-	}
-
-	printStatsReport(openItems, resolvedCounts, history, avgAge, days, latestMetrics, metricHistories, sourcePluginMap(cfg))
-	return nil
-}
-
 func PrintSources(cfg *config.Config, s *store.Store) error {
 	health, err := s.Runs.AllHealth()
 	if err != nil {

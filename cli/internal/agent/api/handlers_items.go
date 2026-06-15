@@ -32,20 +32,5 @@ func (h *handlers) handleToday(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *handlers) handleStatus(w http.ResponseWriter, _ *http.Request) {
-	counts, _ := h.a.Store().Items.CountOpenBySource()
-	health, _ := h.a.Store().Runs.AllHealth()
-	metrics, _ := h.a.Store().Metrics.Latest("")
-	events, _ := h.a.Store().Items.TodayEvents()
-
-	if counts == nil {
-		counts = map[string]int{}
-	}
-
-	status := map[string]interface{}{
-		"counts":       counts,
-		"health":       health,
-		"metrics":      metrics,
-		"today_events": len(events),
-	}
-	writeJSON(w, http.StatusOK, status)
+	writeJSON(w, http.StatusOK, h.a.StatusSnapshot())
 }

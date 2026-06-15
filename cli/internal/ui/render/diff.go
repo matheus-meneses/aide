@@ -2,6 +2,8 @@ package render
 
 import (
 	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/ui/widgets"
+	"fmt"
 )
 
 func printDiffReport(newItems, resolved []store.Item) {
@@ -14,7 +16,7 @@ func printDiffReport(newItems, resolved []store.Item) {
 	}
 
 	if len(newItems) > 0 {
-		fprintf("\n + NEW (%d)\n", len(newItems))
+		fprintf("\n %s\n", widgets.Success(fmt.Sprintf("+ NEW (%d)", len(newItems))))
 		for _, item := range newItems {
 			title := stripPrefix(item.Title)
 			if len(title) > 50 {
@@ -25,7 +27,7 @@ func printDiffReport(newItems, resolved []store.Item) {
 	}
 
 	if len(resolved) > 0 {
-		fprintf("\n - RESOLVED (%d)\n", len(resolved))
+		fprintf("\n %s\n", widgets.Muted(fmt.Sprintf("- RESOLVED (%d)", len(resolved))))
 		for _, item := range resolved {
 			title := stripPrefix(item.Title)
 			if len(title) > 50 {

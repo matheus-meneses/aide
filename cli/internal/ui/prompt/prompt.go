@@ -4,6 +4,7 @@ import (
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/security/keychain"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 	"sort"
 	"strings"
@@ -27,13 +28,13 @@ func PickPlugin(mgr *plugin.Manager, configured map[string]config.Source) (strin
 	}
 
 	if len(choices) == 0 {
-		fmt.Println("All installed plugins are already configured.")
-		fmt.Println("\nYour configured sources:")
+		widgets.PrintInfo("All installed plugins are already configured.")
+		widgets.Heading("\nYour configured sources:")
 		for name := range configured {
-			fmt.Printf("  - %s\n", name)
+			widgets.Bullet("%s", name)
 		}
-		fmt.Println("\nInstall new plugins with:")
-		fmt.Println("  aide plugin install <name>")
+		widgets.Heading("\nInstall new plugins with:")
+		widgets.Bullet("aide plugin install <name>")
 		return "", fmt.Errorf("nothing to add")
 	}
 
@@ -152,9 +153,9 @@ func promptObjectList(field plugin.Field, existing any) ([]map[string]any, bool,
 	items := coerceObjectList(existing)
 
 	if len(items) > 0 {
-		fmt.Printf("\nCurrent %s:\n", field.Label)
+		widgets.Heading(fmt.Sprintf("\nCurrent %s:", field.Label))
 		for i, it := range items {
-			fmt.Printf("  %d. %s\n", i+1, summarizeEntry(field, it))
+			widgets.Printf("  %d. %s\n", i+1, summarizeEntry(field, it))
 		}
 		idx, err := Select(fmt.Sprintf("Configure %s", field.Label), []Choice{
 			{Title: "Keep these and add more"},
@@ -279,7 +280,7 @@ func CollectPluginCredentials(m *plugin.Manifest) (map[string]string, error) {
 		return out, nil
 	}
 
-	fmt.Println("\nCredentials:")
+	widgets.Heading("\nCredentials:")
 	for _, cred := range m.Credentials {
 		var value string
 		var err error
@@ -301,7 +302,7 @@ func SetupPluginCredentials(m *plugin.Manifest, sourceName string) error {
 		return nil
 	}
 
-	fmt.Println("\nCredentials:")
+	widgets.Heading("\nCredentials:")
 
 	for _, cred := range m.Credentials {
 		var value string

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Bell, BellOff, CheckCircle, Info, X, AlertTriangle } from "lucide-react";
 import { type AgentEvent, describeEvent } from "@/hooks/useSSE";
 import { type NotificationState } from "@/lib/notifications";
+import { EmptyState, useToast } from "@/components/ui";
 
 interface Props {
   events: AgentEvent[];
@@ -34,19 +35,19 @@ function PermissionBanner({
 
   if (permission === "denied") {
     return (
-      <div className="border-b bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+      <div className="border-b bg-warning/5 px-3 py-2 text-xs text-warning">
         <div className="flex items-start gap-2">
           <BellOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">Notifications are blocked for Aide.</span>
           <button
             onClick={() => setShowHelp((v) => !v)}
-            className="shrink-0 font-medium underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-300"
+            className="shrink-0 font-medium underline underline-offset-2 hover:text-warning/80"
           >
             {showHelp ? "Hide" : "How to enable"}
           </button>
         </div>
         {showHelp && (
-          <ol className="mt-2 list-decimal space-y-1 pl-7 text-amber-600/90 dark:text-amber-400/90">
+          <ol className="mt-2 list-decimal space-y-1 pl-7 text-warning/90">
             <li>Click the lock or site icon to the left of the address bar.</li>
             <li>
               Find <span className="font-medium">Notifications</span> and switch it to{" "}
@@ -90,16 +91,16 @@ function stableKey(event: AgentEvent): string {
 }
 
 function EventIcon({ type, priority }: { type: string; priority?: string }) {
-  if (priority === "urgent") return <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />;
+  if (priority === "urgent") return <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />;
   switch (type) {
     case "notification":
-      return <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />;
+      return <AlertCircle className="w-4 h-4 text-warning shrink-0" />;
     case "briefing":
-      return <Info className="w-4 h-4 text-blue-500 shrink-0" />;
+      return <Info className="w-4 h-4 text-info shrink-0" />;
     case "scrape_complete":
-      return <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />;
+      return <CheckCircle className="w-4 h-4 text-success shrink-0" />;
     case "cycle_error":
-      return <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />;
+      return <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />;
     default:
       return <Bell className="w-4 h-4 text-muted-foreground shrink-0" />;
   }
@@ -108,9 +109,9 @@ function EventIcon({ type, priority }: { type: string; priority?: string }) {
 function priorityClass(priority?: string): string {
   switch (priority) {
     case "urgent":
-      return "border-l-2 border-l-red-500";
+      return "border-l-2 border-l-destructive";
     case "normal":
-      return "border-l-2 border-l-blue-400";
+      return "border-l-2 border-l-info";
     default:
       return "";
   }
@@ -134,8 +135,8 @@ export function NotificationFeed({
   onEnableNotifications,
 }: Props) {
   const [lastSeenCount, setLastSeenCount] = useState(events.length);
-  const [ackError, setAckError] = useState("");
   const feedOpenRef = useRef(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     feedOpenRef.current = true;
@@ -162,12 +163,15 @@ export function NotificationFeed({
     return (
       <div className="flex flex-col h-full">
         <PermissionBanner permission={notificationPermission} onEnable={onEnableNotifications} />
-        <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground text-sm p-4">
-          <Bell className="w-8 h-8 mb-2 opacity-30" />
-          <span>{events.length === 0 ? "No notifications yet" : "All caught up"}</span>
-          <span className="text-xs mt-1">
-            {events.length === 0 ? "Aide events will appear here" : "Acknowledged everything"}
-          </span>
+        <div className="flex flex-1 items-center justify-center p-4">
+          <EmptyState
+            icon={Bell}
+            title={events.length === 0 ? "No notifications yet" : "All caught up"}
+            description={
+              events.length === 0 ? "Aide events will appear here" : "Acknowledged everything"
+            }
+            className="border-0"
+          />
         </div>
       </div>
     );
@@ -178,11 +182,9 @@ export function NotificationFeed({
     const parsed = parseEventData(event.data);
     const fp = parsed.fingerprint || key;
     const { title, body } = displayContent(event);
-    setAckError("");
     onDismiss?.(event);
-    ackAlert(fp, title || body).catch((err: unknown) => {
-      console.warn("failed to acknowledge alert:", err);
-      setAckError("Failed to acknowledge on the server.");
+    ackAlert(fp, title || body).catch(() => {
+      toast("Failed to acknowledge on the server.", "error");
     });
   };
 
@@ -192,11 +194,6 @@ export function NotificationFeed({
       {unreadCount > 0 && (
         <div className="px-3 py-1 text-xs text-primary font-medium border-b bg-primary/5">
           {unreadCount} new
-        </div>
-      )}
-      {ackError && (
-        <div className="px-3 py-1 text-xs text-red-500 border-b bg-red-500/5" role="alert">
-          {ackError}
         </div>
       )}
       <div className="flex flex-col gap-1 p-2 flex-1 overflow-y-auto scrollbar-thin">

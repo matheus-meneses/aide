@@ -1,12 +1,10 @@
 package main
 
 import (
-	"aide/cli/internal/agent"
 	agentapi "aide/cli/internal/agent/api"
-	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/app"
 	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/config"
-	"aide/cli/internal/runtime/runner"
 	"aide/cli/internal/setup/provision"
 	"aide/cli/internal/ui/webui"
 	"aide/cli/internal/ui/widgets"
@@ -87,21 +85,8 @@ func agentScheduleExecute(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func newAgent(cfg *config.Config) (*agent.Agent, *store.Store, error) {
-	s, err := store.Open(cfg.Settings.DataDir)
-	if err != nil {
-		return nil, nil, fmt.Errorf("opening store: %w", err)
-	}
-
-	r := runner.New(cfg, s)
-	r.SetLogLevel(logLevel())
-	r.SetLogFormat(logFormatValue())
-	a, err := agent.New(cfg, s, r)
-	if err != nil {
-		s.Close()
-		return nil, nil, err
-	}
-	return a, s, nil
+func newAgent(cfg *config.Config) (*app.Stack, error) {
+	return app.New(cfg, logLevel(), logFormatValue(), version)
 }
 
 func agentStartExecute(_ *cobra.Command, _ []string) error {
@@ -110,17 +95,16 @@ func agentStartExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	agent.Version = version
-
 	if cfg.Agent.LLMModel == "" || cfg.Agent.LLMURL == "" {
 		widgets.PrintWarn("No AI model configured — autonomous runs are paused. Set one with: aide agent config")
 	}
 
-	a, s, err := newAgent(cfg)
+	stk, err := newAgent(cfg)
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer stk.Close()
+	a := stk.Agent
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -142,13 +126,13 @@ func agentStatusExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	a, s, err := newAgent(cfg)
+	stk, err := newAgent(cfg)
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer stk.Close()
 
-	result, err := a.Status()
+	result, err := stk.Agent.Status()
 	if err != nil {
 		return err
 	}
@@ -173,14 +157,14 @@ func agentAskExecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	a, s, err := newAgent(cfg)
+	stk, err := newAgent(cfg)
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer stk.Close()
 
 	question := strings.Join(args, " ")
-	answer, err := a.Ask(cmd.Context(), question)
+	answer, err := stk.Agent.Ask(cmd.Context(), question)
 	if err != nil {
 		return err
 	}

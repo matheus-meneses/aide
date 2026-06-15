@@ -140,10 +140,10 @@ export function ChatMessage({
   if (needsConfig) {
     return (
       <div className="flex gap-3 px-4 py-3">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15">
-          <Sparkles className="h-4 w-4 text-amber-500" />
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warning/15">
+          <Sparkles className="h-4 w-4 text-warning" />
         </div>
-        <div className="max-w-[80%] space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-sm">
+        <div className="max-w-[80%] space-y-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 text-sm">
           <p className="text-foreground/90">
             I'm not connected to an AI model yet, so I can't answer that. Connect a model and I'll
             start triaging your tasks, meetings, and notifications.
@@ -164,11 +164,11 @@ export function ChatMessage({
   if (isError) {
     return (
       <div className="flex gap-3 px-4 py-3">
-        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-red-500/10">
-          <AlertTriangle className="w-4 h-4 text-red-500" />
+        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-destructive/10">
+          <AlertTriangle className="w-4 h-4 text-destructive" />
         </div>
-        <div className="max-w-[80%] rounded-lg px-3 py-2 text-sm border border-red-500/30 bg-red-500/5">
-          <p className="text-red-600 dark:text-red-400">{content}</p>
+        <div className="max-w-[80%] rounded-lg px-3 py-2 text-sm border border-destructive/30 bg-destructive/5">
+          <p className="text-destructive">{content}</p>
           {onRetry && (
             <button
               onClick={onRetry}

@@ -2,7 +2,6 @@ package agent
 
 import (
 	"aide/cli/internal/agent/events"
-	"aide/cli/internal/notification"
 	"context"
 	"fmt"
 	"strconv"
@@ -94,36 +93,47 @@ func (a *Agent) runBriefingScheduler(ctx context.Context) {
 	defer ticker.Stop()
 
 	firedToday := make(map[string]bool)
-	lastDate := time.Now().Format("2006-01-02")
+	lastDate := a.clock.Now().Format("2006-01-02")
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			now := time.Now()
+			now := a.clock.Now()
 			today := now.Format("2006-01-02")
 			if today != lastDate {
 				firedToday = make(map[string]bool)
 				lastDate = today
 			}
 
-			currentTime := now.Format("15:04")
-			for _, bt := range a.getConfig().Agent.BriefingTimes {
-				if firedToday[bt] {
-					continue
-				}
-				if currentTime == bt || (now.After(parseTime(bt)) && now.Before(parseTime(bt).Add(45*time.Second))) {
-					firedToday[bt] = true
-					a.publishBriefing()
-				}
+			for _, bt := range dueBriefings(now, a.getConfig().Agent.BriefingTimes, firedToday) {
+				firedToday[bt] = true
+				a.publishBriefing()
 			}
 		}
 	}
 }
 
-func parseTime(hhmm string) time.Time {
-	now := time.Now()
+// dueBriefings returns the configured briefing times that should fire at now and
+// have not already fired today. Kept pure so scheduling decisions are unit
+// testable without real timers.
+func dueBriefings(now time.Time, times []string, firedToday map[string]bool) []string {
+	current := now.Format("15:04")
+	var due []string
+	for _, bt := range times {
+		if firedToday[bt] {
+			continue
+		}
+		target := parseTime(now, bt)
+		if current == bt || (now.After(target) && now.Before(target.Add(45*time.Second))) {
+			due = append(due, bt)
+		}
+	}
+	return due
+}
+
+func parseTime(now time.Time, hhmm string) time.Time {
 	parts := strings.SplitN(hhmm, ":", 2)
 	if len(parts) != 2 {
 		return now
@@ -159,9 +169,11 @@ func (a *Agent) publishBriefing() {
 		})
 	}
 
-	notification.Native("Daily Briefing", body.String())
+	if err := a.notifier.Notify("Daily Briefing", body.String()); err != nil {
+		alog.Warn("briefing notification: %v", err)
+	}
 
-	a.postToChatAndSSE(body.String(), time.Now().UTC().Format(time.RFC3339))
+	a.postToChatAndSSE(body.String(), a.clock.Now().UTC().Format(time.RFC3339))
 }
 
 func (a *Agent) checkIdentityOnStart() {
@@ -175,6 +187,6 @@ func (a *Agent) checkIdentityOnStart() {
 		"Use the command: `/whoami set <Your Name> <email> <nickname>`\n\n" +
 		"For example: `/whoami set John Doe john@company.com John`"
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := a.clock.Now().UTC().Format(time.RFC3339)
 	a.postToChatAndSSE(msg, now)
 }
