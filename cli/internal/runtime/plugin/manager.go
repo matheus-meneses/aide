@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 )
+
+var validPluginName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
 // Remove deletes an installed plugin's directory. The name must be a bare
 // plugin name (no path separators) to avoid escaping the plugins root.
 func (mgr *Manager) Remove(name string) error {
-	if name == "" || name != filepath.Base(name) || name == "." || name == ".." {
+	if name == "." || name == ".." || !validPluginName.MatchString(name) {
 		return fmt.Errorf("invalid plugin name %q", name)
 	}
 	dir := filepath.Join(mgr.root, name)
