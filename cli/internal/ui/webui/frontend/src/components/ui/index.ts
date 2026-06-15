@@ -8,4 +8,5 @@ export { Badge } from "./Badge";
 export { Skeleton } from "./Skeleton";
 export { EmptyState } from "./EmptyState";
 export { Dialog, ConfirmDialog } from "./Dialog";
-export { ToastProvider, useToast } from "./Toast";
+export { ToastProvider } from "./Toast";
+export { useToast } from "./toast-context";

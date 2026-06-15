@@ -132,7 +132,7 @@ export function useChatStream(url: string) {
         let buffer = "";
         let pendingEventType = "";
 
-        while (true) {
+        for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
 

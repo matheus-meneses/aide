@@ -13,13 +13,13 @@ interface Props {
 }
 
 function parseTime(detail: string): string {
-  const match = detail?.match(/^(\d{1,2}:\d{2})/);
-  return match ? match[1] : "";
+  const match = detail.match(/^(\d{1,2}:\d{2})/);
+  return match?.[1] ?? "";
 }
 
 function parseDuration(detail: string): string {
-  const match = detail?.match(/\((\d+\s*(?:min|h|hr)(?:s)?)\)/i);
-  return match ? match[1] : "";
+  const match = detail.match(/\((\d+\s*(?:min|h|hr)(?:s)?)\)/i);
+  return match?.[1] ?? "";
 }
 
 function isOutOfOffice(title: string): boolean {
@@ -27,7 +27,7 @@ function isOutOfOffice(title: string): boolean {
 }
 
 export function ScheduleView({ data }: Props) {
-  if (!data || data.length === 0) {
+  if (data.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
         No meetings today.

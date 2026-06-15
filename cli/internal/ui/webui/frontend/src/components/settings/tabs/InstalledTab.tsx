@@ -267,10 +267,12 @@ function SourceForm({
     const config: Record<string, string> = {};
     const credentials: Record<string, string> = {};
     (manifest.config ?? []).forEach((f) => {
-      if (values[f.key]) config[f.key] = values[f.key];
+      const v = values[f.key];
+      if (v) config[f.key] = v;
     });
     (manifest.credentials ?? []).forEach((c) => {
-      if (values[`cred:${c.key}`]) credentials[c.key] = values[`cred:${c.key}`];
+      const v = values[`cred:${c.key}`];
+      if (v) credentials[c.key] = v;
     });
     try {
       if (configured) {

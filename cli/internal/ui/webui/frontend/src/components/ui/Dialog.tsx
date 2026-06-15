@@ -45,17 +45,17 @@ export function Dialog({ open, onClose, title, description, children, className 
       const last = items[items.length - 1];
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
-        last.focus();
+        last?.focus();
       } else if (!e.shiftKey && document.activeElement === last) {
         e.preventDefault();
-        first.focus();
+        first?.focus();
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      previouslyFocused?.focus?.();
+      previouslyFocused?.focus();
     };
   }, [open, onClose]);
 

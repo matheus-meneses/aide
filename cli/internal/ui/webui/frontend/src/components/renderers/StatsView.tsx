@@ -13,8 +13,8 @@ interface Summary {
 
 interface Props {
   data: {
-    summary: Summary;
-    daily: DailyData[];
+    summary?: Summary;
+    daily?: DailyData[];
   };
 }
 
@@ -30,7 +30,7 @@ function dayLabel(dateStr: string): string {
 }
 
 export function StatsView({ data }: Props) {
-  if (!data?.summary) return null;
+  if (!data.summary) return null;
 
   const { summary, daily } = data;
   const maxTotal = Math.max(...(daily || []).map((d) => d.agent + d.chat), 1);

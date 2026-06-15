@@ -25,8 +25,8 @@ function extractSuggestions(content: string): { body: string; suggestions: strin
   const lines = content.trim().split("\n");
   const suggestions: string[] = [];
   while (lines.length > 0) {
-    const last = lines[lines.length - 1].trim();
-    if (/^(Would you|Do you|Should I|Can I|Want me)/.test(last)) {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && /^(Would you|Do you|Should I|Can I|Want me)/.test(last.trim())) {
       suggestions.unshift(lines.pop() ?? "");
     } else break;
   }

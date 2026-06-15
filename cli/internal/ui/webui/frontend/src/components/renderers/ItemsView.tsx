@@ -34,7 +34,7 @@ export function ItemsView({ data }: Props) {
   const [expanded, setExpanded] = useState(false);
   const LIMIT = 10;
 
-  if (!data || data.length === 0) {
+  if (data.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
         No open items.

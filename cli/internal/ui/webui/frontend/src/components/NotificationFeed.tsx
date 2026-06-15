@@ -140,7 +140,6 @@ export function NotificationFeed({
 
   useEffect(() => {
     feedOpenRef.current = true;
-    setLastSeenCount(events.length);
     return () => {
       feedOpenRef.current = false;
     };

@@ -97,8 +97,9 @@ export function shouldNotify(event: AgentEvent): boolean {
 export function flushGroupedBuffer(buffer: AgentEvent[]) {
   if (buffer.length === 0) return;
 
-  if (buffer.length === 1) {
-    showBrowserNotification(buffer[0]);
+  const first = buffer[0];
+  if (buffer.length === 1 && first) {
+    showBrowserNotification(first);
   } else if ("Notification" in window && Notification.permission === "granted") {
     new Notification("Aide", {
       body: `${buffer.length} new updates`,

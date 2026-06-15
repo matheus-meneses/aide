@@ -15,7 +15,7 @@ interface Member {
 
 interface Props {
   data: {
-    members: Member[];
+    members?: Member[];
     view: string;
   };
 }

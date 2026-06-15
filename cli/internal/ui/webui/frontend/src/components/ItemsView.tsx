@@ -10,10 +10,12 @@ interface Props {
   onClose: () => void;
 }
 
+const INFO_PRIORITY = { icon: Info, color: "text-info", bg: "bg-info/10" };
+
 const priorityConfig: Record<string, { icon: typeof AlertTriangle; color: string; bg: string }> = {
   critical: { icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10" },
   warning: { icon: AlertTriangle, color: "text-warning", bg: "bg-warning/10" },
-  info: { icon: Info, color: "text-info", bg: "bg-info/10" },
+  info: INFO_PRIORITY,
   low: { icon: CheckCircle2, color: "text-success", bg: "bg-success/10" },
 };
 
@@ -159,7 +161,7 @@ export function ItemsView({ source, onClose }: Props) {
               </div>
               <div className="space-y-1.5">
                 {groupItems.map((item) => {
-                  const prio = priorityConfig[item.priority] || priorityConfig.info;
+                  const prio = priorityConfig[item.priority] ?? INFO_PRIORITY;
                   const PrioIcon = prio.icon;
                   return (
                     <div

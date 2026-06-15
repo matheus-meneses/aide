@@ -67,16 +67,20 @@ function RichContent({
 }) {
   if (format === "schedule")
     return (
-      <ScheduleView data={(data as unknown as ComponentProps<typeof ScheduleView>["data"]) ?? []} />
+      <ScheduleView
+        data={(data as unknown as ComponentProps<typeof ScheduleView>["data"] | undefined) ?? []}
+      />
     );
   if (format === "items")
-    return <ItemsView data={(data as unknown as ComponentProps<typeof ItemsView>["data"]) ?? []} />;
+    return (
+      <ItemsView data={(data as unknown as ComponentProps<typeof ItemsView>["data"] | undefined) ?? []} />
+    );
   if (format === "status")
     return data ? <StatusView data={data} /> : <EmptyState label="Nothing to report yet." />;
   if (format === "memory") return <MemoryView data={data} text={content} />;
   if (format === "stats")
     return data ? (
-      <StatsView data={data as unknown as ComponentProps<typeof StatsView>["data"]} />
+      <StatsView data={data} />
     ) : (
       <EmptyState label="No usage stats yet." />
     );

@@ -64,7 +64,7 @@ export function SourceStep({
     const m = await api.fetchPluginManifest(name);
     setManifest(m);
     const init: Record<string, string> = {};
-    (m.config ?? []).forEach((f) => (init[f.key] = f.default ?? ""));
+    (m.config ?? []).forEach((f) => (init[f.key] = f.default));
     setValues(init);
   }, []);
 
@@ -116,10 +116,12 @@ export function SourceStep({
     const config: Record<string, string> = {};
     const credentials: Record<string, string> = {};
     (manifest.config ?? []).forEach((f) => {
-      if (values[f.key]) config[f.key] = values[f.key];
+      const v = values[f.key];
+      if (v) config[f.key] = v;
     });
     (manifest.credentials ?? []).forEach((c) => {
-      if (values[`cred:${c.key}`]) credentials[c.key] = values[`cred:${c.key}`];
+      const v = values[`cred:${c.key}`];
+      if (v) credentials[c.key] = v;
     });
     try {
       await api.addSource({ name: manifest.name, config, credentials });

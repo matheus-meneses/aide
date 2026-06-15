@@ -31,8 +31,8 @@ function timeAgo(isoStr: string): string {
 }
 
 export function StatusView({ data }: Props) {
-  const counts = data?.counts || {};
-  const health = data?.health || [];
+  const counts = data.counts || {};
+  const health = data.health || [];
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
   return (
@@ -62,7 +62,7 @@ export function StatusView({ data }: Props) {
         </div>
       )}
 
-      {data?.today_events != null && (
+      {data.today_events != null && (
         <div className="px-3 py-2 border-t text-xs text-muted-foreground">
           {data.today_events} meeting{data.today_events !== 1 ? "s" : ""} today
         </div>
