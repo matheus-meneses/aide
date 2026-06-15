@@ -2,15 +2,17 @@ package main
 
 import (
 	"aide/cli/internal/agent"
-	"aide/cli/internal/clog"
-	"aide/cli/internal/config"
-	"aide/cli/internal/provision"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
-	"aide/cli/internal/ui"
-	"aide/cli/internal/webui"
+	agentapi "aide/cli/internal/agent/api"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/setup/provision"
+	"aide/cli/internal/ui/webui"
+	"aide/cli/internal/ui/widgets"
 	"context"
 	"fmt"
+	"net/http"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -81,7 +83,7 @@ func agentScheduleExecute(cmd *cobra.Command, _ []string) error {
 	if err := provision.SetSchedule(cfgFile, in); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Schedule updated.")
+	widgets.PrintSuccess("Schedule updated.")
 	return nil
 }
 
@@ -111,7 +113,7 @@ func agentStartExecute(_ *cobra.Command, _ []string) error {
 	agent.Version = version
 
 	if cfg.Agent.LLMModel == "" || cfg.Agent.LLMURL == "" {
-		ui.PrintWarn("No AI model configured — autonomous runs are paused. Set one with: aide agent config")
+		widgets.PrintWarn("No AI model configured — autonomous runs are paused. Set one with: aide agent config")
 	}
 
 	a, s, err := newAgent(cfg)
@@ -129,7 +131,9 @@ func agentStartExecute(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
-	return webui.Serve(ctx, webui.Options{Port: startPort, RegisterAPI: a.RegisterRoutes})
+	return webui.Serve(ctx, webui.Options{Port: startPort, RegisterAPI: func(mux *http.ServeMux) {
+		agentapi.Register(a, mux)
+	}})
 }
 
 func agentStatusExecute(_ *cobra.Command, _ []string) error {

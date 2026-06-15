@@ -2,9 +2,9 @@ package main
 
 import (
 	"aide/cli/internal/agent/llm"
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/provision"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/security/keychain"
+	"aide/cli/internal/setup/provision"
 	"fmt"
 	"strings"
 

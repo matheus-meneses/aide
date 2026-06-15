@@ -1,9 +1,9 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
-	"aide/cli/internal/ui"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/ui/widgets"
 	"bufio"
 	"fmt"
 	"os"
@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	whoamiSet       bool
-	whoamiName      string
-	whoamiEmail     string
-	whoamiNickname  string
+	whoamiSet      bool
+	whoamiName     string
+	whoamiEmail    string
+	whoamiNickname string
 )
 
 var whoamiCmd = &cobra.Command{
@@ -42,7 +42,7 @@ func whoamiExecute(_ *cobra.Command, _ []string) error {
 			if err := s.Profile.SetIdentity(whoamiName, whoamiEmail, whoamiNickname); err != nil {
 				return err
 			}
-			ui.PrintSuccess("Identity saved for %s.", whoamiName)
+			widgets.PrintSuccess("Identity saved for %s.", whoamiName)
 			return nil
 		}
 

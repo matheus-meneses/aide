@@ -2,7 +2,7 @@ package agent
 
 import (
 	"aide/cli/internal/agent/llm"
-	"aide/cli/internal/store"
+	"aide/cli/internal/persistence/store"
 	"fmt"
 	"sort"
 	"strings"

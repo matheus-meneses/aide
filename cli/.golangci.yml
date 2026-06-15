@@ -34,6 +34,141 @@ linters:
           deny:
             - pkg: "io/ioutil"
               desc: "Deprecated: use io and os packages"
+        platform:
+          list-mode: lax
+          files:
+            - "**/internal/platform/**"
+          deny:
+            - pkg: "aide/cli/internal/persistence"
+              desc: "platform is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/security"
+              desc: "platform is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/runtime"
+              desc: "platform is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/setup"
+              desc: "platform is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/notification"
+              desc: "platform is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/agent"
+              desc: "platform is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/ui"
+              desc: "platform is an inert leaf: it must not import other concepts"
+        persistence:
+          list-mode: lax
+          files:
+            - "**/internal/persistence/**"
+          deny:
+            - pkg: "aide/cli/internal/platform"
+              desc: "persistence is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/security"
+              desc: "persistence is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/runtime"
+              desc: "persistence is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/setup"
+              desc: "persistence is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/notification"
+              desc: "persistence is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/agent"
+              desc: "persistence is an inert leaf: it must not import other concepts"
+            - pkg: "aide/cli/internal/ui"
+              desc: "persistence is an inert leaf: it must not import other concepts"
+        security:
+          list-mode: lax
+          files:
+            - "**/internal/security/**"
+          deny:
+            - pkg: "aide/cli/internal/persistence"
+              desc: "security may depend on platform only"
+            - pkg: "aide/cli/internal/runtime"
+              desc: "security may depend on platform only"
+            - pkg: "aide/cli/internal/setup"
+              desc: "security may depend on platform only"
+            - pkg: "aide/cli/internal/notification"
+              desc: "security may depend on platform only"
+            - pkg: "aide/cli/internal/agent"
+              desc: "security may depend on platform only"
+            - pkg: "aide/cli/internal/ui"
+              desc: "security may depend on platform only"
+        runtime:
+          list-mode: lax
+          files:
+            - "**/internal/runtime/**"
+          deny:
+            - pkg: "aide/cli/internal/setup"
+              desc: "runtime may depend on platform, persistence and security only"
+            - pkg: "aide/cli/internal/notification"
+              desc: "runtime may depend on platform, persistence and security only"
+            - pkg: "aide/cli/internal/agent"
+              desc: "runtime may depend on platform, persistence and security only"
+            - pkg: "aide/cli/internal/ui"
+              desc: "runtime may depend on platform, persistence and security only"
+        setup:
+          list-mode: lax
+          files:
+            - "**/internal/setup/**"
+          deny:
+            - pkg: "aide/cli/internal/notification"
+              desc: "setup may depend on platform, persistence, security and runtime only"
+            - pkg: "aide/cli/internal/agent"
+              desc: "setup may depend on platform, persistence, security and runtime only"
+            - pkg: "aide/cli/internal/ui"
+              desc: "setup may depend on platform, persistence, security and runtime only"
+        notification:
+          list-mode: lax
+          files:
+            - "**/internal/notification/**"
+          allow:
+            - "aide/cli/internal/agent/events"
+          deny:
+            - pkg: "aide/cli/internal/persistence"
+              desc: "notification may depend on agent/events (leaf) and platform only"
+            - pkg: "aide/cli/internal/security"
+              desc: "notification may depend on agent/events (leaf) and platform only"
+            - pkg: "aide/cli/internal/runtime"
+              desc: "notification may depend on agent/events (leaf) and platform only"
+            - pkg: "aide/cli/internal/setup"
+              desc: "notification may depend on agent/events (leaf) and platform only"
+            - pkg: "aide/cli/internal/agent"
+              desc: "notification may reach agent/events only, never agent core/api/tools"
+            - pkg: "aide/cli/internal/ui"
+              desc: "notification may depend on agent/events (leaf) and platform only"
+        agent-events:
+          list-mode: lax
+          files:
+            - "**/internal/agent/events/**"
+          deny:
+            - pkg: "aide/cli/internal/persistence"
+              desc: "agent/events is a leaf: it may depend on platform only"
+            - pkg: "aide/cli/internal/security"
+              desc: "agent/events is a leaf: it may depend on platform only"
+            - pkg: "aide/cli/internal/runtime"
+              desc: "agent/events is a leaf: it may depend on platform only"
+            - pkg: "aide/cli/internal/setup"
+              desc: "agent/events is a leaf: it may depend on platform only"
+            - pkg: "aide/cli/internal/notification"
+              desc: "agent/events is a leaf: it may depend on platform only"
+            - pkg: "aide/cli/internal/agent"
+              desc: "agent/events is a leaf: it must not import the rest of agent"
+            - pkg: "aide/cli/internal/ui"
+              desc: "agent/events is a leaf: it may depend on platform only"
+        agent:
+          list-mode: lax
+          files:
+            - "**/internal/agent/**"
+          deny:
+            - pkg: "aide/cli/internal/ui"
+              desc: "agent must not depend on ui (presentation sits above agent)"
+        ui:
+          list-mode: lax
+          files:
+            - "**/internal/ui/**"
+          deny:
+            - pkg: "aide/cli/internal/agent"
+              desc: "ui must not depend on agent, setup or notification"
+            - pkg: "aide/cli/internal/setup"
+              desc: "ui must not depend on agent, setup or notification"
+            - pkg: "aide/cli/internal/notification"
+              desc: "ui must not depend on agent, setup or notification"
     gosec:
       excludes:
         - G404
@@ -68,6 +203,17 @@ linters:
           - unparam
           - bodyclose
         path: _test\.go
+      # Taint analysis on hardcoded system-keychain paths and the macOS
+      # `security` CLI — inputs are constants, not attacker-controlled.
+      - linters:
+          - gosec
+        path: internal/runtime/runner/trust_darwin\.go
+        text: "G70[23]"
+      # `go build` of a trusted, locally-resolved plugin source tree.
+      - linters:
+          - gosec
+        path: internal/runtime/plugin/install\.go
+        text: "G204"
     paths:
       - third_party$
       - builtin$

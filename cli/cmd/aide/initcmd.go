@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/bootstrap"
-	"aide/cli/internal/xdg"
+	"aide/cli/internal/platform/xdg"
+	"aide/cli/internal/setup/bootstrap"
 	"fmt"
 
 	"github.com/spf13/cobra"

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"aide/cli/internal/clog"
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/plugin"
-	"aide/cli/internal/prompt"
-	"aide/cli/internal/ui"
+	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/security/keychain"
+	"aide/cli/internal/ui/prompt"
+	"aide/cli/internal/ui/widgets"
 	"context"
 	"errors"
 	"fmt"
@@ -60,7 +60,7 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 		plugin.SetRegistryVersion(pluginRegistryVersion)
 	}
 
-	sp := ui.NewSpinner("Fetching registry…")
+	sp := widgets.NewSpinner("Fetching registry…")
 	sp.Start()
 	idx, idxErr := plugin.MergedIndex(extraRegistries)
 	sp.Stop()
@@ -374,7 +374,7 @@ func promptField(field plugin.Field, indent string) any {
 
 func promptSecret(prompt string) string {
 	fmt.Print(prompt)
-	b, err := term.ReadPassword(int(syscall.Stdin))
+	b, err := term.ReadPassword(int(syscall.Stdin)) //nolint:unconvert // syscall.Stdin is a Handle on Windows; int() keeps this cross-platform
 	fmt.Println()
 	if err != nil {
 		return promptLine("")

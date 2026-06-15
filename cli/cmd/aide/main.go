@@ -1,10 +1,10 @@
 package main
 
 import (
-	"aide/cli/internal/clog"
-	"aide/cli/internal/config"
-	"aide/cli/internal/ui"
-	"aide/cli/internal/updater"
+	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/updater"
+	"aide/cli/internal/ui/widgets"
 	"errors"
 	"os"
 
@@ -93,9 +93,9 @@ Quickstart:
 	SilenceUsage:  true,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		if noColor {
-			ui.SetColorEnabled(false)
+			widgets.SetColorEnabled(false)
 		}
-		ui.SetQuiet(quiet)
+		widgets.SetQuiet(quiet)
 		resolvedLevel, resolvedFormat = resolveLogging(cmd)
 		clog.Configure(resolvedLevel, resolvedFormat)
 	},
@@ -156,6 +156,6 @@ func main() {
 	if errors.Is(err, errCanceled) {
 		os.Exit(130)
 	}
-	ui.PrintError("%s", err)
+	widgets.PrintError("%s", err)
 	os.Exit(1)
 }

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/provision"
-	"aide/cli/internal/ui"
+	"aide/cli/internal/setup/provision"
+	"aide/cli/internal/ui/widgets"
 	"encoding/json"
 
 	"github.com/spf13/cobra"
@@ -60,17 +60,17 @@ func registryListExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	if registryListJSON {
-		enc := json.NewEncoder(ui.Out)
+		enc := json.NewEncoder(widgets.Out)
 		enc.SetIndent("", "  ")
 		return enc.Encode(registries)
 	}
 	if len(registries) == 0 {
-		ui.PrintInfo("No custom registries configured (the default registry is always included).")
+		widgets.PrintInfo("No custom registries configured (the default registry is always included).")
 		return nil
 	}
-	ui.Heading("Registries")
+	widgets.Heading("Registries")
 	for _, r := range registries {
-		ui.Bullet("%s", r)
+		widgets.Bullet("%s", r)
 	}
 	return nil
 }
@@ -79,8 +79,8 @@ func registryAddExecute(_ *cobra.Command, args []string) error {
 	if err := provision.AddRegistry(cfgFile, args[0], registryAddToken); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Registry added: %s", args[0])
-	ui.PrintInfo("Run 'aide registry refresh' to update the catalog.")
+	widgets.PrintSuccess("Registry added: %s", args[0])
+	widgets.PrintInfo("Run 'aide registry refresh' to update the catalog.")
 	return nil
 }
 
@@ -88,7 +88,7 @@ func registryRemoveExecute(_ *cobra.Command, args []string) error {
 	if err := provision.RemoveRegistry(cfgFile, args[0]); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Registry removed: %s", args[0])
+	widgets.PrintSuccess("Registry removed: %s", args[0])
 	return nil
 }
 
@@ -97,6 +97,6 @@ func registryRefreshExecute(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	ui.PrintSuccess("Catalog refreshed: %d plugin(s) available.", count)
+	widgets.PrintSuccess("Catalog refreshed: %d plugin(s) available.", count)
 	return nil
 }

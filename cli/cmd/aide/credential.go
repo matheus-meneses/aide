@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/plugin"
+	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/security/keychain"
 	"bufio"
 	"fmt"
 	"os"
@@ -59,8 +59,7 @@ func resolveCredentialSchema(mgr *plugin.Manager, source string) ([]plugin.Crede
 	if m, err := mgr.Get(source); err == nil && len(m.Credentials) > 0 {
 		return m.Credentials, m.Description
 	}
-	switch source {
-	case "agent":
+	if source == "agent" {
 		return []plugin.Credential{
 			{Key: "llm_api_key", Label: "LLM API key", Secret: true},
 		}, "Autonomous agent LLM endpoint"

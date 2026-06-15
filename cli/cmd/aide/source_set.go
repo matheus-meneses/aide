@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aide/cli/internal/config"
+	"aide/cli/internal/platform/config"
 	"encoding/json"
 	"fmt"
 

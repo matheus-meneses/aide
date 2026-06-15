@@ -1,12 +1,12 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/provision"
-	"aide/cli/internal/render"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
-	"aide/cli/internal/ui"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/setup/provision"
+	"aide/cli/internal/ui/render"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 	"strings"
 
@@ -104,9 +104,7 @@ func parseAliases(s string) []string {
 }
 
 func syncTeamToStore() error {
-	return withStore(func(cfg *config.Config, s *store.Store) error {
-		return runner.SyncTeamFromConfig(cfg, s)
-	})
+	return withStore(runner.SyncTeamFromConfig)
 }
 
 func teamAddExecute(_ *cobra.Command, args []string) error {
@@ -136,7 +134,7 @@ func teamAddExecute(_ *cobra.Command, args []string) error {
 	if err := syncTeamToStore(); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Added team member %q.", name)
+	widgets.PrintSuccess("Added team member %q.", name)
 	return nil
 }
 
@@ -186,7 +184,7 @@ func teamEditExecute(cmd *cobra.Command, args []string) error {
 	if err := syncTeamToStore(); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Updated team member %q.", name)
+	widgets.PrintSuccess("Updated team member %q.", name)
 	return nil
 }
 
@@ -214,7 +212,7 @@ func teamRemoveExecute(_ *cobra.Command, args []string) error {
 	if err := syncTeamToStore(); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Removed team member %q.", name)
+	widgets.PrintSuccess("Removed team member %q.", name)
 	return nil
 }
 

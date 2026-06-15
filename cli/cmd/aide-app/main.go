@@ -2,12 +2,13 @@ package main
 
 import (
 	"aide/cli/internal/agent"
-	"aide/cli/internal/bootstrap"
-	"aide/cli/internal/clog"
-	"aide/cli/internal/config"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
-	"aide/cli/internal/webui"
+	agentapi "aide/cli/internal/agent/api"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/setup/bootstrap"
+	"aide/cli/internal/ui/webui"
 	"context"
 	"fmt"
 	"net"
@@ -67,7 +68,9 @@ func main() {
 		}
 	}()
 	go func() {
-		if err := webui.Serve(ctx, webui.Options{Port: port, NoBrowser: true, RegisterAPI: ag.RegisterRoutes}); err != nil {
+		if err := webui.Serve(ctx, webui.Options{Port: port, NoBrowser: true, RegisterAPI: func(mux *http.ServeMux) {
+			agentapi.Register(ag, mux)
+		}}); err != nil {
 			clog.Error("web server stopped: %v", err)
 		}
 	}()

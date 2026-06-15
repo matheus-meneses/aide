@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/security/keychain"
 	"fmt"
 
 	"github.com/spf13/cobra"

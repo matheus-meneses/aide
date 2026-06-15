@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/events"
 	"context"
 	"fmt"
 	"strings"
@@ -67,7 +68,7 @@ func (a *Agent) runAgentCycle(ctx context.Context) {
 			history = append(history, entry)
 			alog.Error("tool error: %v", err)
 			if a.bus != nil {
-				a.bus.Publish(Event{
+				a.bus.Publish(events.Event{
 					Type:     "cycle_error",
 					Priority: "silent",
 					Data:     fmt.Sprintf(`{"tool":%q,"error":%q}`, call.Tool, err.Error()),

@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/events"
+	"aide/cli/internal/notification"
 	"context"
 	"fmt"
 	"strconv"
@@ -133,31 +135,31 @@ func parseTime(hhmm string) time.Time {
 
 func (a *Agent) publishBriefing() {
 	counts, _ := a.store.Items.CountOpenBySource()
-	events, _ := a.store.Items.TodayEvents()
+	todayEvents, _ := a.store.Items.TodayEvents()
 
 	var body strings.Builder
 	body.WriteString("Good morning! Here's your briefing:\n")
-	if len(events) > 0 {
-		fmt.Fprintf(&body, "- %d meetings today\n", len(events))
+	if len(todayEvents) > 0 {
+		fmt.Fprintf(&body, "- %d meetings today\n", len(todayEvents))
 	}
 	total := 0
 	for source, count := range counts {
 		fmt.Fprintf(&body, "- %d open %s items\n", count, source)
 		total += count
 	}
-	if total == 0 && len(events) == 0 {
+	if total == 0 && len(todayEvents) == 0 {
 		body.WriteString("- No open items or meetings. Clean slate!")
 	}
 
 	if a.bus != nil {
-		a.bus.Publish(Event{
+		a.bus.Publish(events.Event{
 			Type:     "briefing",
 			Priority: "normal",
 			Data:     fmt.Sprintf(`{"title":"Daily Briefing","body":%q}`, body.String()),
 		})
 	}
 
-	nativeNotify("Daily Briefing", body.String())
+	notification.Native("Daily Briefing", body.String())
 
 	a.postToChatAndSSE(body.String(), time.Now().UTC().Format(time.RFC3339))
 }

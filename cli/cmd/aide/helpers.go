@@ -1,9 +1,9 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
-	"aide/cli/internal/ui"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/ui/widgets"
 	"bufio"
 	"errors"
 	"fmt"
@@ -31,7 +31,7 @@ func confirm(prompt string) bool {
 		return true
 	}
 	if !stdinIsTerminal() {
-		ui.PrintError("%q needs confirmation; re-run with --yes for non-interactive use", prompt)
+		widgets.PrintError("%q needs confirmation; re-run with --yes for non-interactive use", prompt)
 		return false
 	}
 	fmt.Printf("%s [y/N]: ", prompt)

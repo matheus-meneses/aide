@@ -2,8 +2,8 @@ package main
 
 import (
 	"aide/cli/internal/agent"
-	"aide/cli/internal/clog"
-	"aide/cli/internal/store"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/clog"
 	"context"
 
 	"github.com/wailsapp/wails/v3/pkg/application"

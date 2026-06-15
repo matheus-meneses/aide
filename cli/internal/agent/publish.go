@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/events"
 	"fmt"
 	"time"
 )
@@ -12,10 +13,18 @@ func (a *Agent) postToChatAndSSE(content, timestamp string) {
 	}
 
 	if a.bus != nil {
-		a.bus.Publish(Event{
+		a.bus.Publish(events.Event{
 			Type: "chat_message",
 			Data: fmt.Sprintf(`{"role":"assistant","content":%q,"timestamp":%q}`, content, timestamp),
 		})
+	}
+}
+
+// PublishProgress emits a progress event on the bus, used by the HTTP API
+// adapter for long-running setup/install operations.
+func (a *Agent) PublishProgress(eventType, msg string) {
+	if a.bus != nil {
+		a.bus.Publish(events.Event{Type: eventType, Data: fmt.Sprintf(`{"message":%q}`, msg)})
 	}
 }
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/plugin"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/plugin"
 	"fmt"
 	"sort"
 

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"aide/cli/internal/clog"
-	"aide/cli/internal/plugin"
-	"aide/cli/internal/provision"
-	"aide/cli/internal/ui"
+	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/setup/provision"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -81,7 +81,7 @@ func pluginRemoveExecute(_ *cobra.Command, args []string) error {
 	if err := provision.UninstallPlugin(cfgFile, name); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Plugin '%s' removed.", name)
+	widgets.PrintSuccess("Plugin '%s' removed.", name)
 	return nil
 }
 

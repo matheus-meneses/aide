@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/plugin"
-	"aide/cli/internal/runner"
+	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/runtime/runner"
 	"archive/tar"
 	"compress/gzip"
 	"context"
@@ -214,7 +214,7 @@ func devNewExecute(_ *cobra.Command, args []string) error {
 		targetDir = "./" + name
 	}
 	if entries, statErr := os.ReadDir(targetDir); statErr == nil && len(entries) > 0 {
-		if !assumeYes && !(isInteractive() && confirm(fmt.Sprintf("%s is not empty — write into it?", targetDir))) {
+		if !assumeYes && (!isInteractive() || !confirm(fmt.Sprintf("%s is not empty — write into it?", targetDir))) {
 			return fmt.Errorf("target directory %s is not empty (use --yes to overwrite)", targetDir)
 		}
 	}
@@ -234,7 +234,7 @@ func devNewExecute(_ *cobra.Command, args []string) error {
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 			return fmt.Errorf("creating dir for %s: %w", fn, err)
 		}
-		if err := os.WriteFile(full, []byte(files[fn]), 0o644); err != nil {
+		if err := os.WriteFile(full, []byte(files[fn]), 0o600); err != nil {
 			return fmt.Errorf("writing %s: %w", fn, err)
 		}
 		created = append(created, full)
@@ -668,6 +668,12 @@ func createTarGz(srcDir, outPath string) error {
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
+	root, err := os.OpenRoot(srcDir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
 	return filepath.Walk(srcDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -700,7 +706,7 @@ func createTarGz(srcDir, outPath string) error {
 		if info.IsDir() {
 			return nil
 		}
-		f, err := os.Open(path)
+		f, err := root.Open(rel)
 		if err != nil {
 			return err
 		}

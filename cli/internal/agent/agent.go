@@ -1,12 +1,15 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/events"
 	"aide/cli/internal/agent/llm"
-	"aide/cli/internal/clog"
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
+	"aide/cli/internal/agent/tools"
+	"aide/cli/internal/notification"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/security/keychain"
 	"context"
 	"fmt"
 	"strings"
@@ -39,9 +42,9 @@ type Agent struct {
 
 	store    *store.Store
 	runner   *runner.Runner
-	notifier Notifier
-	tools    *ToolRegistry
-	bus      *EventBus
+	notifier notification.Notifier
+	tools    *tools.ToolRegistry
+	bus      *events.EventBus
 	sessions *sessionManager
 
 	scrapeMu sync.Mutex
@@ -74,9 +77,9 @@ func (a *Agent) NativeNotifications() bool {
 // SetNativeNotifier routes OS notifications through the given notifier (while
 // keeping the in-app activity feed via the event bus) and flags native delivery
 // so the web UI suppresses its own browser notifications.
-func (a *Agent) SetNativeNotifier(n Notifier) {
+func (a *Agent) SetNativeNotifier(n notification.Notifier) {
 	if a.bus != nil {
-		a.SetNotifier(NewMultiNotifier(&BusNotifier{Bus: a.bus}, n))
+		a.SetNotifier(notification.NewMultiNotifier(&notification.BusNotifier{Bus: a.bus}, n))
 	} else {
 		a.SetNotifier(n)
 	}
@@ -97,6 +100,22 @@ func (a *Agent) configPathOrDefault() string {
 		return p
 	}
 	return config.DefaultConfigPath()
+}
+
+// ConfigPath returns the active config path, used by the HTTP API adapter.
+func (a *Agent) ConfigPath() string {
+	return a.configPathOrDefault()
+}
+
+// StoredAPIKey returns the configured LLM API key, falling back to the keychain.
+func (a *Agent) StoredAPIKey() string {
+	if cfg := a.getConfig(); cfg != nil && cfg.Agent.LLMAPIKey != "" {
+		return cfg.Agent.LLMAPIKey
+	}
+	if cred, err := keychain.GetAll("agent"); err == nil {
+		return cred.Fields["llm_api_key"]
+	}
+	return ""
 }
 
 func (a *Agent) getConfig() *config.Config {
@@ -209,11 +228,11 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 		store:    s,
 		runner:   r,
 		llm:      client,
-		notifier: &NoopNotifier{},
+		notifier: &notification.NoopNotifier{},
 		sessions: newSessionManager(time.Hour),
 	}
-	a.bus = NewEventBus()
-	a.SetNotifier(NewMultiNotifier(&BusNotifier{Bus: a.bus}, &MacNotifier{}))
+	a.bus = events.NewEventBus()
+	a.SetNotifier(notification.NewMultiNotifier(&notification.BusNotifier{Bus: a.bus}, &notification.MacNotifier{}))
 	a.registerDefaultTools()
 
 	if err := runner.SyncTeamFromConfig(cfg, s); err != nil {
@@ -223,7 +242,7 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 	return a, nil
 }
 
-func (a *Agent) SetNotifier(n Notifier) {
+func (a *Agent) SetNotifier(n notification.Notifier) {
 	a.notifier = n
 }
 

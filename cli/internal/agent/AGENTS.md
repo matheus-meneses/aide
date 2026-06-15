@@ -5,17 +5,21 @@
 Autonomous AI agent that runs on a timer, uses LLM tool-calling to decide what actions to take (scrape, diff, notify),
 and serves a web UI with real-time event streaming.
 
-## Key Types
+## Subpackages
 
-- `Agent` — Central orchestrator: holds config, store, runner, LLM client, notifier, event bus, tool registry.
-- `llm.LLM` (subpackage `internal/agent/llm`) — provider-agnostic chat client (`Chat`, `ChatStream`, `Ping`, `Model`)
-  with OpenAI/LiteLLM and Anthropic implementations; built via `llm.NewLLM`.
-- `EventBus` — In-memory pub/sub for SSE events with subscriber channels.
-- `Event` — SSE event with type, data (JSON string), and timestamp.
-- `ToolRegistry` / `Tool` — Agent's available actions (scrape, diff, notify_user, send_message, check_items,
-  check_today, check_health, done).
-- `Notifier` interface — `MacNotifier`, `BusNotifier`, `MultiNotifier`, `NoopNotifier`.
-- `StatusResult` — Agent health check response.
+`agent` is the concept domain root. It is split into cohesive subpackages so the core stays small:
+
+- `agent` (this dir) — `Agent` orchestrator: config, store, runner, LLM client, notifier, event bus,
+  tool registry; scheduler, chat, cycle, slash-command exec. Exposes accessors used by `agent/api`
+  (`Bus()`, `HandleChat()`, `ExecuteCommand()`, `PublishProgress()`, `ConfigPath()`, `StoredAPIKey()`).
+- `agent/events` — **leaf**: `Event`, `EventRing`, `EventBus` (in-memory SSE pub/sub). Imports `platform` only.
+- `agent/llm` — provider-agnostic chat client (`Chat`, `ChatStream`, `Ping`, `Model`); OpenAI/LiteLLM + Anthropic.
+- `agent/tools` — `Tool` / `ToolRegistry` + builtins, behind a `Capabilities` interface implemented by `*Agent`
+  (avoids a core↔tools cycle).
+- `agent/api` — HTTP REST handlers + `Register(a *agent.Agent, mux *http.ServeMux)`; mounted by `webui` via `RegisterAPI`.
+
+Notifications moved out to the top-level `notification` concept (`MacNotifier`, `BusNotifier`, `MultiNotifier`,
+`NoopNotifier`), which depends on the `agent/events` leaf.
 
 ## Architecture
 
@@ -29,23 +33,28 @@ Timer tick → runAgentCycle → build context → LLM → parse tool calls → 
 
 ## Files
 
-| File          | Responsibility                                                                         |
-|---------------|----------------------------------------------------------------------------------------|
-| `agent.go`    | Agent struct, constructor (`New`), status check, LLM wiring                            |
-| `scheduler.go`| `StartAutonomous(ctx)` — schedule + briefing loops; blocks on `ctx.Done()` (no HTTP)   |
-| `context.go`  | Builds system prompt context (state, rules, ack list, briefing schedule)               |
-| `routes.go`   | `RegisterRoutes(mux)` — domain + admin API; mounted by `webui.Serve` via `RegisterAPI` |
-| `tools.go`    | Tool definitions and `postToChatAndSSE`                                                |
-| `handlers_*.go` | REST handlers (chat, items, today, status, ack, sessions, stats, memory, whoami, …)  |
-| `sse.go`      | EventBus (pub/sub), ServeSSE, BusNotifier                                              |
-| `notify.go`   | MacNotifier (osascript), MultiNotifier, NoopNotifier                                   |
-| `llm/`        | Provider-agnostic LLM clients (subpackage; `llm.go`, `openai.go`, `anthropic.go`)      |
-| `exec.go`     | Slash command execution (/scrape, /status, /stats, /ack, /memory)                      |
-| `diff.go`     | ComputeDiff between scrape runs                                                        |
+| File              | Responsibility                                                                       |
+|-------------------|--------------------------------------------------------------------------------------|
+| `agent.go`        | Agent struct, constructor (`New`), status check, LLM wiring                          |
+| `capabilities.go` | Accessors exposed to `agent/tools` and `agent/api` (`Bus`, `ConfigPath`, …)          |
+| `scheduler.go`    | `StartAutonomous(ctx)` — schedule + briefing loops; blocks on `ctx.Done()` (no HTTP) |
+| `cycle.go`        | `runAgentCycle` — context → LLM → tool calls → loop                                  |
+| `think.go`        | LLM reasoning / tool-call parsing                                                    |
+| `context.go` / `prompt.go` | Build system prompt context (state, rules, ack list, briefing schedule)     |
+| `chat.go` / `sessions.go` | `HandleChat`, in-memory chat sessions (`"web-default"`)                       |
+| `exec.go`         | Slash command execution (/scrape, /status, /stats, /ack, /memory)                   |
+| `publish.go`      | `PublishProgress` and SSE event emission helpers                                     |
+| `format.go`       | Output formatting helpers                                                            |
+| `version.go`      | Build-time `Version` variable                                                        |
 
-The HTTP server, embedded frontend/static serving, `POST /api/open`, and `GET /api/logs` live in the `internal/webui`
-package. `cmd` runs `agent.StartAutonomous(ctx)` and `webui.Serve(ctx, webui.Options{RegisterAPI: agent.RegisterRoutes})`,
-so `agent` never imports `webui` and `webui` never imports `agent`.
+Code that moved out of this directory: `agent/events` (SSE bus), `agent/tools` (registry + builtins +
+`ComputeDiff`), `agent/api` (REST handlers + `Register`), and the top-level `notification` concept
+(`MacNotifier`, `BusNotifier`, `MultiNotifier`, `NoopNotifier`).
+
+The HTTP server, embedded frontend/static serving, `POST /api/open`, and `GET /api/logs` live in the
+`internal/ui/webui` package. `cmd` runs `agent.StartAutonomous(ctx)` and
+`webui.Serve(ctx, webui.Options{RegisterAPI: func(mux){ agentapi.Register(a, mux) }})`, so `agent`
+never imports `ui` and `ui` never imports `agent`.
 
 ## Important Invariants
 
@@ -69,5 +78,7 @@ so `agent` never imports `webui` and `webui` never imports `agent`.
 
 ## Relations
 
-- Depends on: `config`, `store`, `runner`, `keychain`, `updater`, `agent/llm`
-- Used by: `cmd/aide` (agent command), `cmd/aide-app` (desktop); `webui` mounts its routes via the `RegisterAPI` registrar
+- Depends on: `platform/config`, `platform/clog`, `persistence/store`, `runtime/runner`,
+  `security/keychain`, `notification`, `agent/events`, `agent/llm`, `agent/tools`
+- Must **not** import: `ui`, `setup` (enforced by depguard; `agent/api` may import `setup`)
+- Used by: `cmd/aide`, `cmd/aide-app`; `ui/webui` mounts `agent/api` routes via the `RegisterAPI` registrar

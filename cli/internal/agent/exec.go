@@ -21,7 +21,7 @@ type ExecResult struct {
 	Text string      `json:"text,omitempty"`
 }
 
-func (a *Agent) executeCommand(ctx context.Context, command string) *ExecResult {
+func (a *Agent) ExecuteCommand(ctx context.Context, command string) *ExecResult {
 	parts := strings.Fields(command)
 	if len(parts) == 0 {
 		return &ExecResult{Type: "text", Text: "empty command"}

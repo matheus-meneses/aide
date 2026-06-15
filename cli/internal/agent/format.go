@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"aide/cli/internal/store"
+	"aide/cli/internal/persistence/store"
 	"fmt"
 	"time"
 )
@@ -27,20 +27,6 @@ func formatItem(item store.Item) string {
 		line += " | link: " + item.Link
 	}
 	return line + "\n"
-}
-
-func formatToolItem(item store.Item) string {
-	line := fmt.Sprintf("[%s/%s] %s", item.Source, item.Category, item.Title)
-	if item.EntryDate != "" {
-		line += " (" + humanizeDate(item.EntryDate) + ")"
-	}
-	if item.Detail != "" {
-		line += " | " + item.Detail
-	}
-	if item.Link != "" {
-		line += " | link: " + item.Link
-	}
-	return line
 }
 
 func humanizeDate(dateStr string) string {

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/xdg"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/platform/xdg"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
