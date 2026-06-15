@@ -1,9 +1,9 @@
 package agent
 
 import (
-	"fmt"
-	"io/fs"
 	"net/http"
+
+	"aide/cli/internal/webui"
 )
 
 func (a *Agent) registerRoutes(mux *http.ServeMux) {
@@ -49,26 +49,5 @@ func (a *Agent) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/registries/remove", a.handleRemoveRegistry)
 	mux.HandleFunc("POST /api/registries/refresh", a.handleRefreshRegistries)
 
-	a.registerStaticRoutes(mux)
-}
-
-func (a *Agent) registerStaticRoutes(mux *http.ServeMux) {
-	distFS, err := fs.Sub(frontendFS, "frontend/dist")
-	if err != nil {
-		mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", "text/html")
-			fmt.Fprint(w, "<h1>Aide</h1><p>Frontend not built. Run: cd cli/internal/agent/frontend && npm run build</p>")
-		})
-		return
-	}
-
-	fileServer := http.FileServer(http.FS(distFS))
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" && r.URL.Path != "/index.html" {
-			if _, err := fs.Stat(distFS, r.URL.Path[1:]); err != nil {
-				r.URL.Path = "/"
-			}
-		}
-		fileServer.ServeHTTP(w, r)
-	})
+	webui.RegisterRoutes(mux)
 }

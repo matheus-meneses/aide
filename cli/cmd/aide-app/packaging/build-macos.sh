@@ -19,7 +19,14 @@ OUT_DIR="$BUILD_DIR/bin"
 APP="$OUT_DIR/Aide.app"
 
 echo "==> Building frontend"
-( cd "$CLI_DIR/internal/agent/frontend" && npm run build )
+(
+  cd "$CLI_DIR/internal/webui/frontend"
+  if [ ! -d node_modules ]; then
+    echo "    installing frontend dependencies"
+    npm ci
+  fi
+  npm run build
+)
 
 echo "==> Building universal Go binary ($VERSION)"
 rm -rf "$OUT_DIR"

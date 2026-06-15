@@ -3,16 +3,37 @@ package main
 import (
 	"aide/cli/internal/config"
 	"aide/cli/internal/store"
+	"aide/cli/internal/ui"
 	"bufio"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 var stdinReader = bufio.NewReader(os.Stdin)
 
+// errCanceled signals that the user declined a prompt; main() maps it to a
+// non-zero exit without printing a scary error line.
+var errCanceled = errors.New("canceled")
+
+func stdinIsTerminal() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// confirm asks a yes/no question. It returns true immediately when --yes is
+// set, and refuses (returns false) when stdin is not a terminal and --yes was
+// not given, so destructive actions never silently proceed or hang in scripts.
 func confirm(prompt string) bool {
+	if assumeYes {
+		return true
+	}
+	if !stdinIsTerminal() {
+		ui.PrintError("%q needs confirmation; re-run with --yes for non-interactive use", prompt)
+		return false
+	}
 	fmt.Printf("%s [y/N]: ", prompt)
 	line, err := stdinReader.ReadString('\n')
 	if err != nil {
@@ -20,6 +41,15 @@ func confirm(prompt string) bool {
 	}
 	answer := strings.ToLower(strings.TrimSpace(line))
 	return answer == "y" || answer == "yes"
+}
+
+// requireConfirm is like confirm but returns errCanceled when the user
+// declines, so callers can propagate a non-zero exit code.
+func requireConfirm(prompt string) error {
+	if confirm(prompt) {
+		return nil
+	}
+	return errCanceled
 }
 
 func loadConfig() (*config.Config, error) {

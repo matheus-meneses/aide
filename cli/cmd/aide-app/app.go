@@ -45,7 +45,10 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 		Height:    800,
 		MinWidth:  720,
 		MinHeight: 520,
-		URL:       url,
+		URL:       url + "/?desktop=1",
+		Mac: application.MacWindow{
+			TitleBar: application.MacTitleBarHidden,
+		},
 	})
 
 	// Close hides the window and keeps the app resident in the menu bar; quit
@@ -67,17 +70,25 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 		window.Show()
 		window.Focus()
 	})
+	menu.Add("Start at Login (toggle)").OnClick(func(*application.Context) {
+		enabled, err := app.Autostart.IsEnabled()
+		if err != nil {
+			clog.Warn("autostart: %v", err)
+			return
+		}
+		if enabled {
+			if err := app.Autostart.Disable(); err != nil {
+				clog.Warn("autostart disable: %v", err)
+			}
+		} else if err := app.Autostart.Enable(); err != nil {
+			clog.Warn("autostart enable: %v", err)
+		}
+	})
 	menu.AddSeparator()
 	menu.Add("Quit Aide").OnClick(func(*application.Context) {
 		app.Quit()
 	})
 	tray.SetMenu(menu)
-
-	if enabled, err := app.Autostart.IsEnabled(); err == nil && !enabled {
-		if err := app.Autostart.Enable(); err != nil {
-			clog.Warn("autostart: %v", err)
-		}
-	}
 
 	app.OnShutdown(func() {
 		shutdown()

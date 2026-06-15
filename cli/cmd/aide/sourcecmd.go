@@ -4,8 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var sourceRemoveYes bool
-
 var sourceCmd = &cobra.Command{
 	Use:   "source",
 	Short: "Manage configured sources",
@@ -65,8 +63,6 @@ var sourceSetCmd = &cobra.Command{
 }
 
 func init() {
-	sourceRemoveCmd.Flags().BoolVar(&sourceRemoveYes, "yes", false, "Skip confirmation prompt")
-
 	sourceCmd.AddCommand(sourceListCmd)
 	sourceCmd.AddCommand(sourceAddCmd)
 	sourceCmd.AddCommand(sourceConfigureCmd)

@@ -28,7 +28,6 @@ var pluginListCmd = &cobra.Command{
 }
 
 var pluginInstallLocal string
-var pluginInstallYes bool
 
 var pluginInstallCmd = &cobra.Command{
 	Use:   "install [name[@version]]",
@@ -36,8 +35,6 @@ var pluginInstallCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  pluginInstallExecute,
 }
-
-var pluginRemoveYes bool
 
 var pluginRemoveCmd = &cobra.Command{
 	Use:   "remove <name>",
@@ -47,9 +44,10 @@ var pluginRemoveCmd = &cobra.Command{
 }
 
 var pluginUpdateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Refresh the registry cache",
-	RunE:  pluginUpdateExecute,
+	Use:     "update",
+	Short:   "Refresh the registry cache (alias of 'aide registry refresh')",
+	Aliases: []string{"refresh"},
+	RunE:    pluginUpdateExecute,
 }
 
 var pluginAuthCmd = &cobra.Command{
@@ -64,10 +62,8 @@ func init() {
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryVersion, "registry-version", "", "registry release version/tag to pull the index from (default: latest)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallLocal, "local", "", "install from a local directory instead of the registry")
-	pluginInstallCmd.Flags().BoolVar(&pluginInstallYes, "yes", false, "skip confirmation prompt (local installs only)")
 	pluginUpdateCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
 	pluginUpdateCmd.Flags().StringVar(&pluginRegistryVersion, "registry-version", "", "registry release version/tag to pull the index from (default: latest)")
-	pluginRemoveCmd.Flags().BoolVar(&pluginRemoveYes, "yes", false, "skip confirmation")
 
 	pluginCmd.AddCommand(pluginListCmd)
 	pluginCmd.AddCommand(pluginInstallCmd)
@@ -79,9 +75,8 @@ func init() {
 
 func pluginRemoveExecute(_ *cobra.Command, args []string) error {
 	name := args[0]
-	if !pluginRemoveYes && !confirm(fmt.Sprintf("Remove plugin '%s' (and its source + stored credentials)?", name)) {
-		fmt.Println("Aborted.")
-		return nil
+	if err := requireConfirm(fmt.Sprintf("Remove plugin '%s' (and its source + stored credentials)?", name)); err != nil {
+		return err
 	}
 	if err := provision.UninstallPlugin(cfgFile, name); err != nil {
 		return err

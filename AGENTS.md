@@ -125,11 +125,11 @@ publish one artifact per platform in the registry under `go/<goos>_<goarch>` key
 
 ### 3. Embedded React UI
 
-`cli/internal/agent/frontend/` is a Vite/React app with TypeScript strict mode.
+`cli/internal/webui/frontend/` is a Vite/React app with TypeScript strict mode.
 
 - Built by `npm run build` → `frontend/dist/`.
-- Embedded into the Go binary via `//go:embed frontend/dist` in `internal/agent`.
-- Served by the HTTP server in `internal/agent` at the root path.
+- Embedded into the Go binary via `//go:embed frontend/dist` in `internal/webui`.
+- Served by the HTTP server (`internal/webui` static routes, registered from `internal/agent`) at the root path.
 - Communicates with the backend over SSE (`/api/events`) and fetch (`/api/chat`, `/api/items`, …).
 
 ---
@@ -151,7 +151,7 @@ Sub-targets:
 | `go-test` | `go test -race ./...` | `cli/`                           |
 | `py-lint` | ruff                  | `sdk/python/`                    |
 | `py-type` | mypy                  | `sdk/python/aide_sdk/`           |
-| `fe-lint` | tsc --noEmit + eslint | `cli/internal/agent/frontend/`   |
+| `fe-lint` | tsc --noEmit + eslint | `cli/internal/webui/frontend/`   |
 
 Optional (not in default verify): `make go-vuln` (govulncheck), `make py-test`.
 

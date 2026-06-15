@@ -17,16 +17,25 @@ updates:
     directory: "/cli"
     schedule:
       interval: weekly
+    groups:
+      gomod:
+        patterns: ["*"]
 
   - package-ecosystem: gomod
     directory: "/sdk/go"
     schedule:
       interval: weekly
+    groups:
+      gomod:
+        patterns: ["*"]
 
   - package-ecosystem: npm
-    directory: "/cli/internal/agent/frontend"
+    directory: "/cli/internal/webui/frontend"
     schedule:
       interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
 
   - package-ecosystem: pip
     directory: "/sdk/python"

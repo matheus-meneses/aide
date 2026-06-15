@@ -48,7 +48,6 @@ var (
 	devNewNetwork     []string
 	devNewBrowser     bool
 	devNewDir         string
-	devNewYes         bool
 )
 
 var (
@@ -104,7 +103,6 @@ func init() {
 	devNewCmd.Flags().StringSliceVar(&devNewNetwork, "network", nil, "allowed outbound host (repeatable)")
 	devNewCmd.Flags().BoolVar(&devNewBrowser, "browser", false, "declare a browser (Playwright) capability")
 	devNewCmd.Flags().StringVar(&devNewDir, "dir", "", "target directory (default ./<name>)")
-	devNewCmd.Flags().BoolVar(&devNewYes, "yes", false, "skip prompts and overwrite confirmation")
 
 	devTestCmd.Flags().StringVar(&devTestAction, "action", "scrape", "action to invoke: scrape, describe, query")
 	devTestCmd.Flags().StringVar(&devTestConfig, "config", "", "config as JSON string or @file.json")
@@ -166,7 +164,7 @@ func devNewExecute(_ *cobra.Command, args []string) error {
 		name = args[0]
 	}
 	if name == "" {
-		if isInteractive() && !devNewYes {
+		if isInteractive() && !assumeYes {
 			name = promptLine("Plugin name (snake_case): ")
 		}
 		if name == "" {
@@ -176,7 +174,7 @@ func devNewExecute(_ *cobra.Command, args []string) error {
 
 	rt := devNewRuntime
 	if rt == "" {
-		if isInteractive() && !devNewYes {
+		if isInteractive() && !assumeYes {
 			rt = promptLine("Runtime [python/go] (default python): ")
 		}
 		if rt == "" {
@@ -216,7 +214,7 @@ func devNewExecute(_ *cobra.Command, args []string) error {
 		targetDir = "./" + name
 	}
 	if entries, statErr := os.ReadDir(targetDir); statErr == nil && len(entries) > 0 {
-		if !devNewYes && !(isInteractive() && confirm(fmt.Sprintf("%s is not empty — write into it?", targetDir))) {
+		if !assumeYes && !(isInteractive() && confirm(fmt.Sprintf("%s is not empty — write into it?", targetDir))) {
 			return fmt.Errorf("target directory %s is not empty (use --yes to overwrite)", targetDir)
 		}
 	}

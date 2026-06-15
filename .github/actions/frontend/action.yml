@@ -7,7 +7,7 @@ runs:
       with:
         node-version: "22"
         cache: npm
-        cache-dependency-path: cli/internal/agent/frontend/package-lock.json
+        cache-dependency-path: cli/internal/webui/frontend/package-lock.json
     - shell: bash
-      working-directory: cli/internal/agent/frontend
+      working-directory: cli/internal/webui/frontend
       run: npm ci && npm run build

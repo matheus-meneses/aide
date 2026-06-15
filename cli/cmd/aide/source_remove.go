@@ -19,9 +19,8 @@ func sourceRemoveExecute(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("source '%s' not found", name)
 	}
 
-	if !sourceRemoveYes && !confirm(fmt.Sprintf("Remove source '%s' from config?", name)) {
-		fmt.Println("Aborted.")
-		return nil
+	if err := requireConfirm(fmt.Sprintf("Remove source '%s' from config?", name)); err != nil {
+		return err
 	}
 
 	delete(cfg.Sources, name)
@@ -33,7 +32,7 @@ func sourceRemoveExecute(_ *cobra.Command, args []string) error {
 	fmt.Printf("Source '%s' removed.\n", name)
 
 	if _, err := keychain.GetAll(name); err == nil {
-		if sourceRemoveYes || confirm(fmt.Sprintf("Also delete stored credentials for '%s'?", name)) {
+		if confirm(fmt.Sprintf("Also delete stored credentials for '%s'?", name)) {
 			if err := keychain.DeleteSource(name); err != nil {
 				fmt.Printf("Warning: failed to delete credentials: %v\n", err)
 			} else {

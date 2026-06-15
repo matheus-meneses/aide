@@ -22,7 +22,7 @@ import (
 func pluginInstallExecute(_ *cobra.Command, args []string) error {
 	if pluginInstallLocal != "" {
 		consent := func(m *plugin.Manifest) bool {
-			if pluginInstallYes {
+			if assumeYes {
 				return true
 			}
 			fmt.Printf("\nPlugin: %s@%s (local)\n", m.Name, m.Version)
@@ -35,7 +35,7 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		if pluginInstallYes {
+		if assumeYes {
 			fmt.Printf("  [+] %s installed (--yes: skipping config wizard)\n", m.Name)
 			return nil
 		}
@@ -211,7 +211,7 @@ func runConfigWizard(m *plugin.Manifest) error {
 		}
 	}
 
-	configPath := config.DefaultConfigPath()
+	configPath := cfgFile
 	cfg, err := config.LoadRaw(configPath)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)

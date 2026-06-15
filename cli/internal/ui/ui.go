@@ -16,6 +16,7 @@ var (
 	Err io.Writer = os.Stderr
 
 	colorEnabled = detectColor()
+	quiet        bool
 )
 
 func detectColor() bool {
@@ -43,6 +44,16 @@ func SetOutput(stdout, stderr io.Writer) {
 
 // ColorEnabled reports whether styled output is active.
 func ColorEnabled() bool { return colorEnabled }
+
+// SetColorEnabled forces color output on or off, overriding auto-detection.
+func SetColorEnabled(enabled bool) { colorEnabled = enabled }
+
+// SetQuiet toggles suppression of incidental informational output. Errors,
+// warnings, and primary command output are always shown.
+func SetQuiet(q bool) { quiet = q }
+
+// Quiet reports whether incidental output is suppressed.
+func Quiet() bool { return quiet }
 
 const (
 	SymCheck = "✓"
@@ -79,6 +90,9 @@ func Info(text string) string    { return paint(styleInfo, text) }
 
 // Heading renders a bold title followed by a blank line.
 func Heading(title string) {
+	if quiet {
+		return
+	}
 	fmt.Fprintln(Out, paint(styleHeading, title))
 }
 
@@ -89,7 +103,13 @@ func line(w io.Writer, sym string, style lipgloss.Style, format string, args ...
 
 func PrintSuccess(format string, args ...any) { line(Out, SymCheck, styleSuccess, format, args...) }
 func PrintWarn(format string, args ...any)    { line(Out, SymWarn, styleWarn, format, args...) }
-func PrintInfo(format string, args ...any)    { line(Out, SymInfo, styleInfo, format, args...) }
+
+func PrintInfo(format string, args ...any) {
+	if quiet {
+		return
+	}
+	line(Out, SymInfo, styleInfo, format, args...)
+}
 
 // PrintError writes a styled error line to stderr.
 func PrintError(format string, args ...any) { line(Err, SymCross, styleError, format, args...) }
@@ -105,6 +125,9 @@ func KeyValue(key, value string) {
 
 // Bullet prints an indented bullet line.
 func Bullet(format string, args ...any) {
+	if quiet {
+		return
+	}
 	fmt.Fprintf(Out, "  %s %s\n", paint(styleMuted, SymDot), fmt.Sprintf(format, args...))
 }
 

@@ -5,7 +5,7 @@
 *Pronounced "aid".*
 
 [![build](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/matheus-meneses/aide)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![license](https://img.shields.io/badge/license-BSL--1.1-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.26%2B-00ADD8)](https://go.dev)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](https://python.org)
 
@@ -318,4 +318,7 @@ in [aide-plugins](https://github.com/matheus-meneses/aide-plugins) — that is t
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+[Business Source License 1.1](LICENSE). Free for internal, personal, educational,
+evaluation, and non-commercial use. Offering aide as a paid product or hosted
+service requires a commercial license — see [COMMERCIAL.md](COMMERCIAL.md). Each
+released version converts to the Apache License 2.0 four years after its release.
