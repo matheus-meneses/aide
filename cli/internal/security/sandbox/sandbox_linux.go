@@ -8,7 +8,8 @@ import (
 )
 
 func Wrap(cmd *exec.Cmd, p Policy) error {
-	if _, err := exec.LookPath("bwrap"); err != nil {
+	bwrapPath, _ := exec.LookPath("bwrap")
+	if bwrapPath == "" {
 		fmt.Fprintf(cmd.Stderr.(interface{ Write([]byte) (int, error) }), "warning: bwrap not found, running %s unsandboxed\n", p.Name)
 		return nil
 	}
@@ -25,7 +26,7 @@ func Wrap(cmd *exec.Cmd, p Policy) error {
 	bwrapArgs = append(bwrapArgs, "--")
 	bwrapArgs = append(bwrapArgs, cmd.Args...)
 
-	cmd.Path, _ = exec.LookPath("bwrap")
+	cmd.Path = bwrapPath
 	cmd.Args = append([]string{"bwrap"}, bwrapArgs...)
 	return nil
 }

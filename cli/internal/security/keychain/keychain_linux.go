@@ -26,8 +26,8 @@ func readCredFile() (map[string]string, error) {
 		return nil, err
 	}
 	var m map[string]string
-	if err := json.Unmarshal(data, &m); err != nil {
-		return make(map[string]string), nil
+	if json.Unmarshal(data, &m) != nil {
+		m = make(map[string]string)
 	}
 	return m, nil
 }
