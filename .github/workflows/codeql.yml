@@ -59,7 +59,7 @@ jobs:
         working-directory: cli
         env:
           CGO_ENABLED: "0"
-        run: go build $(go list ./... | grep -v '/cmd/aide-app')
+        run: go build $(go list ./... | grep -v '/cmd/aide-app' | grep -v /node_modules/)
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3

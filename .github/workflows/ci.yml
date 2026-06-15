@@ -42,7 +42,7 @@ jobs:
       - name: Resolve packages
         id: pkgs
         working-directory: cli
-        run: echo "list=$(go list ./... | grep -v '/cmd/aide-app' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+        run: echo "list=$(go list ./... | grep -v '/cmd/aide-app' | grep -v /node_modules/ | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Build
         working-directory: cli
@@ -137,7 +137,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build $(go list ./... | grep -v '/cmd/aide-app')
+        run: go build $(go list ./... | grep -v '/cmd/aide-app' | grep -v /node_modules/)
 
   build-macos-app:
     runs-on: macos-14
