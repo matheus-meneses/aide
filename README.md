@@ -19,34 +19,68 @@
 things done without taking over. That is exactly the role this tool plays for your work: a helper that keeps track of
 everything competing for your attention so you don't have to.
 
-## Quick start
+## Install
 
-aide ships two ways to run, both backed by the same local engine and the same `~/.aide` data:
+### Brew
 
-- **Desktop app** (macOS) — the easiest way in: a guided first-run setup, the chat agent, live logs, and source
-  management in one window.
-- **CLI** (macOS / Linux / Windows) — the full surface for power users, scripting, and AI agents.
-
-Everything below is one tap away. Add it once:
+One tap publishes both the CLI formula and the desktop-app cask:
 
 ```sh
 brew tap matheus-meneses/aide
+
+brew install aide                 # CLI (macOS / Linux)
+brew install --cask aide          # desktop app (macOS)
 ```
 
-**Desktop app:**
+Prefer not to tap? Use the fully-qualified names:
 
 ```sh
-brew install --cask aide        # installs Aide.app
-open -a Aide                     # launch (or open it from Spotlight / Launchpad)
+brew install matheus-meneses/aide/aide
+brew install --cask matheus-meneses/aide/aide
 ```
 
-The app walks you through connecting your first source and pointing the agent at a model — no terminal required.
-
-**CLI:**
+Upgrade or remove later:
 
 ```sh
-brew install aide               # installs the `aide` binary
+brew upgrade aide                 # CLI
+brew upgrade --cask aide          # desktop app
+brew uninstall aide               # CLI
+brew uninstall --cask aide        # desktop app
+```
 
+### cURL
+
+No Homebrew? The install script drops the `aide` CLI on your PATH (macOS / Linux / Windows):
+
+```sh
+curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh | bash
+```
+
+For the desktop app, grab `Aide-<version>.dmg` from the
+[releases page](https://github.com/matheus-meneses/aide/releases), open it, and drag **Aide.app** to Applications:
+
+```sh
+curl -fLO https://github.com/matheus-meneses/aide/releases/download/v<version>/Aide-<version>.dmg
+open Aide-<version>.dmg
+```
+
+You can also grab any prebuilt binary or the `.dmg` directly from the
+[releases page](https://github.com/matheus-meneses/aide/releases).
+
+### From source (Go 1.26+, Python 3.11+, Node 18+)
+
+```sh
+git clone https://github.com/matheus-meneses/aide.git
+cd aide
+make build       # CLI binary at bin/aide
+make verify      # full polyglot gate: Go + Python + frontend
+```
+
+### First run
+
+Launch the app with `open -a Aide` for a guided setup, or drive the CLI:
+
+```sh
 aide init                       # creates ~/.aide, installs a Python runtime, fetches the registry
 aide plugin install             # browse the registry and pick a source interactively
 aide config source add <name>   # connect it (interactive wizard, prompts for credentials)
@@ -54,25 +88,22 @@ aide run && aide report         # collect everything, then see what needs you
 ```
 
 That's the whole loop: install, connect a source, collect, read your report. Want the agent to answer follow-ups?
-See [Agent mode](#agent-mode). No Homebrew, or building from source? See [Getting started](#getting-started).
+See [Agent mode](#agent-mode).
 
 ## Desktop app
 
-The desktop app (macOS) bundles the full aide engine — agent, runner, and sandboxed plugins — behind a native window,
-so you get everything the CLI does without touching a terminal:
+The desktop app (macOS) wraps the full aide engine — agent, runner, and sandboxed plugins — in a native window, so you
+get everything the CLI does without ever touching a terminal. It's the fastest way to go from install to your first
+report:
 
-- **Guided setup** — connect sources and point the agent at a model with a step-by-step wizard.
-- **Chat agent** — ask about your work and get answers, with daily briefings on your schedule.
-- **Live logs** — watch every source and plugin run in real time, and prune old logs in a click.
+- **Guided setup** — a step-by-step wizard connects your first source and points the agent at a model, no config file
+  required.
+- **Chat agent** — ask about your work in plain language and get answers, with daily briefings posted on your schedule.
+- **Live logs** — watch every source and plugin run in real time, spot failures at a glance, and prune old logs in a
+  click.
 
-```sh
-brew tap matheus-meneses/aide
-brew install --cask aide          # or: brew install --cask matheus-meneses/aide/aide
-brew upgrade --cask aide          # update later
-```
-
-Not a Homebrew user? Grab `Aide-<version>.dmg` from the [latest release](https://github.com/matheus-meneses/aide/releases/latest)
-and drag Aide.app to Applications. The app and the CLI share the same `~/.aide`, so you can mix and match freely.
+The app and the CLI share the same `~/.aide`, so anything you set up in one shows up in the other — set up sources in
+the app, then script them from the CLI, or vice versa.
 
 ## Privacy & local-first
 
@@ -318,65 +349,6 @@ Everything runs locally. Plugins are isolated processes. Registries are just URL
 - **Structured logging** — `aide -v run` for debug detail, `aide --log-format json run` for machine-readable logs (all
   on stderr; stdout is reserved for the plugin protocol).
 - **Self-updating** — the binary checks for new releases and can update itself.
-
-## Getting started
-
-### Homebrew (recommended)
-
-One tap publishes both the CLI formula and the desktop-app cask:
-
-```sh
-brew tap matheus-meneses/aide
-
-brew install aide                 # CLI (macOS / Linux)
-brew install --cask aide          # desktop app (macOS)
-```
-
-Prefer not to tap? Use the fully-qualified names:
-
-```sh
-brew install matheus-meneses/aide/aide
-brew install --cask matheus-meneses/aide/aide
-```
-
-Upgrade or remove later:
-
-```sh
-brew upgrade aide                 # CLI
-brew upgrade --cask aide          # desktop app
-brew uninstall aide               # CLI
-brew uninstall --cask aide        # desktop app
-```
-
-### Install script (CLI, macOS / Linux / Windows)
-
-No Homebrew? The installer drops the `aide` binary on your PATH:
-
-```sh
-curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh | bash
-```
-
-You can also download a prebuilt binary (or the `.dmg`) directly from the
-[latest release](https://github.com/matheus-meneses/aide/releases/latest).
-
-### First run (CLI)
-
-```sh
-aide init                      # creates ~/.aide, installs a Python runtime, fetches the registry
-aide plugin install            # no name? browse and pick from the registry interactively
-aide plugin install <name>     # or install a known plugin directly
-aide config source add <name>  # interactive setup wizard
-aide run && aide report        # collect and view
-```
-
-### From source (Go 1.26+, Python 3.11+, Node 18+)
-
-```sh
-git clone https://github.com/matheus-meneses/aide.git
-cd aide
-make build       # CLI binary at bin/aide
-make verify      # full polyglot gate: Go + Python + frontend
-```
 
 ## Contributing
 

@@ -115,6 +115,7 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             dist/${{ env.BINARY }}
             dist/${{ env.BINARY }}.sha256
@@ -124,6 +125,7 @@ jobs:
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: assets/deploy/install.sh
 
   release-macos-app:
@@ -201,6 +203,7 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             ${{ env.DMG }}
             ${{ env.DMG }}.sha256
