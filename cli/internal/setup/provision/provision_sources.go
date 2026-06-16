@@ -4,6 +4,7 @@ import (
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/security/keychain"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -118,7 +119,7 @@ func coerceConfigValue(f plugin.Field, v any) any {
 	case "string_list":
 		return toStringList(v)
 	case "object_list":
-		return v
+		return toObjectList(f, v)
 	default:
 		switch x := v.(type) {
 		case nil:
@@ -132,6 +133,73 @@ func coerceConfigValue(f plugin.Field, v any) any {
 			return x
 		}
 	}
+}
+
+// toObjectList normalizes an object_list config value into a slice of maps. The
+// web UI submits the value as a JSON-encoded string, while the CLI and existing
+// config.yaml supply it as a real slice; both are accepted. Each row is trimmed
+// against the field's declared sub-fields, defaults are applied, and rows that
+// are missing a required sub-field are dropped.
+func toObjectList(f plugin.Field, v any) []map[string]any {
+	var rows []map[string]any
+	switch x := v.(type) {
+	case nil:
+		return nil
+	case string:
+		s := strings.TrimSpace(x)
+		if s == "" {
+			return nil
+		}
+		if err := json.Unmarshal([]byte(s), &rows); err != nil {
+			return nil
+		}
+	case []map[string]any:
+		rows = x
+	case []any:
+		for _, e := range x {
+			if m, ok := e.(map[string]any); ok {
+				rows = append(rows, m)
+			}
+		}
+	default:
+		return nil
+	}
+
+	if len(f.Fields) == 0 {
+		return rows
+	}
+
+	var out []map[string]any
+	for _, row := range rows {
+		if norm := normalizeObjectRow(f, row); norm != nil {
+			out = append(out, norm)
+		}
+	}
+	return out
+}
+
+func normalizeObjectRow(f plugin.Field, row map[string]any) map[string]any {
+	out := make(map[string]any, len(f.Fields))
+	for _, sub := range f.Fields {
+		s := ""
+		if raw, ok := row[sub.Key]; ok && raw != nil {
+			s = strings.TrimSpace(fmt.Sprintf("%v", raw))
+		}
+		if s == "" {
+			s = strings.TrimSpace(sub.Default)
+		}
+		if s == "" {
+			if sub.Required {
+				return nil
+			}
+			continue
+		}
+		out[sub.Key] = s
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func toStringList(v any) []string {
@@ -170,6 +238,8 @@ func isEmptyValue(v any) bool {
 	case []string:
 		return len(x) == 0
 	case []any:
+		return len(x) == 0
+	case []map[string]any:
 		return len(x) == 0
 	}
 	return false

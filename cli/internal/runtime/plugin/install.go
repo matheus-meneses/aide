@@ -2,7 +2,9 @@ package plugin
 
 import (
 	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/platform/config"
 	"aide/cli/internal/platform/xdg"
+	"aide/cli/internal/runtime/trust"
 	"archive/tar"
 	"compress/gzip"
 	"context"
@@ -261,13 +263,41 @@ func buildVenv(pluginDir, reqFile string) error {
 
 	if pluginUsesPlaywright(reqFile) {
 		clog.Info("ensuring playwright chromium browser is installed")
-		if err := runCmd(pythonVenvBin, "-m", "playwright", "install", "chromium"); err != nil {
+		if err := runCmdEnv(nodeTLSEnv(), pythonVenvBin, "-m", "playwright", "install", "chromium"); err != nil {
 			clog.Warn("playwright browser install failed: %v", err)
 			clog.Warn("run manually: %s -m playwright install chromium", pythonVenvBin)
 		}
 	}
 
 	return nil
+}
+
+// nodeTLSEnv mirrors the runner's TLS resolution for the Playwright browser
+// downloader, which is a Node process that ignores Python/aide TLS settings and
+// only honors NODE_EXTRA_CA_CERTS / NODE_TLS_REJECT_UNAUTHORIZED. Behind a
+// corporate TLS-intercepting proxy this lets the download trust the same CA
+// (config ca_bundle or the OS trust store) that scrapes already use.
+func nodeTLSEnv() []string {
+	verify := true
+	caBundle := ""
+	if cfg, err := config.Load(config.DefaultConfigPath()); err == nil {
+		if cfg.Settings.TLS.VerifySSL != nil {
+			verify = *cfg.Settings.TLS.VerifySSL
+		}
+		caBundle = cfg.Settings.TLS.CABundle
+	}
+	if verify && caBundle == "" {
+		caBundle = trust.SystemBundle()
+	}
+
+	var env []string
+	if !verify {
+		env = append(env, "NODE_TLS_REJECT_UNAUTHORIZED=0")
+	}
+	if caBundle != "" {
+		env = append(env, "NODE_EXTRA_CA_CERTS="+caBundle)
+	}
+	return env
 }
 
 func pluginUsesPlaywright(reqFile string) bool {
@@ -366,9 +396,16 @@ func copyFile(src, dst string) error {
 }
 
 func runCmd(name string, args ...string) error {
+	return runCmdEnv(nil, name, args...)
+}
+
+func runCmdEnv(extraEnv []string, name string, args ...string) error {
 	c := exec.Command(name, args...) //nolint:gosec // G702: name comes from plugin manifest paths, not user input
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
+	if len(extraEnv) > 0 {
+		c.Env = append(os.Environ(), extraEnv...)
+	}
 	return c.Run()
 }
 

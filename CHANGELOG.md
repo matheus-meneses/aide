@@ -60,6 +60,17 @@ round of plugin/sandbox security hardening.
   `chrome-headless-shell`: the installer now always runs Playwright's idempotent
   browser install for plugins that need it, instead of skipping when the cache
   directory merely exists.
+- The web UI can now configure `object_list` plugin fields (such as Jira's JQL
+  queries) with an inline add/remove editor, instead of a dead-end note pointing
+  at a removed command. Saving such a source no longer fails with a spurious
+  "missing required config field" error.
+- Playwright browser downloads during plugin install now trust the configured
+  `ca_bundle` (or the exported OS trust store) via `NODE_EXTRA_CA_CERTS`, fixing
+  `unable to get local issuer certificate` failures behind TLS-intercepting
+  corporate proxies. `verify_ssl: false` disables verification for the download.
+- `aide ui` no longer spams `unsupported protocol scheme ""` LLM errors when
+  started before a model is configured. The autonomous loop now stays idle until
+  setup is complete and kicks off automatically once a model is saved.
 
 ### Security
 
@@ -98,6 +109,6 @@ round of plugin/sandbox security hardening.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.5...HEAD
-[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.5
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.6...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.6
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0

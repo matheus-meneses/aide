@@ -51,10 +51,12 @@ type Agent struct {
 
 	scrapeMu sync.Mutex
 
-	schedMu         sync.Mutex
-	autoCtx         context.Context
-	reschedule      chan struct{}
-	briefingStarted bool
+	schedMu          sync.Mutex
+	autoCtx          context.Context
+	reschedule       chan struct{}
+	briefingStarted  bool
+	autoCycleStarted bool
+	idleLogged       bool
 
 	stateMu             sync.RWMutex
 	lastRun             time.Time

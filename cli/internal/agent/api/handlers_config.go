@@ -2,6 +2,7 @@ package api
 
 import (
 	"aide/cli/internal/agent"
+	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/setup/provision"
 	"encoding/json"
 	"net/http"
@@ -21,11 +22,20 @@ func (h *handlers) handlePlugins(w http.ResponseWriter, _ *http.Request) {
 }
 
 type fieldDTO struct {
-	Key      string `json:"key"`
-	Label    string `json:"label"`
-	Type     string `json:"type"`
-	Default  string `json:"default"`
-	Required bool   `json:"required"`
+	Key      string     `json:"key"`
+	Label    string     `json:"label"`
+	Type     string     `json:"type"`
+	Default  string     `json:"default"`
+	Required bool       `json:"required"`
+	Fields   []fieldDTO `json:"fields,omitempty"`
+}
+
+func toFieldDTO(f plugin.Field) fieldDTO {
+	dto := fieldDTO{Key: f.Key, Label: f.Label, Type: f.Type, Default: f.Default, Required: f.Required}
+	for _, sub := range f.Fields {
+		dto.Fields = append(dto.Fields, toFieldDTO(sub))
+	}
+	return dto
 }
 
 type credDTO struct {
@@ -51,7 +61,7 @@ func (h *handlers) handlePluginManifest(w http.ResponseWriter, r *http.Request) 
 
 	dto := manifestDTO{Name: m.Name, Description: m.Description}
 	for _, f := range m.Config {
-		dto.Config = append(dto.Config, fieldDTO{Key: f.Key, Label: f.Label, Type: f.Type, Default: f.Default, Required: f.Required})
+		dto.Config = append(dto.Config, toFieldDTO(f))
 	}
 	for _, c := range m.Credentials {
 		dto.Credentials = append(dto.Credentials, credDTO{Key: c.Key, Label: c.Label, Secret: c.Secret})

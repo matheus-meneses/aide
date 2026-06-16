@@ -14,6 +14,7 @@ export interface ManifestField {
   type: string;
   default: string;
   required: boolean;
+  fields?: ManifestField[];
 }
 
 export interface ManifestCredential {

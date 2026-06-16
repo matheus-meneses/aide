@@ -195,7 +195,7 @@ linters:
       # `security` CLI — inputs are constants, not attacker-controlled.
       - linters:
           - gosec
-        path: internal/runtime/runner/trust_darwin\.go
+        path: internal/runtime/trust/trust_darwin\.go
         text: "G70[23]"
       # `go build` of a trusted, locally-resolved plugin source tree.
       - linters:

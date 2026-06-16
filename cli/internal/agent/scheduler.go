@@ -36,21 +36,67 @@ func (a *Agent) runScheduleLoop(ctx context.Context) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	a.runAgentCycle(ctx)
+	a.startCycleIfConfigured(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			a.runAgentCycle(ctx)
+			a.maybeRunCycle(ctx)
 		case <-a.reschedule:
 			if next := a.getConfig().Agent.RunIntervalDuration(); next > 0 && next != interval {
 				interval = next
 				ticker.Reset(interval)
 				alog.Info("run interval updated to %s", interval)
 			}
+			a.startCycleIfConfigured(ctx)
 		}
 	}
+}
+
+// llmConfigured reports whether a model is set up. Until it is, the autonomous
+// loop stays idle instead of hammering an empty endpoint (the symptom is
+// repeated `unsupported protocol scheme ""` LLM errors), so `aide ui` can run
+// before the in-browser setup wizard has been completed.
+func (a *Agent) llmConfigured() bool {
+	cfg := a.getConfig()
+	return cfg.Agent.LLMModel != "" && cfg.Agent.LLMURL != ""
+}
+
+// maybeRunCycle runs an agent cycle when a model is configured, otherwise it
+// logs the idle state once and returns.
+func (a *Agent) maybeRunCycle(ctx context.Context) {
+	if !a.llmConfigured() {
+		a.schedMu.Lock()
+		already := a.idleLogged
+		a.idleLogged = true
+		a.schedMu.Unlock()
+		if !already {
+			alog.Info("autonomous loop idle: no model configured yet — finish setup to start")
+		}
+		return
+	}
+	a.schedMu.Lock()
+	a.idleLogged = false
+	a.schedMu.Unlock()
+	a.runAgentCycle(ctx)
+}
+
+// startCycleIfConfigured kicks the first cycle as soon as a model is configured
+// (at startup or right after the setup wizard saves), then defers to the ticker.
+func (a *Agent) startCycleIfConfigured(ctx context.Context) {
+	if !a.llmConfigured() {
+		a.maybeRunCycle(ctx)
+		return
+	}
+	a.schedMu.Lock()
+	already := a.autoCycleStarted
+	a.autoCycleStarted = true
+	a.schedMu.Unlock()
+	if already {
+		return
+	}
+	a.maybeRunCycle(ctx)
 }
 
 // signalReschedule asks the running schedule loop to re-read the configured run
