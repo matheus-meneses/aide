@@ -68,6 +68,7 @@ class Aide < Formula
 
   def install
     bin.install Dir["aide_*"].first => "aide"
+    chmod 0555, bin/"aide"
     generate_completions_from_executable(bin/"aide", "completion")
   end
 

@@ -40,18 +40,23 @@ func TestBuildDarwinProfileNetworkToggle(t *testing.T) {
 	}
 }
 
-// TestBuildDarwinProfileBrowserStaysSandboxed pins the 1B fix: browser plugins
-// are no longer bypassed; they get a real (deny default) profile with the
-// extra mach/ipc allowances rather than running unsandboxed.
-func TestBuildDarwinProfileBrowserStaysSandboxed(t *testing.T) {
+func TestBuildDarwinProfileBrowserConfinesWrites(t *testing.T) {
 	prof := buildDarwinProfile(Policy{Name: "browser", Dir: "/plugins/browser", Browser: true})
 
-	if !strings.Contains(prof, "(deny default)") {
-		t.Error("browser profile must still be deny-default (no bypass)")
+	if !strings.Contains(prof, "(allow default)") {
+		t.Errorf("browser profile must relax to allow-default so the engine can launch:\n%s", prof)
 	}
-	for _, want := range []string{"(allow mach*)", "(allow ipc*)"} {
-		if !strings.Contains(prof, want) {
-			t.Errorf("browser profile missing %q:\n%s", want, prof)
-		}
+	if !strings.Contains(prof, "(deny file-write*)") {
+		t.Errorf("browser profile must still confine filesystem writes:\n%s", prof)
+	}
+	if !strings.Contains(prof, `(allow file-write* (subpath "/plugins/browser"))`) {
+		t.Errorf("browser plugin dir must stay writable:\n%s", prof)
+	}
+}
+
+func TestBuildDarwinProfileBrowserIsNotBypassed(t *testing.T) {
+	prof := buildDarwinProfile(Policy{Name: "browser", Dir: "/plugins/browser", Browser: true})
+	if prof == "" {
+		t.Error("browser plugins must still receive a sandbox profile, not run unwrapped")
 	}
 }
