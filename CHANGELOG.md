@@ -94,6 +94,6 @@ round of plugin/sandbox security hardening.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.3...HEAD
-[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.3
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.4...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.4
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0
