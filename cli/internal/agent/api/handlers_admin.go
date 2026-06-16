@@ -126,9 +126,20 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	if agent.Version != "dev" {
 		if rel, err := updater.LatestRelease(); err == nil {
 			latest = rel.Tag
-			notes = rel.Notes
-			releaseURL = rel.URL
 			updateAvailable = updater.IsNewer(latest, agent.Version)
+			if updateAvailable {
+				notes = rel.Notes
+				releaseURL = rel.URL
+			}
+		}
+		// When there's no newer release to advertise (e.g. running a prerelease
+		// ahead of the latest stable), show the running version's own notes
+		// rather than an older release's changelog.
+		if !updateAvailable {
+			if cur, err := updater.ReleaseByTag(agent.Version); err == nil {
+				notes = cur.Notes
+				releaseURL = cur.URL
+			}
 		}
 	}
 
