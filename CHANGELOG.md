@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0]
 
-Pre-release. The headline of 0.2.0 is a **native macOS desktop app** for Aide,
-alongside a round of plugin/sandbox security hardening. Please test and report
-issues before the final 0.2.0.
+0.2.0 brings a **native macOS desktop app** and a streamlined CLI — a new
+`aide ui` launcher and a consolidated `aide plugin` command tree — alongside a
+round of plugin/sandbox security hardening.
 
 ### Added
 
@@ -53,8 +53,6 @@ issues before the final 0.2.0.
 - Web UI no longer drops the active conversation when switching to Settings or
   an items view.
 - Cleared all frontend lint warnings and tightened TypeScript strictness.
-- Homebrew formula now marks the installed `aide` binary executable, fixing an
-  `EACCES` failure during `brew install` of the rc.1 formula.
 - Browser-based plugins no longer crash with `SIGSEGV` on macOS: the deny-default
   sandbox profile could not host a full browser engine, so browser plugins now
   use a relaxed, write-confined profile.
