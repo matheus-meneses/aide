@@ -39,13 +39,20 @@ issues before the final 0.2.0.
 - Web UI no longer drops the active conversation when switching to Settings or
   an items view.
 - Cleared all frontend lint warnings and tightened TypeScript strictness.
+- Homebrew formula now marks the installed `aide` binary executable, fixing an
+  `EACCES` failure during `brew install` of the rc.1 formula.
+- Browser-based plugins no longer crash with `SIGSEGV` on macOS: the deny-default
+  sandbox profile could not host a full browser engine, so browser plugins now
+  use a relaxed, write-confined profile.
 
 ### Security
 
 - **Plugin path validation** is now enforced consistently on install, lookup,
   removal, and manifest load, blocking path-traversal via crafted plugin names.
 - **Sandbox capability enforcement** — declared filesystem write paths are now
-  granted explicitly, and macOS browser plugins no longer run unsandboxed.
+  granted explicitly. Browser plugins run under a write-confined relaxed sandbox
+  (the browser engine needs broad syscall access, but writes are still limited
+  to the plugin's own directories and the browser's scratch locations).
 - **Scrape source validation** — unknown or disabled sources are rejected with a
   clear error instead of being silently skipped.
 - **Install consent** — installing a plugin through the local API now requires
@@ -75,6 +82,6 @@ issues before the final 0.2.0.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.1...HEAD
-[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.1
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.3...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.3
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0
