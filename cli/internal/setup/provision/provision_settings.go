@@ -53,6 +53,9 @@ func ConfigSnapshot(cfgPath string) (*Snapshot, error) {
 	if settings.LogFormat == "" {
 		settings.LogFormat = "text"
 	}
+	if settings.AutoUpdate == "" {
+		settings.AutoUpdate = config.AutoUpdateNotify
+	}
 
 	return &Snapshot{
 		Settings: settings,
@@ -100,6 +103,7 @@ type GeneralSettingsInput struct {
 	CABundle       string `json:"ca_bundle"`
 	LogLevel       string `json:"log_level"`
 	LogFormat      string `json:"log_format"`
+	AutoUpdate     string `json:"auto_update"`
 }
 
 // SetGeneralSettings writes runtime settings (concurrency, timeout, TLS, logging)
@@ -131,6 +135,12 @@ func SetGeneralSettings(cfgPath string, in GeneralSettingsInput) error {
 	}
 	if f := strings.TrimSpace(in.LogFormat); f != "" {
 		cfg.Settings.LogFormat = f
+	}
+	if au := strings.TrimSpace(in.AutoUpdate); au != "" {
+		if !config.ValidAutoUpdate(au) {
+			return fmt.Errorf("auto_update must be one of: off, notify, auto")
+		}
+		cfg.Settings.AutoUpdate = au
 	}
 
 	return cfg.Save(cfgPath)

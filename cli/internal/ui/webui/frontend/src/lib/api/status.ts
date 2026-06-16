@@ -31,6 +31,10 @@ export interface VersionInfo {
   latest: string;
   update_available: boolean;
   update_url: string;
+  can_self_update: boolean;
+  notes: string;
+  release_url: string;
+  platform: string;
 }
 
 export async function fetchRuntime(): Promise<RuntimeInfo> {
@@ -51,6 +55,10 @@ export async function fetchSessions(): Promise<unknown> {
 export async function fetchVersion(): Promise<VersionInfo> {
   const resp = await checkedFetch(`${BASE}/api/version`);
   return resp.json() as Promise<VersionInfo>;
+}
+
+export function triggerUpdate(): Promise<void> {
+  return postJSON("/api/update", {});
 }
 
 export async function fetchNotifications(

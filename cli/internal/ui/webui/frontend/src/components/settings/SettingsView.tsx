@@ -4,6 +4,7 @@ import {
   Boxes,
   Bot,
   IdCard,
+  Info,
   Server,
   Settings,
   Store,
@@ -19,6 +20,7 @@ import { AgentSettingsTab } from "./tabs/AgentSettingsTab";
 import { TeamTab } from "./tabs/TeamTab";
 import { GeneralTab } from "./tabs/GeneralTab";
 import { RegistriesTab } from "./tabs/RegistriesTab";
+import { AboutTab } from "./tabs/AboutTab";
 
 export type TabId =
   | "profile"
@@ -27,7 +29,8 @@ export type TabId =
   | "registries"
   | "agent"
   | "team"
-  | "general";
+  | "general"
+  | "about";
 
 type TabDef = { id: TabId; label: string; icon: LucideIcon };
 
@@ -53,7 +56,10 @@ const groups: { label: string; items: TabDef[] }[] = [
   },
   {
     label: "System",
-    items: [{ id: "general", label: "General", icon: Settings }],
+    items: [
+      { id: "general", label: "General", icon: Settings },
+      { id: "about", label: "About", icon: Info },
+    ],
   },
 ];
 
@@ -93,6 +99,8 @@ export function SettingsView({
         return <AgentSettingsTab />;
       case "general":
         return <GeneralTab />;
+      case "about":
+        return <AboutTab />;
       default:
         return <IdentityTab />;
     }

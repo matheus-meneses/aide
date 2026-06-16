@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Auto-update** for both the CLI and the macOS app. aide now detects how it
+  was installed (install script, Homebrew formula, Homebrew cask, or a manually
+  installed `.app`) and updates itself accordingly: standalone installs
+  self-replace the binary or swap the app bundle in place and relaunch, while
+  Homebrew installs run `brew upgrade` transparently so brew's state stays
+  consistent. Updates are sha256-verified before being applied.
+- **`aide update`** command — checks for a newer release, shows the release
+  notes, and applies the update in place (`--check` to only report).
+- **One-click "Update now"** in the web UI banner, plus a new **About** settings
+  tab showing the current version, platform, the changelog, and an
+  `auto_update` preference (`off` / `notify` / `auto`).
+
 ## [0.2.0]
 
 0.2.0 brings a **native macOS desktop app** and a streamlined CLI — a new

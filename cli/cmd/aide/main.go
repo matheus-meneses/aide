@@ -102,11 +102,32 @@ Or drive it from the terminal:
 		clog.Configure(resolvedLevel, resolvedFormat)
 	},
 	PersistentPostRun: func(cmd *cobra.Command, _ []string) {
-		if cmd.Name() == "version" || cmd.Name() == "init" {
+		switch cmd.Name() {
+		case "version", "init", "update":
 			return
 		}
-		updater.CheckOnce(version)
+		switch autoUpdateMode() {
+		case config.AutoUpdateOff:
+			return
+		case config.AutoUpdateAuto:
+			updater.AutoCheck(version, true)
+		default:
+			updater.AutoCheck(version, false)
+		}
 	},
+}
+
+// autoUpdateMode reads the configured auto-update mode, defaulting to "notify"
+// when there is no config yet or the value is unset/invalid.
+func autoUpdateMode() string {
+	cfg, err := config.LoadRaw(cfgFile)
+	if err != nil {
+		return config.AutoUpdateNotify
+	}
+	if config.ValidAutoUpdate(cfg.Settings.AutoUpdate) {
+		return cfg.Settings.AutoUpdate
+	}
+	return config.AutoUpdateNotify
 }
 
 func init() {
@@ -138,7 +159,7 @@ func registerGroups() {
 		"ui": "work", "run": "work", "report": "work", "stats": "work", "history": "work",
 		"diff": "work", "agent": "work", "team": "work",
 		"plugin":  "ecosystem",
-		"version": "system", "prune": "system", "dev": "system", "whoami": "system",
+		"version": "system", "prune": "system", "dev": "system", "whoami": "system", "update": "system",
 	}
 	for _, c := range rootCmd.Commands() {
 		if g, ok := groupOf[c.Name()]; ok {

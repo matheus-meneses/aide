@@ -4,7 +4,9 @@ import (
 	"aide/cli/internal/agent"
 	"aide/cli/internal/runtime/updater"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -118,11 +120,14 @@ func (h *handlers) handleNotifications(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleVersion(w http.ResponseWriter, _ *http.Request) {
-	var latest string
+	var latest, notes, releaseURL string
 	updateAvailable := false
+	method := updater.DetectMethod(agent.Version)
 	if agent.Version != "dev" {
-		if v, err := updater.LatestVersion(); err == nil {
-			latest = v
+		if rel, err := updater.LatestRelease(); err == nil {
+			latest = rel.Tag
+			notes = rel.Notes
+			releaseURL = rel.URL
 			updateAvailable = updater.IsNewer(latest, agent.Version)
 		}
 	}
@@ -133,7 +138,41 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 		"latest":           latest,
 		"update_available": updateAvailable,
 		"update_url":       updater.InstallURL(),
+		"can_self_update":  method.CanSelfUpdate(),
+		"notes":            notes,
+		"release_url":      releaseURL,
+		"platform":         runtime.GOOS + "/" + runtime.GOARCH,
 	})
+}
+
+func (h *handlers) handleUpdate(w http.ResponseWriter, _ *http.Request) {
+	method := updater.DetectMethod(agent.Version)
+	if !method.CanSelfUpdate() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "this installation can't update itself"})
+		return
+	}
+
+	go func() {
+		h.a.PublishProgress("update_progress", "Starting update…")
+		prog := updater.Progress(func(line string) {
+			h.a.PublishProgress("update_progress", line)
+		})
+		res, err := updater.Apply(detachedCtx(), agent.Version, method, prog)
+		if err != nil {
+			if errors.Is(err, updater.ErrUpToDate) {
+				h.a.PublishProgress("update_done", agent.Version)
+				return
+			}
+			h.a.PublishProgress("update_error", err.Error())
+			return
+		}
+		h.a.PublishProgress("update_done", res.Version)
+		if res.RestartNow {
+			h.a.RequestRestart()
+		}
+	}()
+
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "started"})
 }
 
 func (h *handlers) handleRuntime(w http.ResponseWriter, _ *http.Request) {

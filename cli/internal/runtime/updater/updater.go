@@ -89,37 +89,61 @@ func markChecked() {
 	_ = os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o600)
 }
 
-func LatestVersion() (string, error) {
+// Release describes the latest published release and its notes.
+type Release struct {
+	Tag   string
+	Notes string
+	URL   string
+}
+
+// LatestRelease fetches the latest (non-prerelease) release from GitHub,
+// including the tag, release-notes markdown, and the HTML release URL.
+func LatestRelease() (Release, error) {
 	url := "https://api.github.com/repos/" + repoSlug() + "/releases/latest"
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return Release{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "aide-updater")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return Release{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+		return Release{}, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return Release{}, err
 	}
 
 	var payload struct {
 		TagName string `json:"tag_name"`
+		Body    string `json:"body"`
+		HTMLURL string `json:"html_url"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
+		return Release{}, err
+	}
+	return Release{
+		Tag:   strings.TrimSpace(payload.TagName),
+		Notes: strings.TrimSpace(payload.Body),
+		URL:   strings.TrimSpace(payload.HTMLURL),
+	}, nil
+}
+
+// LatestVersion returns just the tag of the latest release.
+func LatestVersion() (string, error) {
+	rel, err := LatestRelease()
+	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(payload.TagName), nil
+	return rel.Tag, nil
 }
 
 func IsNewer(latest, current string) bool {
