@@ -56,6 +56,10 @@ round of plugin/sandbox security hardening.
 - Browser-based plugins no longer crash with `SIGSEGV` on macOS: the deny-default
   sandbox profile could not host a full browser engine, so browser plugins now
   use a relaxed, write-confined profile.
+- Browser plugins no longer fail on fresh installs with a missing Playwright
+  `chrome-headless-shell`: the installer now always runs Playwright's idempotent
+  browser install for plugins that need it, instead of skipping when the cache
+  directory merely exists.
 
 ### Security
 
@@ -94,6 +98,6 @@ round of plugin/sandbox security hardening.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.4...HEAD
-[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.4
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.5...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.5
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0

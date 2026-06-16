@@ -258,18 +258,24 @@ func buildVenv(pluginDir, reqFile string) error {
 	if runtime.GOOS == "windows" {
 		pythonVenvBin = filepath.Join(venvDir, "Scripts", "python.exe")
 	}
-	defaultBrowsersPath := filepath.Join(os.Getenv("HOME"), "Library", "Caches", "ms-playwright")
-	if _, err := os.Stat(defaultBrowsersPath); err == nil { //nolint:gosec // G703: path is constructed from HOME env + known suffix, not user-controlled
-		clog.Info("playwright browsers already present at %s, skipping download", defaultBrowsersPath)
-	} else {
-		clog.Info("installing playwright browsers")
+
+	if pluginUsesPlaywright(reqFile) {
+		clog.Info("ensuring playwright chromium browser is installed")
 		if err := runCmd(pythonVenvBin, "-m", "playwright", "install", "chromium"); err != nil {
-			clog.Warn("playwright install failed: %v", err)
-			clog.Warn("run manually outside Cursor: %s -m playwright install chromium", pythonVenvBin)
+			clog.Warn("playwright browser install failed: %v", err)
+			clog.Warn("run manually: %s -m playwright install chromium", pythonVenvBin)
 		}
 	}
 
 	return nil
+}
+
+func pluginUsesPlaywright(reqFile string) bool {
+	data, err := os.ReadFile(reqFile)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(data)), "playwright")
 }
 
 func downloadWithAuth(url, destPath string) error {
