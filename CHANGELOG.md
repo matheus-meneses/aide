@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0]
+
+Pre-release. The headline of 0.2.0 is a **native macOS desktop app** for Aide,
+alongside a round of plugin/sandbox security hardening. Please test and report
+issues before the final 0.2.0.
+
+### Added
+
+- **Native desktop app (macOS)** — a single Aide.app that bundles the agent and
+  the web UI, with a guided first-run setup and a redesigned interface. Install
+  with Homebrew (`brew install --cask aide`) or the `.dmg`.
+- **Live logs in the app** — tail the agent's log file in real time over SSE,
+  with on-demand log pruning, so you can see what every source and plugin is
+  doing without leaving the UI.
+- **Go unit-test suite** covering config, plugin loading/validation, the scrape
+  runner, and the per-OS sandbox policy builders. CI now runs tests with the
+  race detector and coverage.
+
+### Changed
+
+- **Unified logging** — all runner and plugin output now flows through one
+  structured logger (`clog`) with consistent levels and `text`/`json` formats
+  across the CLI and the desktop app.
+- **Codebase reorganised into concept domains** with enforced import boundaries
+  (depguard rules plus an architecture test), keeping the agent, runtime, UI,
+  and platform layers cleanly separated.
+
+### Fixed
+
+- Web UI no longer drops the active conversation when switching to Settings or
+  an items view.
+- Cleared all frontend lint warnings and tightened TypeScript strictness.
+
+### Security
+
+- **Plugin path validation** is now enforced consistently on install, lookup,
+  removal, and manifest load, blocking path-traversal via crafted plugin names.
+- **Sandbox capability enforcement** — declared filesystem write paths are now
+  granted explicitly, and macOS browser plugins no longer run unsandboxed.
+- **Scrape source validation** — unknown or disabled sources are rejected with a
+  clear error instead of being silently skipped.
+- **Install consent** — installing a plugin through the local API now requires
+  explicit acknowledgement of its declared capabilities.
+- Bumped `vite` to 6.4.3 and `esbuild` to ≥0.28.1 to clear high-severity
+  advisories.
+
 ## [0.1.0] - 2026-06-12
 
 ### Added
@@ -29,5 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.1...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.1
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0
