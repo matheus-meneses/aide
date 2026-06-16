@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowUpCircle, RefreshCw } from "lucide-react";
+import { ArrowUpCircle, CheckCircle2, Package, RefreshCw } from "lucide-react";
 import * as api from "@/lib/api";
 import type { GeneralSettings, VersionInfo } from "@/lib/api";
 import { APP_NAME } from "@/lib/brand";
@@ -80,33 +80,50 @@ export function AboutTab() {
         <p className="text-xs text-muted-foreground">Version and updates.</p>
       </div>
 
-      <div className="rounded-md border p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-lg font-semibold">{APP_NAME}</div>
-            <div className="text-sm text-muted-foreground">Version {info.current}</div>
-            {info.platform && (
-              <div className="text-xs text-muted-foreground">{info.platform}</div>
-            )}
+      <div className="rounded-md border">
+        <div className="flex items-center justify-between gap-4 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Package className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-semibold">{APP_NAME}</span>
+                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                  {info.current}
+                </span>
+              </div>
+              <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                {info.platform && <span>{info.platform}</span>}
+                {!info.update_available && !isDev && (
+                  <span className="flex items-center gap-1 text-success">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Up to date
+                  </span>
+                )}
+                {isDev && <span>Development build</span>}
+              </div>
+            </div>
           </div>
-          <Button variant="outline" onClick={() => void check()} loading={checking}>
+          <Button variant="outline" size="sm" onClick={() => void check()} loading={checking}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             Check for updates
           </Button>
         </div>
 
         {info.update_available && (
-          <div className="mt-4 rounded-md border border-warning/25 bg-warning/10 p-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-warning-foreground">
-              <ArrowUpCircle className="h-4 w-4 text-warning" />
-              {info.latest} is available
+          <div className="border-t border-warning/25 bg-warning/10 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-warning-foreground">
+                <ArrowUpCircle className="h-4 w-4 text-warning" />
+                Version {info.latest} is available
+              </div>
+              <UpdateAction
+                info={info}
+                running={progress.running}
+                onUpdate={() => void update()}
+              />
             </div>
-
-            <UpdateAction
-              info={info}
-              running={progress.running}
-              onUpdate={() => void update()}
-            />
 
             {(progress.lines.length > 0 || progress.error || progress.done) && (
               <div className="mt-3 max-h-40 overflow-y-auto rounded bg-background/60 p-2 font-mono text-[11px] leading-relaxed">
@@ -124,34 +141,33 @@ export function AboutTab() {
           </div>
         )}
 
-        {!info.update_available && !isDev && (
-          <p className="mt-3 text-xs text-muted-foreground">You're on the latest version.</p>
-        )}
+        <div className="flex items-center justify-between gap-4 border-t p-4">
+          <div className="min-w-0">
+            <Label className="text-sm">Automatic updates</Label>
+            <p className="text-xs text-muted-foreground">
+              How {APP_NAME} reacts when a newer version is published.
+            </p>
+          </div>
+          <Select
+            className="w-56 shrink-0"
+            value={settings?.auto_update || "notify"}
+            onChange={(e) => void changeAutoUpdate(e.target.value)}
+          >
+            <option value="off">Off — never check</option>
+            <option value="notify">Notify — show a banner</option>
+            <option value="auto">Automatic — install</option>
+          </Select>
+        </div>
       </div>
 
       {info.notes && (
         <div className="rounded-md border p-4">
           <h3 className="mb-2 text-sm font-semibold">
-            What's new in {info.latest || info.current}
+            What's new in {info.update_available ? info.latest : info.current}
           </h3>
           <MarkdownRenderer content={info.notes} />
         </div>
       )}
-
-      <div className="rounded-md border p-4">
-        <Label>Automatic updates</Label>
-        <p className="mb-2 text-xs text-muted-foreground">
-          How aide reacts when a newer version is published.
-        </p>
-        <Select
-          value={settings?.auto_update || "notify"}
-          onChange={(e) => void changeAutoUpdate(e.target.value)}
-        >
-          <option value="off">Off — never check</option>
-          <option value="notify">Notify — show a banner (default)</option>
-          <option value="auto">Automatic — download and install</option>
-        </Select>
-      </div>
     </div>
   );
 }

@@ -99,7 +99,23 @@ type Release struct {
 // LatestRelease fetches the latest (non-prerelease) release from GitHub,
 // including the tag, release-notes markdown, and the HTML release URL.
 func LatestRelease() (Release, error) {
-	url := "https://api.github.com/repos/" + repoSlug() + "/releases/latest"
+	return fetchRelease("https://api.github.com/repos/" + repoSlug() + "/releases/latest")
+}
+
+// ReleaseByTag fetches a specific release (including prereleases) by its tag.
+// A missing leading "v" is added so callers can pass a bare version string.
+func ReleaseByTag(tag string) (Release, error) {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return Release{}, fmt.Errorf("empty tag")
+	}
+	if !strings.HasPrefix(tag, "v") {
+		tag = "v" + tag
+	}
+	return fetchRelease("https://api.github.com/repos/" + repoSlug() + "/releases/tags/" + tag)
+}
+
+func fetchRelease(url string) (Release, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return Release{}, err
