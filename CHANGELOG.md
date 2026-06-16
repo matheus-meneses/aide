@@ -39,6 +39,8 @@ issues before the final 0.2.0.
 - Web UI no longer drops the active conversation when switching to Settings or
   an items view.
 - Cleared all frontend lint warnings and tightened TypeScript strictness.
+- Homebrew formula now marks the installed `aide` binary executable, fixing an
+  `EACCES` failure during `brew install` of the rc.1 formula.
 
 ### Security
 
@@ -75,6 +77,6 @@ issues before the final 0.2.0.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.1...HEAD
-[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.1
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.2...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.2
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0
