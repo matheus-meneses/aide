@@ -114,7 +114,8 @@ func PrintInfo(format string, args ...any) {
 // PrintError writes a styled error line to stderr.
 func PrintError(format string, args ...any) { line(Err, SymCross, styleError, format, args...) }
 
-// Printf and Println write plain text to the configured stdout.
+// Print, Printf, and Println write plain text to the configured stdout.
+func Print(args ...any)                 { fmt.Fprint(Out, args...) }
 func Printf(format string, args ...any) { fmt.Fprintf(Out, format, args...) }
 func Println(args ...any)               { fmt.Fprintln(Out, args...) }
 

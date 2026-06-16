@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatComposer } from "./ChatComposer";
 import { isSlashCommand } from "@/lib/commands";
+import { APP_NAME } from "@/lib/brand";
 import { fetchWhoami } from "@/lib/api";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useSlashCommands } from "@/hooks/useSlashCommands";
@@ -133,7 +134,7 @@ export function ChatPanel({ onConfigure }: Props) {
         <div className="max-w-3xl mx-auto">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-muted-foreground">
-              <div className="text-2xl font-light mb-2">{userName ? `Hi ${userName}` : "Aide"}</div>
+              <div className="text-2xl font-light mb-2">{userName ? `Hi ${userName}` : APP_NAME}</div>
               <div className="text-sm mb-6">
                 {userName
                   ? "How can I help you today?"

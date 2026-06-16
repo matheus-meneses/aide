@@ -3,6 +3,7 @@ import { Plus, Trash2, Users } from "lucide-react";
 import * as api from "@/lib/api";
 import { Field } from "@/components/forms/Field";
 import { Button, Card, EmptyState, Skeleton, useToast } from "@/components/ui";
+import { APP_NAME } from "@/lib/brand";
 
 const blank: api.TeamMember = { name: "" };
 
@@ -57,7 +58,7 @@ export function TeamTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold">Team</h2>
-          <p className="text-xs text-muted-foreground">People Aide tracks from your config.</p>
+          <p className="text-xs text-muted-foreground">People {APP_NAME} tracks from your config.</p>
         </div>
         <Button
           size="sm"
@@ -101,7 +102,7 @@ export function TeamTab() {
       )}
 
       {members.length === 0 && !draft ? (
-        <EmptyState icon={Users} title="No team members" description="Add people for Aide to keep an eye on." />
+        <EmptyState icon={Users} title="No team members" description={`Add people for ${APP_NAME} to keep an eye on.`} />
       ) : (
         <div className="grid gap-2">
           {members.map((m, idx) => (

@@ -13,9 +13,9 @@ var (
 	registryListJSON bool
 )
 
-var registryCmd = &cobra.Command{
+var pluginRegistryCmd = &cobra.Command{
 	Use:   "registry",
-	Short: "Manage plugin registries",
+	Short: "Manage the plugin registries the catalog is merged from",
 }
 
 var registryListCmd = &cobra.Command{
@@ -47,11 +47,10 @@ var registryRefreshCmd = &cobra.Command{
 func init() {
 	registryAddCmd.Flags().StringVar(&registryAddToken, "token", "", "auth token for a private registry (stored in the OS keychain)")
 	registryListCmd.Flags().BoolVar(&registryListJSON, "json", false, "output as JSON")
-	registryCmd.AddCommand(registryListCmd)
-	registryCmd.AddCommand(registryAddCmd)
-	registryCmd.AddCommand(registryRemoveCmd)
-	registryCmd.AddCommand(registryRefreshCmd)
-	rootCmd.AddCommand(registryCmd)
+	pluginRegistryCmd.AddCommand(registryListCmd)
+	pluginRegistryCmd.AddCommand(registryAddCmd)
+	pluginRegistryCmd.AddCommand(registryRemoveCmd)
+	pluginRegistryCmd.AddCommand(registryRefreshCmd)
 }
 
 func registryListExecute(_ *cobra.Command, _ []string) error {
@@ -80,7 +79,7 @@ func registryAddExecute(_ *cobra.Command, args []string) error {
 		return err
 	}
 	widgets.PrintSuccess("Registry added: %s", args[0])
-	widgets.PrintInfo("Run 'aide registry refresh' to update the catalog.")
+	widgets.PrintInfo("Run 'aide plugin registry refresh' to update the catalog.")
 	return nil
 }
 

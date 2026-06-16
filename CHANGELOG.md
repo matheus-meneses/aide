@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0]
 
-Pre-release. The headline of 0.2.0 is a **native macOS desktop app** for Aide,
-alongside a round of plugin/sandbox security hardening. Please test and report
-issues before the final 0.2.0.
+0.2.0 brings a **native macOS desktop app** and a streamlined CLI — a new
+`aide ui` launcher and a consolidated `aide plugin` command tree — alongside a
+round of plugin/sandbox security hardening.
 
 ### Added
 
@@ -24,12 +24,26 @@ issues before the final 0.2.0.
 - **Go unit-test suite** covering config, plugin loading/validation, the scrape
   runner, and the per-OS sandbox policy builders. CI now runs tests with the
   race detector and coverage.
+- **`aide ui`** — a desktop-equivalent launcher that serves the web UI and runs
+  the autonomous agent in one command (defaults to port 8531, opens the browser,
+  `--no-browser` to skip). Works without a prior `aide init`: the in-browser
+  setup wizard handles first-run configuration.
 
 ### Changed
 
 - **Unified logging** — all runner and plugin output now flows through one
   structured logger (`clog`) with consistent levels and `text`/`json` formats
   across the CLI and the desktop app.
+- **CLI reorganised around `aide plugin`** — `aide sources`, `aide registry`, and
+  the `aide config source` subtree were folded into a single `aide plugin` tree
+  (`list`, `install`, `configure`, `enable`, `disable`, `set`, `remove`,
+  `status`, `registry`). `aide plugin update` and `aide plugin auth` were
+  removed (use `aide plugin registry refresh`; browser login is now part of the
+  scrape flow). This is a clean break with no deprecated aliases.
+- **`aide agent start` is now a headless foreground runner** — it runs the
+  autonomous loop with no HTTP server or browser. Use `aide ui` for the web
+  experience.
+- **Web UI rebranded** to lowercase `aide` via a single `APP_NAME` constant.
 - **Codebase reorganised into concept domains** with enforced import boundaries
   (depguard rules plus an architecture test), keeping the agent, runtime, UI,
   and platform layers cleanly separated.
@@ -39,8 +53,6 @@ issues before the final 0.2.0.
 - Web UI no longer drops the active conversation when switching to Settings or
   an items view.
 - Cleared all frontend lint warnings and tightened TypeScript strictness.
-- Homebrew formula now marks the installed `aide` binary executable, fixing an
-  `EACCES` failure during `brew install` of the rc.1 formula.
 - Browser-based plugins no longer crash with `SIGSEGV` on macOS: the deny-default
   sandbox profile could not host a full browser engine, so browser plugins now
   use a relaxed, write-confined profile.
@@ -82,6 +94,6 @@ issues before the final 0.2.0.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.3...HEAD
-[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.3
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.4...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.4
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0

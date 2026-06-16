@@ -3,6 +3,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import * as api from "@/lib/api";
 import { Field } from "@/components/forms/Field";
 import { Button, Label, Select } from "@/components/ui";
+import { APP_NAME } from "@/lib/brand";
 
 export function ProviderStep({ onBack, onNext }: { onBack?: () => void; onNext: () => void }) {
   const [providers, setProviders] = useState<api.ProviderInfo[]>([]);
@@ -79,7 +80,7 @@ export function ProviderStep({ onBack, onNext }: { onBack?: () => void; onNext: 
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Connect the AI model Aide will think with. This is optional &mdash; you can skip it now and
+        Connect the AI model {APP_NAME} will think with. This is optional &mdash; you can skip it now and
         configure it later in Agent Settings.
       </p>
 

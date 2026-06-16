@@ -244,7 +244,7 @@ func teamSyncExecute(_ *cobra.Command, _ []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Re-resolved %d manager relationships.\n", n)
+		widgets.Printf("Re-resolved %d manager relationships.\n", n)
 		return nil
 	})
 }

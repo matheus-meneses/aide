@@ -1,9 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/platform/clog"
-	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/setup/provision"
+	"aide/cli/internal/ui/render"
 	"aide/cli/internal/ui/widgets"
 	"fmt"
 
@@ -12,22 +11,21 @@ import (
 
 var pluginCmd = &cobra.Command{
 	Use:   "plugin",
-	Short: "Manage aide plugins",
+	Short: "Install, configure, and manage data-source plugins",
 }
 
 var (
 	pluginListAvailable   bool
 	pluginRegistryURL     string
 	pluginRegistryVersion string
+	pluginInstallLocal    string
 )
 
 var pluginListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List installed plugins (--available to show registry catalog)",
+	Short: "List installed plugins and their configured/enabled status",
 	RunE:  pluginListExecute,
 }
-
-var pluginInstallLocal string
 
 var pluginInstallCmd = &cobra.Command{
 	Use:   "install [name[@version]]",
@@ -36,46 +34,71 @@ var pluginInstallCmd = &cobra.Command{
 	RunE:  pluginInstallExecute,
 }
 
+var pluginConfigureCmd = &cobra.Command{
+	Use:           "configure [name]",
+	Aliases:       []string{"add", "edit", "reconfigure"},
+	Short:         "Configure a plugin as a source interactively (settings + credentials)",
+	Args:          cobra.MaximumNArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          pluginConfigureExecute,
+}
+
+var pluginEnableCmd = &cobra.Command{
+	Use:   "enable <name>",
+	Short: "Enable a configured plugin",
+	Args:  cobra.ExactArgs(1),
+	RunE:  sourceEnableExecute,
+}
+
+var pluginDisableCmd = &cobra.Command{
+	Use:   "disable <name>",
+	Short: "Disable a configured plugin",
+	Args:  cobra.ExactArgs(1),
+	RunE:  sourceDisableExecute,
+}
+
+var pluginSetCmd = &cobra.Command{
+	Use:   "set <name> <key> <value>",
+	Short: "Set a config value for a configured plugin",
+	Args:  cobra.ExactArgs(3),
+	RunE:  sourceSetExecute,
+}
+
 var pluginRemoveCmd = &cobra.Command{
 	Use:   "remove <name>",
-	Short: "Remove an installed plugin",
+	Short: "Remove an installed plugin (and its config + stored credentials)",
 	Args:  cobra.ExactArgs(1),
 	RunE:  pluginRemoveExecute,
 }
 
-var pluginUpdateCmd = &cobra.Command{
-	Use:     "update",
-	Short:   "Refresh the registry cache (alias of 'aide registry refresh')",
-	Aliases: []string{"refresh"},
-	RunE:    pluginUpdateExecute,
-}
-
-var pluginAuthCmd = &cobra.Command{
-	Use:   "auth <source>",
-	Short: "Authenticate a browser-based source interactively",
-	Args:  cobra.ExactArgs(1),
-	RunE:  pluginAuthExecute,
+var pluginStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show configured plugins with their health from run history",
+	RunE:  pluginStatusExecute,
 }
 
 func init() {
-	pluginListCmd.Flags().BoolVar(&pluginListAvailable, "available", false, "show available plugins from registry cache")
+	pluginListCmd.Flags().BoolVar(&pluginListAvailable, "available", false, "show the registry catalog instead of installed plugins")
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryVersion, "registry-version", "", "registry release version/tag to pull the index from (default: latest)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallLocal, "local", "", "install from a local directory instead of the registry")
-	pluginUpdateCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
-	pluginUpdateCmd.Flags().StringVar(&pluginRegistryVersion, "registry-version", "", "registry release version/tag to pull the index from (default: latest)")
 
 	pluginCmd.AddCommand(pluginListCmd)
 	pluginCmd.AddCommand(pluginInstallCmd)
+	pluginCmd.AddCommand(pluginConfigureCmd)
+	pluginCmd.AddCommand(pluginEnableCmd)
+	pluginCmd.AddCommand(pluginDisableCmd)
+	pluginCmd.AddCommand(pluginSetCmd)
 	pluginCmd.AddCommand(pluginRemoveCmd)
-	pluginCmd.AddCommand(pluginUpdateCmd)
-	pluginCmd.AddCommand(pluginAuthCmd)
+	pluginCmd.AddCommand(pluginStatusCmd)
+	pluginCmd.AddCommand(pluginRegistryCmd)
 	rootCmd.AddCommand(pluginCmd)
 }
 
 func pluginRemoveExecute(_ *cobra.Command, args []string) error {
 	name := args[0]
-	if err := requireConfirm(fmt.Sprintf("Remove plugin '%s' (and its source + stored credentials)?", name)); err != nil {
+	if err := requireConfirm(fmt.Sprintf("Remove plugin '%s' (and its config + stored credentials)?", name)); err != nil {
 		return err
 	}
 	if err := provision.UninstallPlugin(cfgFile, name); err != nil {
@@ -85,30 +108,6 @@ func pluginRemoveExecute(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-func pluginUpdateExecute(_ *cobra.Command, _ []string) error {
-	cfg, err := loadConfig()
-	if err != nil {
-		return err
-	}
-
-	extraRegistries := cfg.Registries
-	if pluginRegistryURL != "" {
-		extraRegistries = append(extraRegistries, pluginRegistryURL)
-	}
-	if pluginRegistryVersion != "" {
-		plugin.SetRegistryVersion(pluginRegistryVersion)
-	}
-
-	clog.Info("fetching registry")
-	idx, err := plugin.MergedIndex(extraRegistries)
-	if err != nil {
-		return fmt.Errorf("fetching registry: %w", err)
-	}
-
-	if err := plugin.CacheIndex(idx); err != nil {
-		return fmt.Errorf("caching index: %w", err)
-	}
-
-	clog.Info("registry updated: %d plugins available", len(idx.Plugins))
-	return nil
+func pluginStatusExecute(_ *cobra.Command, _ []string) error {
+	return withStore(render.PrintSources)
 }

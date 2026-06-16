@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
 import * as api from "@/lib/api";
 import { Button } from "@/components/ui";
+import { APP_NAME } from "@/lib/brand";
 import type { Progress } from "../types";
 import { LogPanel } from "../shared";
 
@@ -37,7 +38,7 @@ export function BootstrapStep({ progress, onNext }: { progress: Progress; onNext
   return (
     <div>
       <p className="text-sm text-muted-foreground">
-        Let’s get Aide ready for you. This quick, one-time setup runs entirely on your computer
+        Let’s get {APP_NAME} ready for you. This quick, one-time setup runs entirely on your computer
         and won’t change anything else on your system.
       </p>
 
@@ -51,7 +52,7 @@ export function BootstrapStep({ progress, onNext }: { progress: Progress; onNext
       {progress.setupDone && !progress.setupError && (
         <div className="mt-4 flex items-center gap-2 text-sm text-foreground">
           <CheckCircle2 className="w-4 h-4 text-primary" />
-          All set — Aide is ready to go.
+          All set — {APP_NAME} is ready to go.
         </div>
       )}
 

@@ -3,6 +3,7 @@ import { CheckCircle2, AlertCircle } from "lucide-react";
 import * as api from "@/lib/api";
 import { Field } from "@/components/forms/Field";
 import { Button, Label, Select, Skeleton, useToast } from "@/components/ui";
+import { APP_NAME } from "@/lib/brand";
 
 export function AIModelTab() {
   const { toast } = useToast();
@@ -78,7 +79,7 @@ export function AIModelTab() {
     <div className="max-w-lg space-y-3">
       <div>
         <h2 className="text-sm font-semibold">AI model</h2>
-        <p className="text-xs text-muted-foreground">The endpoint Aide thinks with.</p>
+        <p className="text-xs text-muted-foreground">The endpoint {APP_NAME} thinks with.</p>
       </div>
 
       <div>

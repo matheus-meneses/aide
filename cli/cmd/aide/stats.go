@@ -3,6 +3,7 @@ package main
 import (
 	"aide/cli/internal/persistence/store"
 	"aide/cli/internal/platform/config"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 	"sort"
 
@@ -26,34 +27,34 @@ func statsExecute(_ *cobra.Command, _ []string) error {
 			return fmt.Errorf("querying stats: %w", err)
 		}
 
-		fmt.Println("Token Usage Statistics")
-		fmt.Println("─────────────────────────")
-		fmt.Printf("  Today:     %s tokens\n", formatTokens(summary.TodayTokens))
-		fmt.Printf("  This week: %s tokens\n", formatTokens(summary.WeekTokens))
-		fmt.Printf("  Avg/day:   %s tokens\n", formatTokens(summary.AvgPerDay))
-		fmt.Printf("  Calls:     %d (7d)\n", summary.TotalCalls)
-		fmt.Println()
+		widgets.Println("Token Usage Statistics")
+		widgets.Println("─────────────────────────")
+		widgets.Printf("  Today:     %s tokens\n", formatTokens(summary.TodayTokens))
+		widgets.Printf("  This week: %s tokens\n", formatTokens(summary.WeekTokens))
+		widgets.Printf("  Avg/day:   %s tokens\n", formatTokens(summary.AvgPerDay))
+		widgets.Printf("  Calls:     %d (7d)\n", summary.TotalCalls)
+		widgets.Println()
 
 		if len(summary.BySource) > 0 {
-			fmt.Println("  By source (7d):")
+			widgets.Println("  By source (7d):")
 			sources := make([]string, 0, len(summary.BySource))
 			for src := range summary.BySource {
 				sources = append(sources, src)
 			}
 			sort.Strings(sources)
 			for _, src := range sources {
-				fmt.Printf("    %-8s %s tokens\n", src, formatTokens(summary.BySource[src]))
+				widgets.Printf("    %-8s %s tokens\n", src, formatTokens(summary.BySource[src]))
 			}
 		}
 
 		daily, err := s.Tokens.DailyStats(7)
 		if err == nil && len(daily) > 0 {
-			fmt.Println()
-			fmt.Println("  Daily breakdown:")
+			widgets.Println()
+			widgets.Println("  Daily breakdown:")
 			for _, d := range daily {
 				total := d.Agent + d.Chat
 				if total > 0 {
-					fmt.Printf("    %s  agent: %s  chat: %s\n", d.Date, formatTokens(d.Agent), formatTokens(d.Chat))
+					widgets.Printf("    %s  agent: %s  chat: %s\n", d.Date, formatTokens(d.Agent), formatTokens(d.Chat))
 				}
 			}
 		}

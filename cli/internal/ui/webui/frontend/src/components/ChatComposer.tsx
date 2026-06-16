@@ -1,6 +1,7 @@
 import { type FormEvent, type KeyboardEvent, type RefObject } from "react";
 import { Send, Square } from "lucide-react";
 import { type SlashCommand } from "@/lib/commands";
+import { APP_NAME } from "@/lib/brand";
 import { CommandPalette } from "./CommandPalette";
 
 interface Props {
@@ -46,7 +47,7 @@ export function ChatComposer({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Ask something or type / for commands..."
-          aria-label="Message Aide"
+          aria-label={`Message ${APP_NAME}`}
           rows={1}
           disabled={isStreaming}
           className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[38px] max-h-[120px] disabled:opacity-50 disabled:cursor-not-allowed"

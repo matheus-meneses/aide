@@ -114,16 +114,16 @@ func configShowExecute(_ *cobra.Command, _ []string) error {
 
 	mgr := plugin.NewManager()
 
-	fmt.Println("╭─ Agent ─────────────────────────────────╮")
-	fmt.Printf("│  run_interval:   %-24s│\n", cfg.Agent.RunInterval)
-	fmt.Printf("│  briefing_times: %-24v│\n", cfg.Agent.BriefingTimes)
-	fmt.Printf("│  llm_model:      %-24s│\n", cfg.Agent.LLMModel)
-	fmt.Println("╰──────────────────────────────────────────╯")
+	widgets.Println("╭─ Agent ─────────────────────────────────╮")
+	widgets.Printf("│  run_interval:   %-24s│\n", cfg.Agent.RunInterval)
+	widgets.Printf("│  briefing_times: %-24v│\n", cfg.Agent.BriefingTimes)
+	widgets.Printf("│  llm_model:      %-24s│\n", cfg.Agent.LLMModel)
+	widgets.Println("╰──────────────────────────────────────────╯")
 
-	fmt.Println("\n╭─ Sources ────────────────────────────────╮")
+	widgets.Println("\n╭─ Sources ────────────────────────────────╮")
 	if len(cfg.Sources) == 0 {
-		fmt.Println("│  (none configured)                       │")
-		fmt.Println("│  Run 'aide config source add' to start   │")
+		widgets.Println("│  (none configured)                       │")
+		widgets.Println("│  Run 'aide plugin configure' to start    │")
 	}
 	for _, name := range sortedSourceNames(cfg.Sources) {
 		src := cfg.Sources[name]
@@ -135,16 +135,16 @@ func configShowExecute(_ *cobra.Command, _ []string) error {
 		if m, err := mgr.Get(name); err == nil && m.Description != "" {
 			desc = m.Description
 		}
-		fmt.Printf("│  [%s] %-15s %s\n", status, name, desc)
+		widgets.Printf("│  [%s] %-15s %s\n", status, name, desc)
 	}
-	fmt.Println("╰──────────────────────────────────────────╯")
+	widgets.Println("╰──────────────────────────────────────────╯")
 
 	if len(cfg.Team) > 0 {
-		fmt.Println("\n╭─ Team ───────────────────────────────────╮")
+		widgets.Println("\n╭─ Team ───────────────────────────────────╮")
 		for _, m := range cfg.Team {
-			fmt.Printf("│  %-40s│\n", m.Name)
+			widgets.Printf("│  %-40s│\n", m.Name)
 		}
-		fmt.Println("╰──────────────────────────────────────────╯")
+		widgets.Println("╰──────────────────────────────────────────╯")
 	}
 
 	return nil
@@ -159,18 +159,18 @@ func configCheckExecute(_ *cobra.Command, _ []string) error {
 	mgr := plugin.NewManager()
 	issues := 0
 
-	fmt.Print("Checking sources...\n\n")
+	widgets.Print("Checking sources...\n\n")
 	for _, name := range sortedSourceNames(cfg.Sources) {
 		src := cfg.Sources[name]
 		m, pluginErr := mgr.Get(name)
 		if pluginErr != nil {
-			fmt.Printf("  [WARN] %s - plugin not installed (run: aide plugin install %s)\n", name, name)
+			widgets.Printf("  [WARN] %s - plugin not installed (run: aide plugin install %s)\n", name, name)
 			issues++
 			continue
 		}
 
 		if !src.Enabled {
-			fmt.Printf("  [OFF]  %s\n", name)
+			widgets.Printf("  [OFF]  %s\n", name)
 			continue
 		}
 
@@ -179,7 +179,7 @@ func configCheckExecute(_ *cobra.Command, _ []string) error {
 		if len(m.Credentials) > 0 {
 			_, credErr := keychain.GetAll(name)
 			if credErr != nil {
-				fmt.Printf("  [WARN] %s - credentials missing (run: aide credential set %s)\n", name, name)
+				widgets.Printf("  [WARN] %s - credentials missing (run: aide credential set %s)\n", name, name)
 				issues++
 				sourceOK = false
 			}
@@ -190,7 +190,7 @@ func configCheckExecute(_ *cobra.Command, _ []string) error {
 				if field.Required {
 					val := src.Config[field.Key]
 					if val == nil || val == "" {
-						fmt.Printf("  [WARN] %s - missing required field '%s'\n", name, field.Key)
+						widgets.Printf("  [WARN] %s - missing required field '%s'\n", name, field.Key)
 						issues++
 						sourceOK = false
 					}
@@ -199,15 +199,15 @@ func configCheckExecute(_ *cobra.Command, _ []string) error {
 		}
 
 		if sourceOK {
-			fmt.Printf("  [OK]   %s\n", name)
+			widgets.Printf("  [OK]   %s\n", name)
 		}
 	}
 
 	if issues != 0 {
-		fmt.Printf("\n  %d issue(s) found.\n", issues)
+		widgets.Printf("\n  %d issue(s) found.\n", issues)
 		return fmt.Errorf("%d configuration issue(s) found", issues)
 	}
 
-	fmt.Println("\n  All checks passed.")
+	widgets.Println("\n  All checks passed.")
 	return nil
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Bell, BellOff, CheckCircle, Info, X, AlertTriangle } from "lucide-react";
 import { type AgentEvent, describeEvent } from "@/hooks/useSSE";
 import { type NotificationState } from "@/lib/notifications";
+import { APP_NAME } from "@/lib/brand";
 import { EmptyState, useToast } from "@/components/ui";
 
 interface Props {
@@ -38,7 +39,7 @@ function PermissionBanner({
       <div className="border-b bg-warning/5 px-3 py-2 text-xs text-warning">
         <div className="flex items-start gap-2">
           <BellOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1">Notifications are blocked for Aide.</span>
+          <span className="flex-1">Notifications are blocked for {APP_NAME}.</span>
           <button
             onClick={() => setShowHelp((v) => !v)}
             className="shrink-0 font-medium underline underline-offset-2 hover:text-warning/80"
@@ -167,7 +168,7 @@ export function NotificationFeed({
             icon={Bell}
             title={events.length === 0 ? "No notifications yet" : "All caught up"}
             description={
-              events.length === 0 ? "Aide events will appear here" : "Acknowledged everything"
+              events.length === 0 ? `${APP_NAME} events will appear here` : "Acknowledged everything"
             }
             className="border-0"
           />

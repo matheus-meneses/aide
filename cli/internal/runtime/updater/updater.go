@@ -203,7 +203,7 @@ func DownloadFile(url string, dest *os.File, showProgress bool) error {
 			written += int64(n)
 			if size > 0 {
 				pct := float64(written) / float64(size) * 100
-				fmt.Printf("\r      %.1f%% (%d / %d MB)", pct, written/(1024*1024), size/(1024*1024))
+				fmt.Fprintf(os.Stdout, "\r      %.1f%% (%d / %d MB)", pct, written/(1024*1024), size/(1024*1024))
 			}
 		}
 		if readErr == io.EOF {
@@ -213,7 +213,7 @@ func DownloadFile(url string, dest *os.File, showProgress bool) error {
 			return readErr
 		}
 	}
-	fmt.Println()
+	fmt.Fprintln(os.Stdout)
 	return nil
 }
 

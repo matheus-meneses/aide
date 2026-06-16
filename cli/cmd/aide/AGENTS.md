@@ -10,15 +10,18 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 |------|----------|
 | `main.go` | Root command, global flags (`--config`, `--verify-ssl`, `--ca-bundle`), version check hook |
 | `initcmd.go` | `aide init` — setup ~/.aide, extract scrapers, create venv, download registry |
+| `uicmd.go` | `aide ui` — serve the web UI + run the autonomous agent (port 8531, `--no-browser`) |
 | `run.go` | `aide run` — execute scrapers via runner package |
-| `agent.go` | `aide agent start` / `aide agent status` — start autonomous agent |
-| `configcmd.go` | `aide config show` / `aide config check` — display and validate config |
-| `sourcecmd.go` | `aide config source add` / `aide config source list` — interactive source setup |
+| `agent.go` | `aide agent start` (headless foreground loop) / `aide agent status` / `aide agent ask` / `aide agent schedule` |
+| `configcmd.go` | `aide config show` / `aide config check` / `aide config set` — display and validate config |
+| `plugincmd.go` | `aide plugin list/install/configure/enable/disable/set/remove/status` + `plugin registry` subtree |
+| `plugincmd_configure.go` | `aide plugin configure` — interactive source setup (settings + credentials) |
+| `plugincmd_registry.go` | `aide plugin registry list/add/remove/refresh` — manage plugin registries |
+| `plugincmd_list.go` | `aide plugin list` — installed plugins with status (`--available` for the catalog) |
 | `credential.go` | `aide credential set` / `aide credential list` / `aide credential delete` |
 | `report.go` | `aide report` — print open items |
 | `diff.go` | `aide diff` — show 24h changes |
 | `stats.go` | `aide stats` — historical stats with sparklines |
-| `sources.go` | `aide sources` — source health overview |
 | `history.go` | `aide history` — run history table |
 | `prune.go` | `aide prune` — data retention cleanup |
 | `tlscmd.go` | `aide tls fetch <host>` — TOFU capture of a server chain into `~/.aide/certs/`, optional config wiring |
@@ -40,9 +43,9 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 - Many commands repeat `config.Load` + `store.Open` + `defer Close` boilerplate — could be extracted to a helper in the future.
 - `version` var is set via `-ldflags` at build time; defaults to `"dev"`.
 - `initcmd` uses network access to download the registry; defaults to GitHub releases. Override with `AIDE_RELEASE_URL` env var.
-- `plugin install`/`plugin update` resolve the registry index from a GitHub release. The source repo is `AIDE_REGISTRY_REPO` (default `matheus-meneses/aide-plugins`); the release is `latest` unless pinned with `AIDE_REGISTRY_VERSION` or `--registry-version <tag>` (e.g. `v0.1.0-rc1`, which `latest` would skip as a prerelease). The version-pinned index and its per-plugin tarballs share the same tag, so SHA-256 verification stays consistent.
+- `plugin install`/`plugin registry refresh` resolve the registry index from a GitHub release. The source repo is `AIDE_REGISTRY_REPO` (default `matheus-meneses/aide-plugins`); the release is `latest` unless pinned with `AIDE_REGISTRY_VERSION` or `--registry-version <tag>` (e.g. `v0.1.0-rc1`, which `latest` would skip as a prerelease). The version-pinned index and its per-plugin tarballs share the same tag, so SHA-256 verification stays consistent.
 - Private registries: when a token is present (`GH_TOKEN`/`GITHUB_TOKEN`/`gh auth token`), index and artifact downloads go through the GitHub release-asset API instead of the `releases/download` browser URLs, which require a session for private repos.
-- `source add` surfaces a user-friendly message when all sources are configured (not a usage error).
+- `plugin configure` surfaces a user-friendly message when all sources are configured (not a usage error).
 - TLS: `--verify-ssl`/`--ca-bundle` only override config when the flag was `Changed` (so `run` honors `config.yaml` per-source/global `tls:` for unattended agent runs). The runner resolves flag > per-source > global > secure default and injects `verify_ssl` + `ca_bundle`. `tls fetch` dials with `InsecureSkipVerify` on purpose — it's trust-on-first-use, so it prints SHA-256 fingerprints to verify out-of-band.
 - macOS sandbox: plugins run under `sandbox-exec` with no Mach access, so `truststore` can't reach `trustd` (symptom: `unable to get local issuer certificate`). The runner works around this by exporting the OS trust store to `~/.aide/cache/system-trust.pem` (`runner.SystemTrustBundle()`) and injecting it as `ca_bundle` when verification is on and no explicit bundle is set; OpenSSL then verifies via file-read inside the sandbox. Note `--verify-ssl false` (space) does NOT bypass — cobra needs `--verify-ssl=false`.
 

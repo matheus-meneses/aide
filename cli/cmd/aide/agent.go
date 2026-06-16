@@ -1,24 +1,18 @@
 package main
 
 import (
-	agentapi "aide/cli/internal/agent/api"
 	"aide/cli/internal/app"
-	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/setup/provision"
-	"aide/cli/internal/ui/webui"
 	"aide/cli/internal/ui/widgets"
 	"context"
 	"fmt"
-	"net/http"
 	"os/signal"
 	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
 )
-
-var startPort int
 
 var (
 	scheduleInterval  string
@@ -32,8 +26,12 @@ var agentCmd = &cobra.Command{
 
 var agentStartCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start autonomous agent with web UI",
-	RunE:  agentStartExecute,
+	Short: "Run the autonomous agent in the foreground (headless, no web UI)",
+	Long: `Run the autonomous agent loop in the foreground until interrupted
+(Ctrl-C / SIGTERM). No HTTP server is started and no browser is opened — use
+'aide ui' for the full web experience. Background it yourself via launchd,
+systemd, or a trailing '&'.`,
+	RunE: agentStartExecute,
 }
 
 var agentStatusCmd = &cobra.Command{
@@ -61,7 +59,6 @@ func init() {
 	agentCmd.AddCommand(agentAskCmd)
 	agentCmd.AddCommand(agentConfigCmd)
 	agentCmd.AddCommand(agentScheduleCmd)
-	agentStartCmd.Flags().IntVarP(&startPort, "port", "p", 8531, "Web UI port")
 	agentScheduleCmd.Flags().StringVar(&scheduleInterval, "interval", "", "how often the agent re-collects (e.g. 30m, 1h)")
 	agentScheduleCmd.Flags().StringVar(&scheduleBriefings, "briefings", "", "comma-separated daily briefing times (24h, e.g. 08:00,17:30)")
 	rootCmd.AddCommand(agentCmd)
@@ -105,19 +102,13 @@ func agentStartExecute(_ *cobra.Command, _ []string) error {
 	}
 	defer stk.Close()
 	a := stk.Agent
+	a.SetConfigPath(cfgFile)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	go func() {
-		if err := a.StartAutonomous(ctx); err != nil {
-			clog.Error("agent stopped: %v", err)
-		}
-	}()
-
-	return webui.Serve(ctx, webui.Options{Port: startPort, RegisterAPI: func(mux *http.ServeMux) {
-		agentapi.Register(a, mux)
-	}})
+	widgets.PrintInfo("Autonomous agent running. Press Ctrl-C to stop.")
+	return a.StartAutonomous(ctx)
 }
 
 func agentStatusExecute(_ *cobra.Command, _ []string) error {
@@ -137,17 +128,17 @@ func agentStatusExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Printf("Provider:     %s\n", result.Provider)
-	fmt.Printf("LLM URL:      %s\n", result.LLMURL)
-	fmt.Printf("Model:        %s\n", result.Model)
-	fmt.Printf("Run interval: %s\n", result.RunInterval)
-	fmt.Printf("Briefings:    %s\n", result.Briefings)
-	fmt.Println()
+	widgets.Printf("Provider:     %s\n", result.Provider)
+	widgets.Printf("LLM URL:      %s\n", result.LLMURL)
+	widgets.Printf("Model:        %s\n", result.Model)
+	widgets.Printf("Run interval: %s\n", result.RunInterval)
+	widgets.Printf("Briefings:    %s\n", result.Briefings)
+	widgets.Println()
 	if !result.LLMReachable {
-		fmt.Printf("LLM: UNREACHABLE (%s)\n", result.LLMError)
+		widgets.Printf("LLM: UNREACHABLE (%s)\n", result.LLMError)
 		return fmt.Errorf("LLM unreachable: %s", result.LLMError)
 	}
-	fmt.Println("LLM: OK")
+	widgets.Println("LLM: OK")
 	return nil
 }
 
@@ -169,6 +160,6 @@ func agentAskExecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println(answer)
+	widgets.Println(answer)
 	return nil
 }

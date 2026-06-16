@@ -25,9 +25,9 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 			if assumeYes {
 				return true
 			}
-			fmt.Printf("\nPlugin: %s@%s (local)\n", m.Name, m.Version)
+			widgets.Printf("\nPlugin: %s@%s (local)\n", m.Name, m.Version)
 			if m.Description != "" {
-				fmt.Printf("Description: %s\n", m.Description)
+				widgets.Printf("Description: %s\n", m.Description)
 			}
 			return confirm("Install this plugin?")
 		}
@@ -36,7 +36,7 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 			return err
 		}
 		if assumeYes {
-			fmt.Printf("  [+] %s installed (--yes: skipping config wizard)\n", m.Name)
+			widgets.Printf("  [+] %s installed (--yes: skipping config wizard)\n", m.Name)
 			return nil
 		}
 		return runConfigWizard(m)
@@ -84,12 +84,12 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 	}
 
 	consent := func(m *plugin.Manifest) bool {
-		fmt.Printf("\nPlugin: %s@%s\n", m.Name, m.Version)
+		widgets.Printf("\nPlugin: %s@%s\n", m.Name, m.Version)
 		if m.Description != "" {
-			fmt.Printf("Description: %s\n", m.Description)
+			widgets.Printf("Description: %s\n", m.Description)
 		}
 		if len(m.Capabilities.Network) > 0 {
-			fmt.Printf("Network access: %s\n", strings.Join(m.Capabilities.Network, ", "))
+			widgets.Printf("Network access: %s\n", strings.Join(m.Capabilities.Network, ", "))
 		}
 		if len(m.Capabilities.Filesystem) > 0 {
 			paths := make([]string, 0, len(m.Capabilities.Filesystem))
@@ -101,7 +101,7 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 					paths = append(paths, "w:"+f.Write)
 				}
 			}
-			fmt.Printf("Filesystem access: %s\n", strings.Join(paths, ", "))
+			widgets.Printf("Filesystem access: %s\n", strings.Join(paths, ", "))
 		}
 		return confirm("Install this plugin?")
 	}
@@ -115,7 +115,7 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 
 func selectPluginInteractive(idx *plugin.Index) (string, error) {
 	if idx == nil || len(idx.Plugins) == 0 {
-		return "", fmt.Errorf("no plugins available — run 'aide plugin update' to refresh the registry")
+		return "", fmt.Errorf("no plugins available — run 'aide plugin registry refresh' to refresh the registry")
 	}
 	if !stdinIsTerminal() {
 		return "", fmt.Errorf("no plugin name given; pass a name (e.g. 'aide plugin install jira') or run in a terminal")
@@ -160,13 +160,13 @@ func selectPluginInteractive(idx *plugin.Index) (string, error) {
 
 func runConfigWizard(m *plugin.Manifest) error {
 	if len(m.Config) == 0 && len(m.Credentials) == 0 {
-		fmt.Printf("\nPlugin %s installed with no configuration required.\n", m.Name)
+		widgets.Printf("\nPlugin %s installed with no configuration required.\n", m.Name)
 		return nil
 	}
 
-	fmt.Printf("\n─── Configure %s ───────────────────────────────\n", m.Name)
-	fmt.Println("Press Enter to skip optional fields.")
-	fmt.Println()
+	widgets.Printf("\n─── Configure %s ───────────────────────────────\n", m.Name)
+	widgets.Println("Press Enter to skip optional fields.")
+	widgets.Println()
 
 	sourceName := promptLine(fmt.Sprintf("Source name [%s]: ", m.Name))
 	if sourceName == "" {
@@ -179,12 +179,12 @@ func runConfigWizard(m *plugin.Manifest) error {
 		if val != nil {
 			cfgValues[field.Key] = val
 		} else if field.Required {
-			fmt.Printf("  [!] %s is required — you can set it later in config.yaml\n", field.Key)
+			widgets.Printf("  [!] %s is required — you can set it later in config.yaml\n", field.Key)
 		}
 	}
 
 	if len(m.Credentials) > 0 {
-		fmt.Println()
+		widgets.Println()
 		for _, cred := range m.Credentials {
 			label := cred.Label
 			if label == "" {
@@ -198,14 +198,14 @@ func runConfigWizard(m *plugin.Manifest) error {
 			}
 			if val != "" {
 				if err := keychain.SetField(sourceName, cred.Key, val); err != nil {
-					fmt.Printf("  [!] Could not save %s to keychain: %v\n", cred.Key, err)
-					fmt.Printf("  [!] Storing in config.yaml instead (not recommended)\n")
+					widgets.Printf("  [!] Could not save %s to keychain: %v\n", cred.Key, err)
+					widgets.Printf("  [!] Storing in config.yaml instead (not recommended)\n")
 					if cfgValues["credentials"] == nil {
 						cfgValues["credentials"] = map[string]string{}
 					}
 					cfgValues["credentials"].(map[string]string)[cred.Key] = val
 				} else {
-					fmt.Printf("  [+] %s saved to keychain\n", cred.Key)
+					widgets.Printf("  [+] %s saved to keychain\n", cred.Key)
 				}
 			}
 		}
@@ -222,9 +222,9 @@ func runConfigWizard(m *plugin.Manifest) error {
 	}
 
 	if _, exists := cfg.Sources[sourceName]; exists {
-		fmt.Printf("\n  [!] Source %q already exists in config.yaml — overwrite?\n", sourceName)
+		widgets.Printf("\n  [!] Source %q already exists in config.yaml — overwrite?\n", sourceName)
 		if !confirm("Overwrite?") {
-			fmt.Println("  Skipped. Run 'aide config source add' to configure manually.")
+			widgets.Println("  Skipped. Run 'aide plugin configure' to configure manually.")
 			return nil
 		}
 	}
@@ -243,13 +243,13 @@ func runConfigWizard(m *plugin.Manifest) error {
 		return fmt.Errorf("saving config: %w", err)
 	}
 
-	fmt.Printf("\n  [+] Source %q added to config.yaml\n", sourceName)
-	fmt.Printf("      Run: aide run --source %s\n", sourceName)
+	widgets.Printf("\n  [+] Source %q added to config.yaml\n", sourceName)
+	widgets.Printf("      Run: aide run --source %s\n", sourceName)
 	return nil
 }
 
 func promptLine(prompt string) string {
-	fmt.Print(prompt)
+	widgets.Print(prompt)
 	line, err := stdinReader.ReadString('\n')
 	if err != nil {
 		return ""
@@ -277,7 +277,7 @@ func promptField(field plugin.Field, indent string) any {
 	switch field.Type {
 	case "string_list":
 		var items []string
-		fmt.Printf("%s%s%s (one per line, empty to stop):\n", indent, label, required)
+		widgets.Printf("%s%s%s (one per line, empty to stop):\n", indent, label, required)
 		for i := 1; ; i++ {
 			val := promptLine(fmt.Sprintf("%s  [%d]: ", indent, i))
 			if val == "" {
@@ -292,7 +292,7 @@ func promptField(field plugin.Field, indent string) any {
 
 	case "object_list":
 		var items []map[string]any
-		fmt.Printf("%s%s%s:\n", indent, label, required)
+		widgets.Printf("%s%s%s:\n", indent, label, required)
 		if len(field.Fields) > 0 {
 			subLabels := make([]string, 0, len(field.Fields))
 			for _, f := range field.Fields {
@@ -302,7 +302,7 @@ func promptField(field plugin.Field, indent string) any {
 				}
 				subLabels = append(subLabels, l)
 			}
-			fmt.Printf("%s  (each entry: %s)\n", indent, strings.Join(subLabels, " → "))
+			widgets.Printf("%s  (each entry: %s)\n", indent, strings.Join(subLabels, " → "))
 		}
 		for i := 1; ; i++ {
 			firstSub := field.Fields[0]
@@ -373,9 +373,9 @@ func promptField(field plugin.Field, indent string) any {
 }
 
 func promptSecret(prompt string) string {
-	fmt.Print(prompt)
+	widgets.Print(prompt)
 	b, err := term.ReadPassword(int(syscall.Stdin)) //nolint:unconvert // syscall.Stdin is a Handle on Windows; int() keeps this cross-platform
-	fmt.Println()
+	widgets.Println()
 	if err != nil {
 		return promptLine("")
 	}

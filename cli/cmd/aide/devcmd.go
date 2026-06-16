@@ -4,6 +4,7 @@ import (
 	"aide/cli/internal/devtool"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/ui/widgets"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -198,11 +199,11 @@ func devNewExecute(_ *cobra.Command, args []string) error {
 	if devJSON {
 		return printJSON(map[string]any{"ok": true, "dir": targetDir, "created": created})
 	}
-	fmt.Printf("Scaffolded %s plugin %q in %s\n", rt, name, targetDir)
+	widgets.Printf("Scaffolded %s plugin %q in %s\n", rt, name, targetDir)
 	for _, c := range created {
-		fmt.Printf("  + %s\n", c)
+		widgets.Printf("  + %s\n", c)
 	}
-	fmt.Printf("\nNext: edit the scraper, then run\n  aide dev test %s\n", targetDir)
+	widgets.Printf("\nNext: edit the scraper, then run\n  aide dev test %s\n", targetDir)
 	return nil
 }
 
@@ -287,10 +288,10 @@ func devTestExecute(cmd *cobra.Command, args []string) error {
 	if !result.OK {
 		return fmt.Errorf("plugin returned error: %s", result.Error)
 	}
-	fmt.Printf("OK  action=%s  entries=%d  team=%d  metrics=%d\n",
+	widgets.Printf("OK  action=%s  entries=%d  team=%d  metrics=%d\n",
 		result.Action, len(result.Entries), len(result.TeamMembers), len(result.Metrics))
 	for _, e := range result.Entries {
-		fmt.Printf("  [%s] %s — %s (%s)\n", e.Category, e.Member, e.Title, e.EntryDate)
+		widgets.Printf("  [%s] %s — %s (%s)\n", e.Category, e.Member, e.Title, e.EntryDate)
 	}
 	return nil
 }
@@ -369,12 +370,12 @@ func devValidateExecute(_ *cobra.Command, args []string) error {
 		return nil
 	}
 	if ok {
-		fmt.Println("Manifest is valid.")
+		widgets.Println("Manifest is valid.")
 		return nil
 	}
-	fmt.Printf("Validation failed (%d issue(s)):\n", len(errs))
+	widgets.Printf("Validation failed (%d issue(s)):\n", len(errs))
 	for _, e := range errs {
-		fmt.Printf("  - %s: %s\n", e.Field, e.Message)
+		widgets.Printf("  - %s: %s\n", e.Field, e.Message)
 	}
 	return fmt.Errorf("%d validation error(s)", len(errs))
 }
@@ -417,7 +418,7 @@ func devPackageExecute(cmd *cobra.Command, args []string) error {
 			"index_entry":  res.IndexEntry,
 		})
 	}
-	fmt.Printf("Packaged %s@%s\n  artifact: %s\n  manifest: %s\n  sha256:   %s\n\nRegistry index entry:\n\n%s",
+	widgets.Printf("Packaged %s@%s\n  artifact: %s\n  manifest: %s\n  sha256:   %s\n\nRegistry index entry:\n\n%s",
 		m.Name, m.Version, res.Tarball, res.Manifest, res.SHA256, res.IndexEntry)
 	return nil
 }

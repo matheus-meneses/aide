@@ -1,4 +1,5 @@
 import { type AgentEvent } from "@/lib/eventStore";
+import { APP_NAME } from "@/lib/brand";
 
 export const GROUPING_WINDOW_MS = 5000;
 
@@ -67,7 +68,7 @@ export async function requestNotificationPermission(): Promise<NotificationState
 export function showBrowserNotification(event: AgentEvent) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-  let title = event.type === "briefing" ? "Aide - Briefing" : "Aide";
+  let title = event.type === "briefing" ? `${APP_NAME} - Briefing` : APP_NAME;
   let tag = String(event.id || event.timestamp);
 
   let body: string;
@@ -101,7 +102,7 @@ export function flushGroupedBuffer(buffer: AgentEvent[]) {
   if (buffer.length === 1 && first) {
     showBrowserNotification(first);
   } else if ("Notification" in window && Notification.permission === "granted") {
-    new Notification("Aide", {
+    new Notification(APP_NAME, {
       body: `${buffer.length} new updates`,
       icon: "/favicon.ico",
       tag: "aide-grouped",

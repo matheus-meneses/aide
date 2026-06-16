@@ -78,12 +78,12 @@ make verify      # full polyglot gate: Go + Python + frontend
 
 ### First run
 
-Launch the app with `open -a Aide` for a guided setup, or drive the CLI:
+Launch the app with `open -a Aide`, run `aide ui` for the same guided experience in your browser, or drive the CLI:
 
 ```sh
 aide init                       # creates ~/.aide, installs a Python runtime, fetches the registry
 aide plugin install             # browse the registry and pick a source interactively
-aide config source add <name>   # connect it (interactive wizard, prompts for credentials)
+aide plugin configure <name>    # connect it (interactive wizard, prompts for credentials)
 aide run && aide report         # collect everything, then see what needs you
 ```
 
@@ -211,14 +211,21 @@ aide agent status        # prints the LLM URL, model, interval, and an OK / UNRE
 aide agent ask "what needs my attention today?"
 ```
 
-**4. Run it continuously.** Start the background agent and open the chat UI:
+**4. Run it continuously.** Launch the web UI with the autonomous agent running behind it:
 
 ```sh
-aide agent start         # serves on port 8531 by default; use -p to change it
+aide ui                  # serves on port 8531 by default and opens your browser; use -p to change it
 ```
 
-Then open `http://localhost:8531`. The agent re-collects every `run_interval` and posts a briefing at each of your
-`briefing_times`, and you can chat with it about anything in your data at any time.
+It opens `http://localhost:8531` automatically (pass `--no-browser` to skip). The agent re-collects every
+`run_interval` and posts a briefing at each of your `briefing_times`, and you can chat with it about anything in your
+data at any time.
+
+Prefer a headless daemon with no web server? Run the loop in the foreground and background it yourself:
+
+```sh
+aide agent start         # runs the autonomous loop until Ctrl-C; no HTTP server, no UI
+```
 
 ## Build your own plugin
 
@@ -269,7 +276,7 @@ Then install it straight from a local path and wire it up:
 
 ```sh
 aide plugin install --local ./my-source
-aide config source add my-source
+aide plugin configure my-source
 aide run
 ```
 

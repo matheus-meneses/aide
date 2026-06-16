@@ -79,14 +79,16 @@ use, surfaces what needs attention, and helps you manage your day — all on
 your machine.
 
 Quickstart:
-  aide init                     set up aide home and fetch the plugin registry
+  aide ui                       launch the web UI and autonomous agent (easiest)
+
+Or drive it from the terminal:
   aide plugin install <name>    add a data source plugin
-  aide config source add        connect a source
+  aide plugin configure         connect it as a source
   aide run                      collect data and generate a briefing
   aide report                   view your latest briefing`,
-	Example: `  aide init
+	Example: `  aide ui
   aide plugin install github
-  aide config source add
+  aide plugin configure
   aide run
   aide report`,
 	SilenceErrors: true,
@@ -128,14 +130,14 @@ func registerGroups() {
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "setup", Title: "Setup & Configuration:"},
 		&cobra.Group{ID: "work", Title: "Daily Work:"},
-		&cobra.Group{ID: "ecosystem", Title: "Plugins & Sources:"},
+		&cobra.Group{ID: "ecosystem", Title: "Plugins:"},
 		&cobra.Group{ID: "system", Title: "System:"},
 	)
 	groupOf := map[string]string{
 		"init": "setup", "config": "setup", "credential": "setup", "tls": "setup",
-		"run": "work", "report": "work", "stats": "work", "history": "work",
+		"ui": "work", "run": "work", "report": "work", "stats": "work", "history": "work",
 		"diff": "work", "agent": "work", "team": "work",
-		"plugin": "ecosystem", "registry": "ecosystem", "source": "ecosystem", "sources": "ecosystem",
+		"plugin":  "ecosystem",
 		"version": "system", "prune": "system", "dev": "system", "whoami": "system",
 	}
 	for _, c := range rootCmd.Commands() {
