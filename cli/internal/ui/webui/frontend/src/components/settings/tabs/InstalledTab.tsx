@@ -252,9 +252,13 @@ function SourceForm({
         const init: Record<string, string> = {};
         (m.config ?? []).forEach((f) => {
           const existing = source?.config?.[f.key];
-          init[f.key] = Array.isArray(existing)
-            ? existing.map(toText).join("\n")
-            : toText(existing) || f.default;
+          if (f.type === "object_list") {
+            init[f.key] = existing != null ? JSON.stringify(existing) : "";
+          } else if (Array.isArray(existing)) {
+            init[f.key] = existing.map(toText).join("\n");
+          } else {
+            init[f.key] = toText(existing) || f.default;
+          }
         });
         setValues(init);
       })

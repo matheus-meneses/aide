@@ -3,7 +3,7 @@ package main
 import (
 	"aide/cli/internal/devtool"
 	"aide/cli/internal/runtime/plugin"
-	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/runtime/trust"
 	"aide/cli/internal/ui/widgets"
 	"context"
 	"encoding/json"
@@ -27,7 +27,7 @@ func devTestCABundle() string {
 		return cb
 	}
 	if verifySSLValue() {
-		return runner.SystemTrustBundle()
+		return trust.SystemBundle()
 	}
 	return ""
 }

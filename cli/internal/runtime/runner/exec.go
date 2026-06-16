@@ -3,6 +3,7 @@ package runner
 import (
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/runtime/trust"
 	"context"
 	"fmt"
 	"time"
@@ -61,7 +62,7 @@ func (r *Runner) executeSource(ctx context.Context, name string, src config.Sour
 
 	verifySSL, caBundle := r.resolveTLS(src)
 	if verifySSL && caBundle == "" {
-		caBundle = SystemTrustBundle()
+		caBundle = trust.SystemBundle()
 	}
 
 	req := &plugin.Request{
