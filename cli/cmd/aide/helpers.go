@@ -34,7 +34,7 @@ func confirm(prompt string) bool {
 		widgets.PrintError("%q needs confirmation; re-run with --yes for non-interactive use", prompt)
 		return false
 	}
-	fmt.Printf("%s [y/N]: ", prompt)
+	widgets.Printf("%s [y/N]: ", prompt)
 	line, err := stdinReader.ReadString('\n')
 	if err != nil {
 		return false

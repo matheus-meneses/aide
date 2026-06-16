@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aide/cli/internal/ui/widgets"
 	"encoding/json"
 	"fmt"
 
@@ -37,7 +38,7 @@ func toggleSource(name string, enabled bool) error {
 	if enabled {
 		state = "enabled"
 	}
-	fmt.Printf("Source '%s' %s.\n", name, state)
+	widgets.Printf("Source '%s' %s.\n", name, state)
 	return nil
 }
 
@@ -71,6 +72,6 @@ func sourceSetExecute(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Source '%s': %s = %v\n", name, key, src.Config[key])
+	widgets.Printf("Source '%s': %s = %v\n", name, key, src.Config[key])
 	return nil
 }

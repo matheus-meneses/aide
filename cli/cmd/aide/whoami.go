@@ -49,24 +49,24 @@ func whoamiExecute(_ *cobra.Command, _ []string) error {
 		if !whoamiSet {
 			profile, err := s.Profile.All()
 			if err == nil && len(profile) > 0 {
-				fmt.Printf("Name:           %s\n", profile["name"])
-				fmt.Printf("Email:          %s\n", profile["email"])
-				fmt.Printf("Preferred name: %s\n", profile["preferred_name"])
+				widgets.Printf("Name:           %s\n", profile["name"])
+				widgets.Printf("Email:          %s\n", profile["email"])
+				widgets.Printf("Preferred name: %s\n", profile["preferred_name"])
 				return nil
 			}
 		}
 
 		reader := bufio.NewReader(os.Stdin)
 
-		fmt.Print("Full name: ")
+		widgets.Print("Full name: ")
 		name, _ := reader.ReadString('\n')
 		name = strings.TrimSpace(name)
 
-		fmt.Print("Email: ")
+		widgets.Print("Email: ")
 		email, _ := reader.ReadString('\n')
 		email = strings.TrimSpace(email)
 
-		fmt.Print("How should Aide call you? ")
+		widgets.Print("How should Aide call you? ")
 		preferred, _ := reader.ReadString('\n')
 		preferred = strings.TrimSpace(preferred)
 
@@ -81,7 +81,7 @@ func whoamiExecute(_ *cobra.Command, _ []string) error {
 			}
 		}
 
-		fmt.Printf("\nSaved! Hi %s.\n", preferred)
+		widgets.Printf("\nSaved! Hi %s.\n", preferred)
 		return nil
 	})
 }

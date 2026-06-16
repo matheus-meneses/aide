@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/xdg"
 	"archive/tar"
 	"compress/gzip"
@@ -36,20 +37,20 @@ func InstallLocal(_ context.Context, srcDir string, consent func(*Manifest) bool
 		return nil, fmt.Errorf("creating install dir: %w", err)
 	}
 
-	fmt.Printf("  [+] Copying %s from %s...\n", m.Name, srcDir)
+	clog.Info("copying %s from %s", m.Name, srcDir)
 	if err := copyDir(srcDir, installDir); err != nil {
 		return nil, fmt.Errorf("copying plugin: %w", err)
 	}
 
 	if m.Runtime == "python" && m.Requirements != "" {
 		reqFile := filepath.Join(installDir, m.Requirements)
-		fmt.Println("  [+] Building venv...")
+		clog.Info("building venv")
 		if err := buildVenv(installDir, reqFile); err != nil {
 			return nil, fmt.Errorf("building venv: %w", err)
 		}
 	}
 
-	fmt.Printf("  [+] Installed %s (local)\n", m.Name)
+	clog.Info("installed %s (local)", m.Name)
 	return m, nil
 }
 
@@ -125,7 +126,7 @@ func Install(_ context.Context, idx *Index, name, version string, consent func(*
 	tmpArtifact.Close()
 	defer os.Remove(tmpArtifact.Name())
 
-	fmt.Printf("  [+] Downloading %s@%s...\n", name, version)
+	clog.Info("downloading %s@%s", name, version)
 	if err := downloadWithAuth(artifact.URL, tmpArtifact.Name()); err != nil {
 		return nil, fmt.Errorf("downloading artifact: %w", err)
 	}
@@ -134,7 +135,7 @@ func Install(_ context.Context, idx *Index, name, version string, consent func(*
 		return nil, fmt.Errorf("checksum verification failed: %w", err)
 	}
 
-	fmt.Println("  [+] Extracting...")
+	clog.Info("extracting")
 	if err := extractTarGz(tmpArtifact.Name(), installDir); err != nil {
 		return nil, fmt.Errorf("extracting artifact: %w", err)
 	}
@@ -156,7 +157,7 @@ func Install(_ context.Context, idx *Index, name, version string, consent func(*
 		}
 	}
 
-	fmt.Printf("  [+] Installed %s@%s\n", name, version)
+	clog.Info("installed %s@%s", name, version)
 	return installed, nil
 }
 
@@ -240,12 +241,12 @@ func buildVenv(pluginDir, reqFile string) error {
 	}
 
 	if sdkPath := os.Getenv("AIDE_SDK_PATH"); sdkPath != "" {
-		fmt.Printf("  [+] Installing local SDK from %s...\n", sdkPath)
+		clog.Info("installing local SDK from %s", sdkPath)
 		if err := runCmd(pipBin, "install", "setuptools"); err != nil {
-			fmt.Printf("  [!] setuptools install failed: %v\n", err)
+			clog.Warn("setuptools install failed: %v", err)
 		}
 		if err := runCmd(pipBin, "install", sdkPath); err != nil {
-			fmt.Printf("  [!] Local SDK install failed: %v\n", err)
+			clog.Warn("local SDK install failed: %v", err)
 		}
 	}
 
@@ -259,12 +260,12 @@ func buildVenv(pluginDir, reqFile string) error {
 	}
 	defaultBrowsersPath := filepath.Join(os.Getenv("HOME"), "Library", "Caches", "ms-playwright")
 	if _, err := os.Stat(defaultBrowsersPath); err == nil { //nolint:gosec // G703: path is constructed from HOME env + known suffix, not user-controlled
-		fmt.Printf("  [+] Playwright browsers already present at %s, skipping download.\n", defaultBrowsersPath)
+		clog.Info("playwright browsers already present at %s, skipping download", defaultBrowsersPath)
 	} else {
-		fmt.Printf("  [+] Installing Playwright browsers...\n")
+		clog.Info("installing playwright browsers")
 		if err := runCmd(pythonVenvBin, "-m", "playwright", "install", "chromium"); err != nil {
-			fmt.Printf("  [!] playwright install failed: %v\n", err)
-			fmt.Printf("  [!] Run manually outside Cursor: %s -m playwright install chromium\n", pythonVenvBin)
+			clog.Warn("playwright install failed: %v", err)
+			clog.Warn("run manually outside Cursor: %s -m playwright install chromium", pythonVenvBin)
 		}
 	}
 

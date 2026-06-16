@@ -3,6 +3,7 @@ package main
 import (
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/platform/xdg"
+	"aide/cli/internal/ui/widgets"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -84,7 +85,7 @@ func tlsFetchExecute(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("writing %s: %w", outPath, err)
 	}
 
-	fmt.Printf("Saved %d certificate(s) from %s to %s\n\n", len(chain), addr, outPath)
+	widgets.Printf("Saved %d certificate(s) from %s to %s\n\n", len(chain), addr, outPath)
 	for i, cert := range chain {
 		role := "intermediate"
 		switch {
@@ -93,22 +94,22 @@ func tlsFetchExecute(_ *cobra.Command, args []string) error {
 		case cert.IsCA && string(cert.RawSubject) == string(cert.RawIssuer):
 			role = "root"
 		}
-		fmt.Printf("  [%s] %s\n", role, cert.Subject.String())
-		fmt.Printf("        issuer:      %s\n", cert.Issuer.String())
-		fmt.Printf("        sha256:      %s\n", fingerprint(cert))
-		fmt.Printf("        expires:     %s\n", cert.NotAfter.Format(time.RFC3339))
+		widgets.Printf("  [%s] %s\n", role, cert.Subject.String())
+		widgets.Printf("        issuer:      %s\n", cert.Issuer.String())
+		widgets.Printf("        sha256:      %s\n", fingerprint(cert))
+		widgets.Printf("        expires:     %s\n", cert.NotAfter.Format(time.RFC3339))
 	}
 
-	fmt.Println("\nTrust-on-first-use: verify the sha256 fingerprint above with your IT/security team")
-	fmt.Println("before relying on this bundle. Installing the CA into your OS trust store is safer.")
+	widgets.Println("\nTrust-on-first-use: verify the sha256 fingerprint above with your IT/security team")
+	widgets.Println("before relying on this bundle. Installing the CA into your OS trust store is safer.")
 
 	if tlsFetchGlobal || tlsFetchSource != "" {
 		if err := wireCABundle(outPath); err != nil {
 			return err
 		}
 	} else {
-		fmt.Printf("\nTo use it, set:  aide --ca-bundle %s ...\n", outPath)
-		fmt.Println("or wire it into config with --source <name> or --global.")
+		widgets.Printf("\nTo use it, set:  aide --ca-bundle %s ...\n", outPath)
+		widgets.Println("or wire it into config with --source <name> or --global.")
 	}
 	return nil
 }
@@ -174,11 +175,11 @@ func wireCABundle(path string) error {
 
 	switch {
 	case tlsFetchGlobal && tlsFetchSource != "":
-		fmt.Printf("\nWired into settings.tls.ca_bundle and sources.%s.tls.ca_bundle\n", tlsFetchSource)
+		widgets.Printf("\nWired into settings.tls.ca_bundle and sources.%s.tls.ca_bundle\n", tlsFetchSource)
 	case tlsFetchGlobal:
-		fmt.Println("\nWired into settings.tls.ca_bundle")
+		widgets.Println("\nWired into settings.tls.ca_bundle")
 	default:
-		fmt.Printf("\nWired into sources.%s.tls.ca_bundle\n", tlsFetchSource)
+		widgets.Printf("\nWired into sources.%s.tls.ca_bundle\n", tlsFetchSource)
 	}
 	return nil
 }

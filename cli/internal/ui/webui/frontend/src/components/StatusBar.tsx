@@ -13,6 +13,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { fetchStatus, fetchVersion, fetchWhoami } from "@/lib/api";
+import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/cn";
 import { handleExternalClick } from "@/lib/openExternal";
 
@@ -136,7 +137,7 @@ export function StatusBar({
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm">
               <Sparkles className="h-4 w-4" />
             </div>
-            <span className="text-base font-semibold tracking-tight">Aide</span>
+            <span className="text-base font-semibold tracking-tight">{APP_NAME}</span>
           </div>
 
           {status && (status.today_events > 0 || Object.keys(counts).length > 0) && (

@@ -6,6 +6,7 @@ linters:
     - errcheck
     - errorlint
     - depguard
+    - forbidigo
     - gocritic
     - gosec
     - govet
@@ -27,6 +28,16 @@ linters:
     # - funlen
     # - wrapcheck
   settings:
+    forbidigo:
+      # Block raw stdout writes: CLI output must go through internal/ui/widgets
+      # (routed, color/quiet aware, testable) and diagnostics through
+      # internal/platform/clog. fmt.Fprint*/Sprintf/Errorf stay allowed.
+      forbid:
+        - pattern: '^fmt\.Print(f|ln)?$'
+          msg: "use widgets.* for CLI output or clog.* for logging, not fmt.Print*"
+        - pattern: '^print(ln)?$'
+          msg: "use widgets.* for CLI output or clog.* for logging, not the print/println builtins"
+      analyze-types: true
     depguard:
       rules:
         main:

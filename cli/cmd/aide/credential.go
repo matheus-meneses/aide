@@ -3,6 +3,7 @@ package main
 import (
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/security/keychain"
+	"aide/cli/internal/ui/widgets"
 	"bufio"
 	"fmt"
 	"os"
@@ -76,25 +77,25 @@ func credentialSetExecute(_ *cobra.Command, args []string) error {
 		if len(args) == 3 {
 			value = args[2]
 		} else {
-			fmt.Printf("Value for %s (hidden): ", key)
+			widgets.Printf("Value for %s (hidden): ", key)
 			valueBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {
 				return fmt.Errorf("reading value: %w", err)
 			}
-			fmt.Println()
+			widgets.Println()
 			value = string(valueBytes)
 		}
 		if err := keychain.SetField(source, key, value); err != nil {
 			return err
 		}
-		fmt.Printf("Field '%s' stored for %s\n", key, source)
+		widgets.Printf("Field '%s' stored for %s\n", key, source)
 		return nil
 	}
 
 	mgr := plugin.NewManager()
 	creds, desc := resolveCredentialSchema(mgr, source)
 	if len(creds) > 0 {
-		fmt.Printf("Credentials for '%s' (%s)\n\n", source, desc)
+		widgets.Printf("Credentials for '%s' (%s)\n\n", source, desc)
 		for _, cred := range creds {
 			label := cred.Label
 			if label == "" {
@@ -102,15 +103,15 @@ func credentialSetExecute(_ *cobra.Command, args []string) error {
 			}
 			var val string
 			if cred.Secret {
-				fmt.Printf("  %s (hidden): ", label)
+				widgets.Printf("  %s (hidden): ", label)
 				b, readErr := term.ReadPassword(int(os.Stdin.Fd()))
-				fmt.Println()
+				widgets.Println()
 				if readErr != nil {
 					return fmt.Errorf("reading %s: %w", cred.Key, readErr)
 				}
 				val = strings.TrimSpace(string(b))
 			} else {
-				fmt.Printf("  %s: ", label)
+				widgets.Printf("  %s: ", label)
 				line, readErr := bufio.NewReader(os.Stdin).ReadString('\n')
 				if readErr != nil {
 					return fmt.Errorf("reading %s: %w", cred.Key, readErr)
@@ -118,24 +119,24 @@ func credentialSetExecute(_ *cobra.Command, args []string) error {
 				val = strings.TrimSpace(line)
 			}
 			if val == "" {
-				fmt.Printf("  (skipped)\n")
+				widgets.Printf("  (skipped)\n")
 				continue
 			}
 			if err := keychain.SetField(source, cred.Key, val); err != nil {
 				return err
 			}
-			fmt.Printf("  '%s' stored\n", cred.Key)
+			widgets.Printf("  '%s' stored\n", cred.Key)
 		}
 		return nil
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Adding credentials for '%s'. Enter field names and values.\n", source)
-	fmt.Println("Leave field name empty to finish.")
-	fmt.Println()
+	widgets.Printf("Adding credentials for '%s'. Enter field names and values.\n", source)
+	widgets.Println("Leave field name empty to finish.")
+	widgets.Println()
 
 	for {
-		fmt.Print("Field name: ")
+		widgets.Print("Field name: ")
 		fieldName, err := reader.ReadString('\n')
 		if err != nil {
 			return err
@@ -145,25 +146,25 @@ func credentialSetExecute(_ *cobra.Command, args []string) error {
 			break
 		}
 
-		fmt.Printf("Value for %s (hidden): ", fieldName)
+		widgets.Printf("Value for %s (hidden): ", fieldName)
 		valueBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return fmt.Errorf("reading value: %w", err)
 		}
-		fmt.Println()
+		widgets.Println()
 
 		if err := keychain.SetField(source, fieldName, string(valueBytes)); err != nil {
 			return err
 		}
-		fmt.Printf("  '%s' stored\n", fieldName)
+		widgets.Printf("  '%s' stored\n", fieldName)
 	}
 
 	cred, err := keychain.GetAll(source)
 	if err != nil {
-		fmt.Println("Done.")
+		widgets.Println("Done.")
 		return nil //nolint:nilerr // credential summary after set is best-effort; keychain may lag
 	}
-	fmt.Printf("\nCredentials for %s: %d field(s) stored\n", source, len(cred.Fields))
+	widgets.Printf("\nCredentials for %s: %d field(s) stored\n", source, len(cred.Fields))
 	return nil
 }
 
@@ -176,12 +177,12 @@ func credentialShowExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no credentials found for %s", source)
 	}
 
-	fmt.Printf("Credential fields for %s:\n", source)
+	widgets.Printf("Credential fields for %s:\n", source)
 	for key, val := range cred.Fields {
 		if reveal {
-			fmt.Printf("  %s = %s\n", key, val)
+			widgets.Printf("  %s = %s\n", key, val)
 		} else {
-			fmt.Printf("  %s = ****\n", key)
+			widgets.Printf("  %s = ****\n", key)
 		}
 	}
 	return nil
@@ -198,7 +199,7 @@ func credentialDeleteExecute(_ *cobra.Command, args []string) error {
 		if err := keychain.DeleteField(source, key); err != nil {
 			return err
 		}
-		fmt.Printf("Field '%s' removed from %s\n", key, source)
+		widgets.Printf("Field '%s' removed from %s\n", key, source)
 	} else {
 		if err := requireConfirm(fmt.Sprintf("Remove ALL credentials for %s?", source)); err != nil {
 			return err
@@ -206,7 +207,7 @@ func credentialDeleteExecute(_ *cobra.Command, args []string) error {
 		if err := keychain.DeleteSource(source); err != nil {
 			return err
 		}
-		fmt.Printf("All credentials removed for %s\n", source)
+		widgets.Printf("All credentials removed for %s\n", source)
 	}
 	return nil
 }
@@ -217,12 +218,12 @@ func credentialListExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	if len(sources) == 0 {
-		fmt.Println("No credentials stored.")
+		widgets.Println("No credentials stored.")
 		return nil
 	}
-	fmt.Println("Sources with stored credentials:")
+	widgets.Println("Sources with stored credentials:")
 	for _, s := range sources {
-		fmt.Printf("  %s\n", s)
+		widgets.Printf("  %s\n", s)
 	}
 	return nil
 }

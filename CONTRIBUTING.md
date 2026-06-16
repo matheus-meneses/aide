@@ -17,7 +17,7 @@ make dev
 
 ```bash
 aide-dev plugin install --local aide-plugins/plugins/jira
-aide-dev config source add
+aide-dev plugin configure
 aide-dev run
 ```
 

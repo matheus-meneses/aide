@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"aide/cli/internal/ui/widgets"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -13,10 +13,10 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print aide version",
 	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Println("╭───────────────────────────────────────╮")
-		fmt.Printf("│  aide %-33s│\n", version)
-		fmt.Printf("│  platform: %-28s│\n", runtime.GOOS+"/"+runtime.GOARCH)
-		fmt.Println("╰───────────────────────────────────────╯")
+		widgets.Println("╭───────────────────────────────────────╮")
+		widgets.Printf("│  aide %-33s│\n", version)
+		widgets.Printf("│  platform: %-28s│\n", runtime.GOOS+"/"+runtime.GOARCH)
+		widgets.Println("╰───────────────────────────────────────╯")
 	},
 }
 

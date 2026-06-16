@@ -11,7 +11,7 @@ func registerStatic(mux *http.ServeMux) {
 	if err != nil {
 		mux.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
-			fmt.Fprint(w, "<h1>Aide</h1><p>Frontend not built. Run: cd cli/internal/ui/webui/frontend && npm run build</p>")
+			fmt.Fprint(w, "<h1>aide</h1><p>Frontend not built. Run: cd cli/internal/ui/webui/frontend && npm run build</p>")
 		})
 		return
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"aide/cli/internal/platform/xdg"
 	"aide/cli/internal/setup/bootstrap"
-	"fmt"
+	"aide/cli/internal/ui/widgets"
 
 	"github.com/spf13/cobra"
 )
@@ -23,16 +23,17 @@ func aideHome() string {
 }
 
 func initExecute(_ *cobra.Command, _ []string) error {
-	fmt.Printf("Initializing aide in %s\n", aideHome())
+	widgets.Printf("Initializing aide in %s\n", aideHome())
 
 	if err := bootstrap.Ensure(func(msg string) {
-		fmt.Printf("  [+] %s\n", msg)
+		widgets.Printf("  [+] %s\n", msg)
 	}); err != nil {
 		return err
 	}
 
-	fmt.Println("\nDone!")
-	fmt.Println("  Install plugins:  aide plugin install <name>")
-	fmt.Println("  Add a source:     aide config source add")
+	widgets.Println("\nDone!")
+	widgets.Println("  Launch the UI:    aide ui")
+	widgets.Println("  Install plugins:  aide plugin install <name>")
+	widgets.Println("  Connect a source: aide plugin configure")
 	return nil
 }

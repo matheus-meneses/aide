@@ -3,6 +3,7 @@ package main
 import (
 	"aide/cli/internal/persistence/store"
 	"aide/cli/internal/platform/config"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 	"strconv"
 
@@ -25,15 +26,15 @@ func init() {
 }
 
 func printPruneResult(header string, result *store.PruneResult) {
-	fmt.Println(header)
-	fmt.Printf("  Items:         %d\n", result.Items)
-	fmt.Printf("  Messages:      %d\n", result.Messages)
-	fmt.Printf("  Sessions:      %d\n", result.Sessions)
-	fmt.Printf("  Memories:      %d\n", result.Memories)
-	fmt.Printf("  Metrics:       %d\n", result.Metrics)
-	fmt.Printf("  Runs:          %d\n", result.Runs)
-	fmt.Printf("  Acks:          %d\n", result.Acks)
-	fmt.Printf("  Token records: %d\n", result.Tokens)
+	widgets.Println(header)
+	widgets.Printf("  Items:         %d\n", result.Items)
+	widgets.Printf("  Messages:      %d\n", result.Messages)
+	widgets.Printf("  Sessions:      %d\n", result.Sessions)
+	widgets.Printf("  Memories:      %d\n", result.Memories)
+	widgets.Printf("  Metrics:       %d\n", result.Metrics)
+	widgets.Printf("  Runs:          %d\n", result.Runs)
+	widgets.Printf("  Acks:          %d\n", result.Acks)
+	widgets.Printf("  Token records: %d\n", result.Tokens)
 }
 
 func pruneTotal(result *store.PruneResult) int64 {
@@ -64,7 +65,7 @@ func pruneExecute(_ *cobra.Command, args []string) error {
 
 		total := pruneTotal(counts)
 		if total == 0 {
-			fmt.Printf("Nothing to prune (keeping %d days).\n", days)
+			widgets.Printf("Nothing to prune (keeping %d days).\n", days)
 			return nil
 		}
 

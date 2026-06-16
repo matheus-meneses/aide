@@ -4,7 +4,7 @@ import (
 	"aide/cli/internal/agent/llm"
 	"aide/cli/internal/security/keychain"
 	"aide/cli/internal/setup/provision"
-	"fmt"
+	"aide/cli/internal/ui/widgets"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -61,8 +61,8 @@ func agentConfigExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Println("Configure agent mode. The agent talks only to the endpoint you set here.")
-	fmt.Println()
+	widgets.Println("Configure agent mode. The agent talks only to the endpoint you set here.")
+	widgets.Println()
 
 	provider, err := promptProvider(cfg.Agent.LLMProvider)
 	if err != nil {
@@ -128,9 +128,9 @@ func agentConfigExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Println("\n✓ Agent configured.")
-	fmt.Println("  Verify connectivity:  aide agent status")
-	fmt.Println("  Start the agent:      aide agent start")
+	widgets.Println("\n✓ Agent configured.")
+	widgets.Println("  Verify connectivity:  aide agent status")
+	widgets.Println("  Start the agent:      aide agent start")
 	return nil
 }
 

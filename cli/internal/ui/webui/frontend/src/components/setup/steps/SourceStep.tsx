@@ -3,6 +3,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import * as api from "@/lib/api";
 import { ConfigField, Field } from "@/components/forms/Field";
 import { Button } from "@/components/ui";
+import { APP_NAME } from "@/lib/brand";
 import type { Progress } from "../types";
 import { LogPanel } from "../shared";
 
@@ -135,7 +136,7 @@ export function SourceStep({
 
   return (
     <div>
-      <p className="text-sm text-muted-foreground">Connect a source for Aide to watch (optional).</p>
+      <p className="text-sm text-muted-foreground">Connect a source for {APP_NAME} to watch (optional).</p>
 
       {error && (
         <div className="mt-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">

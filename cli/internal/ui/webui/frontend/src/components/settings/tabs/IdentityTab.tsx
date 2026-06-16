@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as api from "@/lib/api";
 import { Field } from "@/components/forms/Field";
 import { Button, Skeleton, useToast } from "@/components/ui";
+import { APP_NAME } from "@/lib/brand";
 
 export function IdentityTab() {
   const { toast } = useToast();
@@ -46,7 +47,7 @@ export function IdentityTab() {
       <div>
         <h2 className="text-sm font-semibold">Profile</h2>
         <p className="text-xs text-muted-foreground">
-          Tell Aide who you are so it can personalize your experience.
+          Tell {APP_NAME} who you are so it can personalize your experience.
         </p>
       </div>
       <Field label="Full name" value={name} onChange={setName} placeholder="e.g. John Doe" />
@@ -57,7 +58,7 @@ export function IdentityTab() {
         placeholder="e.g. john@company.com"
       />
       <Field
-        label="How should Aide call you?"
+        label={`How should ${APP_NAME} call you?`}
         value={preferred}
         onChange={setPreferred}
         placeholder="Leave blank to use your first name"

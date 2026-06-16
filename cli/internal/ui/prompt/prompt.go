@@ -53,7 +53,7 @@ func PickPlugin(mgr *plugin.Manager, configured map[string]config.Source) (strin
 // sources by name.
 func PickConfiguredSource(configured map[string]config.Source) (string, error) {
 	if len(configured) == 0 {
-		return "", fmt.Errorf("no sources configured — run 'aide config source add' first")
+		return "", fmt.Errorf("no sources configured — run 'aide plugin configure' first")
 	}
 
 	names := make([]string, 0, len(configured))
