@@ -11,8 +11,9 @@ strategy, so the same `aide update` / "Update now" action works on every channel
 - `CheckOnce(currentVersion string)` — throttled (12h) check that prints the upgrade banner.
 - `AutoCheck(version string, autoApply bool)` — throttled check; when `autoApply` is true and the install is a CLI method (script/Homebrew formula), applies the update and prints progress to stderr; otherwise prints the banner.
 - `LatestRelease() (Release, error)` — latest non-prerelease tag + notes (markdown) + html URL.
-- `LatestVersion() (string, error)` — just the latest tag.
-- `IsNewer(latest, current string) bool` — semver comparison.
+- `LatestUpgrade(current string) (Release, error)` — channel-aware: stable builds get the latest stable; prerelease builds also consider newer prereleases (so an rc moves to a newer rc).
+- `ReleaseByTag(tag string) (Release, error)` — a specific release (incl. prereleases) by tag.
+- `IsNewer(latest, current string) bool` — semver comparison, prerelease-precedence aware (rc.9 > rc.8; final > rc.N).
 - `DetectMethod(version string) Method` — classifies the install (`dev`, `script`, `homebrew-formula`, `homebrew-cask`, `manual-app`, `unknown`).
 - `Method.CanSelfUpdate() bool` — whether `Apply` can update this install in place.
 - `Apply(ctx, currentVersion, method, prog) (Result, error)` — performs the update; `Result.RestartNow` is true for the app flow (caller must quit so the detached helper can swap the bundle and relaunch).
@@ -38,7 +39,7 @@ strategy, so the same `aide update` / "Update now" action works on every channel
 ## Pitfalls
 
 - Network/update failures in `AutoCheck`/`CheckOnce` are swallowed by design (non-blocking).
-- `/releases/latest` excludes prereleases, so rc tags are not offered for auto-apply.
+- `/releases/latest` excludes prereleases; use `LatestUpgrade` so prerelease builds still see newer rc tags (it lists `/releases` and picks the newest by semver).
 - The released CLI must be built with `-X aide/cli/internal/agent.Version=...` (see `release.yml`) or `aide ui` reports `dev` and never offers updates.
 
 ## Relations

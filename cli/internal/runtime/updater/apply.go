@@ -40,7 +40,7 @@ type Result struct {
 // currentVersion is the running build version; method comes from DetectMethod.
 // Progress lines are reported via prog (may be nil).
 func Apply(ctx context.Context, currentVersion string, method Method, prog Progress) (Result, error) {
-	rel, err := LatestRelease()
+	rel, err := LatestUpgrade(currentVersion)
 	if err != nil {
 		return Result{}, fmt.Errorf("checking latest version: %w", err)
 	}

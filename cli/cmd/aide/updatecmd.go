@@ -23,7 +23,7 @@ command regardless of channel.`,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		current := version
 
-		rel, err := updater.LatestRelease()
+		rel, err := updater.LatestUpgrade(current)
 		if err != nil {
 			return fmt.Errorf("checking for updates: %w", err)
 		}

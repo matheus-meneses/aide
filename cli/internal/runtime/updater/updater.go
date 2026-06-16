@@ -58,15 +58,15 @@ func CheckOnce(currentVersion string) {
 		return
 	}
 
-	latest, err := LatestVersion()
+	rel, err := LatestUpgrade(currentVersion)
 	if err != nil {
 		return
 	}
 
 	markChecked()
 
-	if IsNewer(latest, currentVersion) {
-		printUpdateBanner(currentVersion, latest)
+	if IsNewer(rel.Tag, currentVersion) {
+		printUpdateBanner(currentVersion, rel.Tag)
 	}
 }
 
@@ -100,6 +100,71 @@ type Release struct {
 // including the tag, release-notes markdown, and the HTML release URL.
 func LatestRelease() (Release, error) {
 	return fetchRelease("https://api.github.com/repos/" + repoSlug() + "/releases/latest")
+}
+
+// LatestUpgrade returns the most relevant release to offer for the given
+// current version. Stable builds only consider stable releases; prerelease
+// builds (e.g. v0.2.0-rc.8) also consider newer prereleases, so an rc can move
+// to a newer rc without waiting for a stable cut.
+func LatestUpgrade(current string) (Release, error) {
+	if strings.Contains(strings.TrimSpace(current), "-") {
+		return latestIncludingPre()
+	}
+	return LatestRelease()
+}
+
+func latestIncludingPre() (Release, error) {
+	url := "https://api.github.com/repos/" + repoSlug() + "/releases?per_page=30"
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return Release{}, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "aide-updater")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return Release{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return Release{}, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Release{}, err
+	}
+
+	var items []struct {
+		TagName string `json:"tag_name"`
+		Body    string `json:"body"`
+		HTMLURL string `json:"html_url"`
+		Draft   bool   `json:"draft"`
+	}
+	if err := json.Unmarshal(body, &items); err != nil {
+		return Release{}, err
+	}
+
+	var best Release
+	for _, it := range items {
+		tag := strings.TrimSpace(it.TagName)
+		if it.Draft || parseSemver(tag) == nil {
+			continue
+		}
+		if best.Tag == "" || compareVersions(tag, best.Tag) > 0 {
+			best = Release{
+				Tag:   tag,
+				Notes: strings.TrimSpace(it.Body),
+				URL:   strings.TrimSpace(it.HTMLURL),
+			}
+		}
+	}
+	if best.Tag == "" {
+		return Release{}, fmt.Errorf("no releases found")
+	}
+	return best, nil
 }
 
 // ReleaseByTag fetches a specific release (including prereleases) by its tag.
@@ -153,30 +218,100 @@ func fetchRelease(url string) (Release, error) {
 	}, nil
 }
 
-// LatestVersion returns just the tag of the latest release.
-func LatestVersion() (string, error) {
-	rel, err := LatestRelease()
-	if err != nil {
-		return "", err
-	}
-	return rel.Tag, nil
+// IsNewer reports whether release tag `latest` is a newer version than
+// `current`, honoring semver prerelease precedence: v0.2.0-rc.9 is newer than
+// v0.2.0-rc.8, and a final v0.2.0 is newer than any v0.2.0-rc.N.
+func IsNewer(latest, current string) bool {
+	return compareVersions(latest, current) > 0
 }
 
-func IsNewer(latest, current string) bool {
-	if latest == "" || latest == current {
-		return false
-	}
-	lv := parseSemver(latest)
-	cv := parseSemver(current)
-	if lv == nil || cv == nil {
-		return latest != current
-	}
-	for i := 0; i < 3; i++ {
-		if lv[i] != cv[i] {
-			return lv[i] > cv[i]
+// compareVersions returns >0 if a is newer than b, <0 if older, 0 if equal.
+func compareVersions(a, b string) int {
+	an := parseSemver(a)
+	bn := parseSemver(b)
+	if an == nil || bn == nil {
+		switch {
+		case a == b:
+			return 0
+		case a > b:
+			return 1
+		default:
+			return -1
 		}
 	}
-	return false
+	for i := 0; i < 3; i++ {
+		if an[i] != bn[i] {
+			if an[i] > bn[i] {
+				return 1
+			}
+			return -1
+		}
+	}
+	ap := prereleasePart(a)
+	bp := prereleasePart(b)
+	switch {
+	case ap == "" && bp == "":
+		return 0
+	case ap == "":
+		return 1
+	case bp == "":
+		return -1
+	default:
+		return comparePrerelease(ap, bp)
+	}
+}
+
+// prereleasePart returns the prerelease identifiers of a version (the bit after
+// "-"), with any build metadata ("+...") stripped. Empty for final releases.
+func prereleasePart(v string) string {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+	if i := strings.IndexByte(v, '+'); i >= 0 {
+		v = v[:i]
+	}
+	i := strings.IndexByte(v, '-')
+	if i < 0 {
+		return ""
+	}
+	return v[i+1:]
+}
+
+// comparePrerelease compares dot-separated prerelease identifiers per semver:
+// numeric identifiers compare numerically, numeric ranks below alphanumeric,
+// and a longer identifier set wins when all preceding fields are equal.
+func comparePrerelease(a, b string) int {
+	as := strings.Split(a, ".")
+	bs := strings.Split(b, ".")
+	for i := 0; i < len(as) || i < len(bs); i++ {
+		if i >= len(as) {
+			return -1
+		}
+		if i >= len(bs) {
+			return 1
+		}
+		ai, aerr := strconv.Atoi(as[i])
+		bi, berr := strconv.Atoi(bs[i])
+		switch {
+		case aerr == nil && berr == nil:
+			if ai != bi {
+				if ai > bi {
+					return 1
+				}
+				return -1
+			}
+		case aerr == nil:
+			return -1
+		case berr == nil:
+			return 1
+		default:
+			if as[i] != bs[i] {
+				if as[i] > bs[i] {
+					return 1
+				}
+				return -1
+			}
+		}
+	}
+	return 0
 }
 
 func parseSemver(v string) []int {

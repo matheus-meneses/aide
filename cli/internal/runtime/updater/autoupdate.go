@@ -18,7 +18,7 @@ func AutoCheck(version string, autoApply bool) {
 	if !shouldCheck() {
 		return
 	}
-	rel, err := LatestRelease()
+	rel, err := LatestUpgrade(version)
 	if err != nil {
 		return
 	}

@@ -124,7 +124,7 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	updateAvailable := false
 	method := updater.DetectMethod(agent.Version)
 	if agent.Version != "dev" {
-		if rel, err := updater.LatestRelease(); err == nil {
+		if rel, err := updater.LatestUpgrade(agent.Version); err == nil {
 			latest = rel.Tag
 			updateAvailable = updater.IsNewer(latest, agent.Version)
 			if updateAvailable {
