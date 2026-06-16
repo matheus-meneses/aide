@@ -26,25 +26,31 @@ func Wrap(cmd *exec.Cmd, p Policy) error {
 
 func buildDarwinProfile(p Policy) string {
 	var b strings.Builder
-	b.WriteString("(version 1)\n(deny default)\n")
-	b.WriteString("(allow process*)\n")
-	b.WriteString("(allow file-read*)\n")
-	fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", p.Dir)
-	for _, w := range p.Writes {
-		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", w)
-	}
 	if p.Browser {
-		b.WriteString("(allow mach*)\n")
-		b.WriteString("(allow ipc*)\n")
-		b.WriteString("(allow sysctl*)\n")
+		b.WriteString("(version 1)\n(allow default)\n(deny file-write*)\n")
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", p.Dir)
+		for _, w := range p.Writes {
+			fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", w)
+		}
 		tmpDir := os.TempDir()
 		if resolved, err := filepath.EvalSymlinks(tmpDir); err == nil {
 			tmpDir = resolved
 		}
 		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", tmpDir)
 		b.WriteString("(allow file-write* (subpath \"/private/var/folders\"))\n")
-		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", os.Getenv("HOME")+"/Library/Application Support/Chromium")
-		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", os.Getenv("HOME")+"/Library/Caches/Chromium")
+		home := os.Getenv("HOME")
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", home+"/Library/Application Support/Chromium")
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", home+"/Library/Caches/Chromium")
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", home+"/Library/Caches/ms-playwright")
+		return b.String()
+	}
+
+	b.WriteString("(version 1)\n(deny default)\n")
+	b.WriteString("(allow process*)\n")
+	b.WriteString("(allow file-read*)\n")
+	fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", p.Dir)
+	for _, w := range p.Writes {
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", w)
 	}
 	if len(p.Network) > 0 {
 		b.WriteString("(allow network*)\n")
