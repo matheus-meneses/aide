@@ -43,12 +43,30 @@ type Settings struct {
 	DataDir        string `yaml:"data_dir" json:"data_dir"`
 	LogLevel       string `yaml:"log_level,omitempty" json:"log_level"`
 	LogFormat      string `yaml:"log_format,omitempty" json:"log_format"`
+	AutoUpdate     string `yaml:"auto_update,omitempty" json:"auto_update"`
 	TLS            TLS    `yaml:"tls,omitempty" json:"tls"`
 }
 
 type TLS struct {
 	VerifySSL *bool  `yaml:"verify_ssl,omitempty" json:"verify_ssl"`
 	CABundle  string `yaml:"ca_bundle,omitempty" json:"ca_bundle"`
+}
+
+// Auto-update modes control how aide reacts to a newer release being available.
+const (
+	AutoUpdateOff    = "off"    // never check
+	AutoUpdateNotify = "notify" // check and surface a banner (default)
+	AutoUpdateAuto   = "auto"   // check and apply self-applicable updates automatically
+)
+
+// ValidAutoUpdate reports whether mode is a recognized auto-update mode.
+func ValidAutoUpdate(mode string) bool {
+	switch mode {
+	case AutoUpdateOff, AutoUpdateNotify, AutoUpdateAuto:
+		return true
+	default:
+		return false
+	}
 }
 
 type TeamMember struct {
@@ -88,6 +106,7 @@ func Load(path string) (*Config, error) {
 			DataDir:        filepath.Join(aideHome, "data"),
 			LogLevel:       "info",
 			LogFormat:      "text",
+			AutoUpdate:     AutoUpdateNotify,
 		},
 		Agent: AgentConfig{
 			RunInterval:   "30m",

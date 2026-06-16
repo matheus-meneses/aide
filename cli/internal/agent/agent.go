@@ -62,6 +62,28 @@ type Agent struct {
 	lastRun             time.Time
 	lastMemory          string
 	nativeNotifications bool
+	restartHandler      func()
+}
+
+// SetRestartHandler registers a callback the host (the desktop app) uses to quit
+// itself so a staged in-place update can swap the bundle and relaunch.
+func (a *Agent) SetRestartHandler(fn func()) {
+	a.stateMu.Lock()
+	a.restartHandler = fn
+	a.stateMu.Unlock()
+}
+
+// RequestRestart invokes the registered restart handler, if any, and reports
+// whether one was set.
+func (a *Agent) RequestRestart() bool {
+	a.stateMu.RLock()
+	fn := a.restartHandler
+	a.stateMu.RUnlock()
+	if fn == nil {
+		return false
+	}
+	go fn()
+	return true
 }
 
 // SetNativeNotifications marks that the host (e.g. the desktop app) delivers OS

@@ -13,6 +13,7 @@ export interface GeneralSettings {
   data_dir: string;
   log_level: string;
   log_format: string;
+  auto_update?: string;
   tls?: TLSSettings | null;
 }
 
@@ -40,6 +41,7 @@ export interface GeneralSettingsInput {
   ca_bundle?: string;
   log_level: string;
   log_format: string;
+  auto_update?: string;
 }
 
 export async function fetchConfig(): Promise<ConfigSnapshot> {

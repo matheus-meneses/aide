@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import {
   ArrowUpCircle,
   CalendarClock,
+  ChevronDown,
+  ChevronUp,
   Inbox,
   Moon,
   PanelLeft,
@@ -12,10 +14,13 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { fetchStatus, fetchVersion, fetchWhoami } from "@/lib/api";
+import { fetchStatus, fetchVersion, fetchWhoami, triggerUpdate } from "@/lib/api";
+import type { VersionInfo } from "@/lib/api";
 import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/cn";
 import { handleExternalClick } from "@/lib/openExternal";
+import { MarkdownRenderer } from "@/components/renderers/MarkdownRenderer";
+import { useUpdateProgress } from "@/hooks/useUpdateProgress";
 
 interface StatusData {
   counts: Record<string, number>;
@@ -43,11 +48,10 @@ export function StatusBar({
   const [status, setStatus] = useState<StatusData | null>(null);
   const [statusError, setStatusError] = useState(false);
   const [userName, setUserName] = useState("");
-  const [updateAvailable, setUpdateAvailable] = useState<{
-    current: string;
-    latest: string;
-    url: string;
-  } | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<VersionInfo | null>(null);
+  const [showNotes, setShowNotes] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const { progress, start } = useUpdateProgress();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
 
   useEffect(() => {
@@ -69,7 +73,7 @@ export function StatusBar({
     void fetchVersion()
       .then((v) => {
         if (v.update_available && v.current !== "dev") {
-          setUpdateAvailable({ current: v.current, latest: v.latest, url: v.update_url });
+          setUpdateInfo(v);
         }
       })
       .catch(() => {});
@@ -96,6 +100,11 @@ export function StatusBar({
     setDark(next);
   };
 
+  const runUpdate = () => {
+    start();
+    void triggerUpdate().catch(() => {});
+  };
+
   const counts = status?.counts ?? {};
   const metrics = status?.metrics ?? [];
   const unread = metrics.find((m) => m.name === "Inbox Unread")?.value;
@@ -103,24 +112,81 @@ export function StatusBar({
 
   return (
     <header className="flex flex-col border-b bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      {updateAvailable && (
-        <div className="flex items-center gap-2 border-b border-warning/25 bg-warning/10 px-4 py-1.5 text-xs text-warning-foreground">
-          <ArrowUpCircle className="h-3.5 w-3.5 shrink-0 text-warning" />
-          <span>
-            Update available{updateAvailable.latest ? `: ${updateAvailable.latest}` : ""} (current:{" "}
-            {updateAvailable.current})
-          </span>
-          <a
-            href="https://github.com/matheus-meneses/aide/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) =>
-              handleExternalClick(e, "https://github.com/matheus-meneses/aide/releases/latest")
-            }
-            className="ml-auto inline-flex items-center gap-1 rounded bg-warning/15 px-2 py-0.5 font-medium transition-colors hover:bg-warning/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            View release
-          </a>
+      {updateInfo && !dismissed && (
+        <div className="border-b border-warning/25 bg-warning/10 px-4 py-1.5 text-xs text-warning-foreground">
+          <div className="flex items-center gap-2">
+            <ArrowUpCircle className="h-3.5 w-3.5 shrink-0 text-warning" />
+            <span>
+              Update available{updateInfo.latest ? `: ${updateInfo.latest}` : ""} (current:{" "}
+              {updateInfo.current})
+            </span>
+            {updateInfo.notes && (
+              <button
+                onClick={() => setShowNotes((s) => !s)}
+                className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-medium hover:bg-warning/20"
+              >
+                What's new
+                {showNotes ? (
+                  <ChevronUp className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+              </button>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              {progress.done ? (
+                <span className="font-medium text-success">Restart to finish</span>
+              ) : updateInfo.can_self_update ? (
+                <button
+                  onClick={runUpdate}
+                  disabled={progress.running}
+                  className="inline-flex items-center gap-1 rounded bg-warning/15 px-2 py-0.5 font-medium transition-colors hover:bg-warning/25 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {progress.running ? "Updating…" : "Update now"}
+                </button>
+              ) : (
+                <a
+                  href={updateInfo.release_url || "https://github.com/matheus-meneses/aide/releases/latest"}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) =>
+                    handleExternalClick(
+                      e,
+                      updateInfo.release_url ||
+                        "https://github.com/matheus-meneses/aide/releases/latest",
+                    )
+                  }
+                  className="inline-flex items-center gap-1 rounded bg-warning/15 px-2 py-0.5 font-medium transition-colors hover:bg-warning/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  View release
+                </a>
+              )}
+              {!progress.running && (
+                <button
+                  onClick={() => setDismissed(true)}
+                  className="rounded px-1 py-0.5 font-medium hover:bg-warning/20"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {showNotes && updateInfo.notes && (
+            <div className="mt-1.5 max-h-48 overflow-y-auto rounded bg-background/50 p-2 text-foreground">
+              <MarkdownRenderer content={updateInfo.notes} />
+            </div>
+          )}
+
+          {(progress.lines.length > 0 || progress.error) && (
+            <div className="mt-1.5 max-h-24 overflow-y-auto rounded bg-background/50 p-2 font-mono text-[11px] text-muted-foreground">
+              {progress.lines.map((l, i) => (
+                <div key={i}>{l}</div>
+              ))}
+              {progress.error && <div className="text-destructive">{progress.error}</div>}
+            </div>
+          )}
         </div>
       )}
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">

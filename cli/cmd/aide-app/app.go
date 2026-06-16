@@ -27,6 +27,10 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 
 	app := application.New(opts)
 
+	// Let the in-process agent quit the app so a staged in-place update can
+	// swap the bundle and relaunch.
+	ag.SetRestartHandler(func() { app.Quit() })
+
 	if notifSvc != nil {
 		app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 			granted, err := notifSvc.RequestNotificationAuthorization()
