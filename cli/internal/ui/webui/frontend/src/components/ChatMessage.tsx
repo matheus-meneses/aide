@@ -211,12 +211,14 @@ export function ChatMessage({
             <p className="whitespace-pre-wrap">{content}</p>
           ) : (
             <div>
-              <RichContent
-                format={format}
-                data={data}
-                content={content}
-                onSuggestionClick={onSuggestionClick}
-              />
+              {!(isStreaming && !content) && (
+                <RichContent
+                  format={format}
+                  data={data}
+                  content={content}
+                  onSuggestionClick={onSuggestionClick}
+                />
+              )}
               {isStreaming && content && (
                 <span className="inline-block w-1.5 h-4 bg-foreground/60 animate-pulse ml-0.5" />
               )}
