@@ -1,8 +1,9 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/ui/widgets"
 	"bufio"
 	"fmt"
 	"os"
@@ -11,7 +12,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var whoamiSet bool
+var (
+	whoamiSet      bool
+	whoamiName     string
+	whoamiEmail    string
+	whoamiNickname string
+)
 
 var whoamiCmd = &cobra.Command{
 	Use:   "whoami",
@@ -21,11 +27,25 @@ var whoamiCmd = &cobra.Command{
 
 func init() {
 	whoamiCmd.Flags().BoolVar(&whoamiSet, "set", false, "Re-run identity setup")
+	whoamiCmd.Flags().StringVar(&whoamiName, "name", "", "Full name (non-interactive)")
+	whoamiCmd.Flags().StringVar(&whoamiEmail, "email", "", "Email (non-interactive)")
+	whoamiCmd.Flags().StringVar(&whoamiNickname, "nickname", "", "How Aide should call you (non-interactive)")
 	rootCmd.AddCommand(whoamiCmd)
 }
 
 func whoamiExecute(_ *cobra.Command, _ []string) error {
 	return withStore(func(_ *config.Config, s *store.Store) error {
+		if whoamiName != "" || whoamiEmail != "" || whoamiNickname != "" {
+			if whoamiName == "" {
+				return fmt.Errorf("--name is required when setting identity non-interactively")
+			}
+			if err := s.Profile.SetIdentity(whoamiName, whoamiEmail, whoamiNickname); err != nil {
+				return err
+			}
+			widgets.PrintSuccess("Identity saved for %s.", whoamiName)
+			return nil
+		}
+
 		if !whoamiSet {
 			profile, err := s.Profile.All()
 			if err == nil && len(profile) > 0 {
@@ -49,22 +69,16 @@ func whoamiExecute(_ *cobra.Command, _ []string) error {
 		fmt.Print("How should Aide call you? ")
 		preferred, _ := reader.ReadString('\n')
 		preferred = strings.TrimSpace(preferred)
+
+		if err := s.Profile.SetIdentity(name, email, preferred); err != nil {
+			return err
+		}
 		if preferred == "" {
 			if fields := strings.Fields(name); len(fields) > 0 {
 				preferred = fields[0]
 			} else {
 				preferred = "there"
 			}
-		}
-
-		if err := s.Profile.Set("name", name); err != nil {
-			return err
-		}
-		if err := s.Profile.Set("email", email); err != nil {
-			return err
-		}
-		if err := s.Profile.Set("preferred_name", preferred); err != nil {
-			return err
 		}
 
 		fmt.Printf("\nSaved! Hi %s.\n", preferred)

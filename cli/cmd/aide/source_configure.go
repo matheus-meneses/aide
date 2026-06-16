@@ -1,9 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/plugin"
-	"aide/cli/internal/prompt"
+	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/ui/prompt"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -11,7 +10,7 @@ import (
 )
 
 func sourceConfigureExecute(_ *cobra.Command, args []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}

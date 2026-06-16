@@ -1,9 +1,9 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/events"
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
@@ -23,7 +23,7 @@ type agentState struct {
 func (a *Agent) loadMemory() {
 	mem, err := a.store.Memory.LoadLast()
 	if err != nil {
-		log.Printf("[agent] no previous memory found, starting fresh")
+		alog.Debug("no previous memory found, starting fresh")
 		return
 	}
 
@@ -32,15 +32,15 @@ func (a *Agent) loadMemory() {
 		t, err := time.Parse(time.RFC3339, mem.LastScrapeAt)
 		if err == nil {
 			a.setLastRun(t)
-			log.Printf("[agent] restored last scrape time: %s", t.Format("15:04"))
+			alog.Debug("restored last scrape time: %s", t.Format("15:04"))
 		}
 	}
-	log.Printf("[agent] loaded memory: %s", mem.Content)
+	alog.Debug("loaded memory: %s", mem.Content)
 }
 
 func (a *Agent) runAgentCycle(ctx context.Context) {
 	if err := a.store.Acks.Prune(); err != nil {
-		log.Printf("[agent] failed to prune acks: %v", err)
+		alog.Warn("failed to prune acks: %v", err)
 	}
 	state := a.observeState()
 	var history []string
@@ -55,20 +55,20 @@ func (a *Agent) runAgentCycle(ctx context.Context) {
 		call := a.think(ctx, state, history)
 		if call.Tool == "" || call.Tool == "done" {
 			if call.Reason != "" {
-				log.Printf("[agent] done: %s", call.Reason)
+				alog.Debug("done: %s", call.Reason)
 			}
 			break
 		}
 
-		log.Printf("[agent] action: %s(%v) — %s", call.Tool, call.Params, call.Reason)
+		alog.Info("action: %s(%v) — %s", call.Tool, call.Params, call.Reason)
 
 		result, err := a.executeTool(ctx, call.Tool, call.Params)
 		if err != nil {
 			entry := fmt.Sprintf("Called %s -> ERROR: %v", call.Tool, err)
 			history = append(history, entry)
-			log.Printf("[agent] error: %v", err)
+			alog.Error("tool error: %v", err)
 			if a.bus != nil {
-				a.bus.Publish(Event{
+				a.bus.Publish(events.Event{
 					Type:     "cycle_error",
 					Priority: "silent",
 					Data:     fmt.Sprintf(`{"tool":%q,"error":%q}`, call.Tool, err.Error()),
@@ -91,7 +91,7 @@ func (a *Agent) saveMemory(history []string) {
 
 	summary := fmt.Sprintf(
 		"Cycle at %s | %s",
-		time.Now().Format("Monday 15:04"),
+		a.clock.Now().Format("Monday 15:04"),
 		strings.Join(history, " | "),
 	)
 
@@ -102,18 +102,18 @@ func (a *Agent) saveMemory(history []string) {
 	}
 
 	if err := a.store.Memory.Save(lastScrape, summary); err != nil {
-		log.Printf("[agent] failed to save memory: %v", err)
+		alog.Warn("failed to save memory: %v", err)
 		return
 	}
 
 	if err := a.store.Memory.Prune(5); err != nil {
-		log.Printf("[agent] failed to prune memories: %v", err)
+		alog.Warn("failed to prune memories: %v", err)
 	}
 	a.setLastMemory(summary)
 }
 
 func (a *Agent) observeState() agentState {
-	now := time.Now()
+	now := a.clock.Now()
 	state := agentState{
 		Today: now.Format("Monday, 2006-01-02 (Mon Jan 2)"),
 		Time:  now.Format("15:04"),
@@ -122,7 +122,7 @@ func (a *Agent) observeState() agentState {
 	lastRun := a.getLastRun()
 	if !lastRun.IsZero() {
 		state.LastScrape = lastRun.Format("15:04")
-		state.MinutesSinceScrape = int(time.Since(lastRun).Minutes())
+		state.MinutesSinceScrape = int(now.Sub(lastRun).Minutes())
 	} else {
 		state.LastScrape = "never"
 		state.MinutesSinceScrape = 9999

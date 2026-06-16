@@ -1,12 +1,16 @@
 package main
 
 import (
-	"aide/cli/internal/agent"
-	"aide/cli/internal/config"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
+	agentapi "aide/cli/internal/agent/api"
+	"aide/cli/internal/app"
+	"aide/cli/internal/platform/clog"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/setup/provision"
+	"aide/cli/internal/ui/webui"
+	"aide/cli/internal/ui/widgets"
 	"context"
 	"fmt"
+	"net/http"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -15,6 +19,11 @@ import (
 )
 
 var startPort int
+
+var (
+	scheduleInterval  string
+	scheduleBriefings string
+)
 
 var agentCmd = &cobra.Command{
 	Use:   "agent",
@@ -40,30 +49,44 @@ var agentAskCmd = &cobra.Command{
 	RunE:  agentAskExecute,
 }
 
+var agentScheduleCmd = &cobra.Command{
+	Use:   "schedule",
+	Short: "Set the run interval and briefing times non-interactively",
+	RunE:  agentScheduleExecute,
+}
+
 func init() {
 	agentCmd.AddCommand(agentStartCmd)
 	agentCmd.AddCommand(agentStatusCmd)
 	agentCmd.AddCommand(agentAskCmd)
 	agentCmd.AddCommand(agentConfigCmd)
+	agentCmd.AddCommand(agentScheduleCmd)
 	agentStartCmd.Flags().IntVarP(&startPort, "port", "p", 8531, "Web UI port")
+	agentScheduleCmd.Flags().StringVar(&scheduleInterval, "interval", "", "how often the agent re-collects (e.g. 30m, 1h)")
+	agentScheduleCmd.Flags().StringVar(&scheduleBriefings, "briefings", "", "comma-separated daily briefing times (24h, e.g. 08:00,17:30)")
 	rootCmd.AddCommand(agentCmd)
 }
 
-func newAgent(cfg *config.Config) (*agent.Agent, *store.Store, error) {
-	s, err := store.Open(cfg.Settings.DataDir)
-	if err != nil {
-		return nil, nil, fmt.Errorf("opening store: %w", err)
+func agentScheduleExecute(cmd *cobra.Command, _ []string) error {
+	if !cmd.Flags().Changed("interval") && !cmd.Flags().Changed("briefings") {
+		return fmt.Errorf("provide --interval and/or --briefings")
 	}
+	in := provision.ScheduleInput{}
+	if cmd.Flags().Changed("interval") {
+		in.RunInterval = scheduleInterval
+	}
+	if cmd.Flags().Changed("briefings") {
+		in.BriefingTimes = parseBriefingTimes(scheduleBriefings)
+	}
+	if err := provision.SetSchedule(cfgFile, in); err != nil {
+		return err
+	}
+	widgets.PrintSuccess("Schedule updated.")
+	return nil
+}
 
-	r := runner.New(cfg, s)
-	r.SetLogLevel(logLevel())
-	r.SetLogFormat(logFormatValue())
-	a, err := agent.New(cfg, s, r)
-	if err != nil {
-		s.Close()
-		return nil, nil, err
-	}
-	return a, s, nil
+func newAgent(cfg *config.Config) (*app.Stack, error) {
+	return app.New(cfg, logLevel(), logFormatValue(), version)
 }
 
 func agentStartExecute(_ *cobra.Command, _ []string) error {
@@ -72,18 +95,29 @@ func agentStartExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	agent.Version = version
+	if cfg.Agent.LLMModel == "" || cfg.Agent.LLMURL == "" {
+		widgets.PrintWarn("No AI model configured — autonomous runs are paused. Set one with: aide agent config")
+	}
 
-	a, s, err := newAgent(cfg)
+	stk, err := newAgent(cfg)
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer stk.Close()
+	a := stk.Agent
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	return a.StartAutonomous(ctx, startPort)
+	go func() {
+		if err := a.StartAutonomous(ctx); err != nil {
+			clog.Error("agent stopped: %v", err)
+		}
+	}()
+
+	return webui.Serve(ctx, webui.Options{Port: startPort, RegisterAPI: func(mux *http.ServeMux) {
+		agentapi.Register(a, mux)
+	}})
 }
 
 func agentStatusExecute(_ *cobra.Command, _ []string) error {
@@ -92,13 +126,13 @@ func agentStatusExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	a, s, err := newAgent(cfg)
+	stk, err := newAgent(cfg)
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer stk.Close()
 
-	result, err := a.Status()
+	result, err := stk.Agent.Status()
 	if err != nil {
 		return err
 	}
@@ -123,14 +157,14 @@ func agentAskExecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	a, s, err := newAgent(cfg)
+	stk, err := newAgent(cfg)
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer stk.Close()
 
 	question := strings.Join(args, " ")
-	answer, err := a.Ask(cmd.Context(), question)
+	answer, err := stk.Agent.Ask(cmd.Context(), question)
 	if err != nil {
 		return err
 	}

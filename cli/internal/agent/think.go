@@ -1,10 +1,10 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -17,19 +17,20 @@ type toolCall struct {
 func (a *Agent) think(ctx context.Context, state agentState, history []string) toolCall {
 	prompt := a.buildAgentPrompt(state, history)
 
-	messages := []ChatMessage{
+	messages := []llm.ChatMessage{
 		{Role: "user", Content: prompt},
 	}
 
-	resp, usage, err := a.llm.Chat(ctx, messages)
+	client := a.getLLM()
+	resp, usage, err := client.Chat(ctx, messages)
 	if err != nil {
-		log.Printf("[agent] LLM error: %v", err)
+		alog.Error("LLM error: %v", err)
 		return toolCall{Tool: "done", Reason: "LLM unreachable"}
 	}
 
 	if usage != nil {
-		if err := a.store.Tokens.Record("agent", a.llm.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
-			log.Printf("[agent] failed to record token usage: %v", err)
+		if err := a.store.Tokens.Record("agent", client.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
+			alog.Warn("failed to record token usage: %v", err)
 		}
 	}
 
@@ -45,14 +46,14 @@ func parseToolCall(response string) toolCall {
 
 	start := strings.Index(response, "{")
 	if start < 0 {
-		log.Printf("[agent] parse error: no JSON object found (response: %s)", response)
+		alog.Warn("parse error: no JSON object found (response: %s)", response)
 		return toolCall{Tool: "done", Reason: "parse error"}
 	}
 
 	dec := json.NewDecoder(strings.NewReader(response[start:]))
 	var call toolCall
 	if err := dec.Decode(&call); err != nil {
-		log.Printf("[agent] parse error: %v (response: %s)", err, response)
+		alog.Warn("parse error: %v (response: %s)", err, response)
 		return toolCall{Tool: "done", Reason: "parse error"}
 	}
 

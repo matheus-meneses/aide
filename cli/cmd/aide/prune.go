@@ -1,18 +1,15 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
 	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
 )
 
-var (
-	pruneDry bool
-	pruneYes bool
-)
+var pruneDry bool
 
 var pruneCmd = &cobra.Command{
 	Use:   "prune [days]",
@@ -24,7 +21,6 @@ var pruneCmd = &cobra.Command{
 
 func init() {
 	pruneCmd.Flags().BoolVar(&pruneDry, "dry", false, "Show what would be deleted without deleting")
-	pruneCmd.Flags().BoolVar(&pruneYes, "yes", false, "Skip confirmation prompt")
 	rootCmd.AddCommand(pruneCmd)
 }
 
@@ -72,12 +68,9 @@ func pruneExecute(_ *cobra.Command, args []string) error {
 			return nil
 		}
 
-		if !pruneYes {
-			printPruneResult(fmt.Sprintf("About to prune (keeping %d days):", days), counts)
-			if !confirm(fmt.Sprintf("Delete %d records?", total)) {
-				fmt.Println("Aborted.")
-				return nil
-			}
+		printPruneResult(fmt.Sprintf("About to prune (keeping %d days):", days), counts)
+		if err := requireConfirm(fmt.Sprintf("Delete %d records?", total)); err != nil {
+			return err
 		}
 
 		result, err := s.Maintenance.Prune(days)

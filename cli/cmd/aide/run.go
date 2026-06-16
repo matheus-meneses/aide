@@ -1,10 +1,10 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/render"
-	"aide/cli/internal/runner"
-	"aide/cli/internal/store"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/runner"
+	"aide/cli/internal/ui/render"
 	"fmt"
 
 	"github.com/spf13/cobra"

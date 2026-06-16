@@ -17,7 +17,28 @@ env:
   CGO_ENABLED: "0"
 
 jobs:
+  verify-version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: VERSION matches tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          TAG_VERSION="${REF_NAME#v}"
+          if [ "$FILE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::VERSION file ($FILE_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "VERSION ($FILE_VERSION) matches tag ($TAG_VERSION)"
+
   release:
+    needs: verify-version
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -77,18 +98,166 @@ jobs:
         with:
           subject-path: dist/${{ env.BINARY }}
 
+      - name: Generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          file: dist/${{ env.BINARY }}
+          format: spdx-json
+          output-file: dist/${{ env.BINARY }}.spdx.json
+          upload-artifact: false
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/${{ env.BINARY }}
+          sbom-path: dist/${{ env.BINARY }}.spdx.json
+
       - name: Upload to Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             dist/${{ env.BINARY }}
             dist/${{ env.BINARY }}.sha256
+            dist/${{ env.BINARY }}.spdx.json
 
       - name: Upload install script
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: assets/deploy/install.sh
+
+  release-macos-app:
+    needs: verify-version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-14
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      CGO_ENABLED: "1"
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/frontend
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Import signing certificate
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Build app + DMG
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          MAKE_DMG: "1"
+          DEVELOPER_ID: ${{ secrets.MACOS_DEVELOPER_ID }}
+          NOTARIZE_PROFILE: ${{ secrets.MACOS_NOTARIZE_PROFILE }}
+        run: |
+          VERSION="${REF_NAME#v}"
+          VERSION="$VERSION" bash cli/cmd/aide-app/packaging/build-macos.sh
+          DMG="cli/cmd/aide-app/packaging/bin/Aide-${VERSION}.dmg"
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: ${{ env.DMG }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          file: cli/cmd/aide-app/packaging/bin/Aide.app/Contents/MacOS/Aide
+          format: spdx-json
+          output-file: ${{ env.DMG }}.spdx.json
+          upload-artifact: false
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: ${{ env.DMG }}
+          sbom-path: ${{ env.DMG }}.spdx.json
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            ${{ env.DMG }}
+            ${{ env.DMG }}.sha256
+            ${{ env.DMG }}.spdx.json
+
+  update-homebrew-tap:
+    needs: [release, release-macos-app]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Download release checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          mkdir -p sums
+          gh release download "$REF_NAME" --repo "${{ github.repository }}" --pattern '*.sha256' --dir sums
+
+      - name: Render formula + cask
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: bash packaging/homebrew/render.sh "${REF_NAME#v}" sums rendered
+
+      - name: Publish to tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN not set; skipping tap publish" >&2
+            exit 0
+          fi
+          VERSION="${REF_NAME#v}"
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/matheus-meneses/homebrew-aide.git" tap
+          mkdir -p tap/Formula tap/Casks
+          cp rendered/Formula/aide.rb tap/Formula/aide.rb
+          cp rendered/Casks/aide.rb tap/Casks/aide.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/aide.rb Casks/aide.rb
+          if git diff --cached --quiet; then
+            echo "tap already up to date"
+            exit 0
+          fi
+          git commit -m "aide ${VERSION}"
+          git push origin HEAD
 
   publish-sdk:
     if: startsWith(github.ref, 'refs/tags/sdk-v')

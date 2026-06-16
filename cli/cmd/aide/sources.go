@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aide/cli/internal/render"
+	"aide/cli/internal/ui/render"
 
 	"github.com/spf13/cobra"
 )

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,7 +21,7 @@ type ExecResult struct {
 	Text string      `json:"text,omitempty"`
 }
 
-func (a *Agent) executeCommand(ctx context.Context, command string) *ExecResult {
+func (a *Agent) ExecuteCommand(ctx context.Context, command string) *ExecResult {
 	parts := strings.Fields(command)
 	if len(parts) == 0 {
 		return &ExecResult{Type: "text", Text: "empty command"}
@@ -68,18 +69,7 @@ func (a *Agent) execMemory() *ExecResult {
 }
 
 func (a *Agent) execStatus() *ExecResult {
-	counts, _ := a.store.Items.CountOpenBySource()
-	health, _ := a.store.Runs.AllHealth()
-	metrics, _ := a.store.Metrics.Latest("")
-	events, _ := a.store.Items.TodayEvents()
-
-	data := map[string]interface{}{
-		"counts":       counts,
-		"health":       health,
-		"metrics":      metrics,
-		"today_events": len(events),
-	}
-	return &ExecResult{Type: "status", Data: data}
+	return &ExecResult{Type: "status", Data: a.StatusSnapshot()}
 }
 
 func (a *Agent) execToday() *ExecResult {
@@ -207,18 +197,15 @@ func (a *Agent) execWhoami(args []string) *ExecResult {
 				preferred = strings.Join(parts[2:], " ")
 			}
 		}
+		if err := a.store.Profile.SetIdentity(name, email, preferred); err != nil {
+			return &ExecResult{Type: "text", Text: fmt.Sprintf("failed to save identity: %v", err)}
+		}
 		if preferred == "" {
-			preferred = strings.Fields(name)[0]
-		}
-
-		if err := a.store.Profile.Set("name", name); err != nil {
-			return &ExecResult{Type: "text", Text: fmt.Sprintf("failed to save identity: %v", err)}
-		}
-		if err := a.store.Profile.Set("email", email); err != nil {
-			return &ExecResult{Type: "text", Text: fmt.Sprintf("failed to save identity: %v", err)}
-		}
-		if err := a.store.Profile.Set("preferred_name", preferred); err != nil {
-			return &ExecResult{Type: "text", Text: fmt.Sprintf("failed to save identity: %v", err)}
+			if fields := strings.Fields(name); len(fields) > 0 {
+				preferred = fields[0]
+			} else {
+				preferred = "there"
+			}
 		}
 
 		return &ExecResult{Type: "text", Text: fmt.Sprintf("Identity saved! Hi %s.", preferred)}
@@ -279,17 +266,41 @@ func (a *Agent) execTeam(args []string) *ExecResult {
 	}
 }
 
+func isExecutableFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir() && info.Mode()&0o111 != 0
+}
+
+// aideCLIPath resolves the `aide` CLI binary without ever returning the desktop
+// (aide-app) binary, which would relaunch the GUI instead of running a command.
+func aideCLIPath() string {
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		if sibling := filepath.Join(filepath.Dir(exe), "aide-cli"); isExecutableFile(sibling) {
+			return sibling
+		}
+		if filepath.Base(exe) == "aide" {
+			return exe
+		}
+	}
+	if p, err := exec.LookPath("aide"); err == nil {
+		return p
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		if cand := filepath.Join(home, ".local", "bin", "aide"); isExecutableFile(cand) {
+			return cand
+		}
+	}
+	return ""
+}
+
 func (a *Agent) execCLI(ctx context.Context, args []string) *ExecResult {
 	if len(args) == 0 {
 		return &ExecResult{Type: "text", Text: "Usage: /command <subcommand> [args]\n\nExample: /command report"}
 	}
 
-	bin, _ := os.Executable()
+	bin := aideCLIPath()
 	if bin == "" {
-		bin, _ = exec.LookPath("aide")
-	}
-	if bin == "" {
-		return &ExecResult{Type: "text", Text: "error: cannot find aide binary"}
+		return &ExecResult{Type: "text", Text: "The `aide` CLI was not found. Install it (e.g. to ~/.local/bin/aide) to run `/command`."}
 	}
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

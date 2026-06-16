@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/plugin"
+	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/security/keychain"
 	"bufio"
 	"fmt"
 	"os"
@@ -31,8 +31,6 @@ var credentialShowCmd = &cobra.Command{
 	RunE:  credentialShowExecute,
 }
 
-var credentialDeleteYes bool
-
 var credentialDeleteCmd = &cobra.Command{
 	Use:   "delete <source> [key]",
 	Short: "Remove credentials for a source or a specific field",
@@ -48,7 +46,6 @@ var credentialListCmd = &cobra.Command{
 
 func init() {
 	credentialShowCmd.Flags().Bool("reveal", false, "show credential values")
-	credentialDeleteCmd.Flags().BoolVar(&credentialDeleteYes, "yes", false, "Skip confirmation prompt")
 
 	credentialCmd.AddCommand(credentialSetCmd)
 	credentialCmd.AddCommand(credentialShowCmd)
@@ -62,8 +59,7 @@ func resolveCredentialSchema(mgr *plugin.Manager, source string) ([]plugin.Crede
 	if m, err := mgr.Get(source); err == nil && len(m.Credentials) > 0 {
 		return m.Credentials, m.Description
 	}
-	switch source {
-	case "agent":
+	if source == "agent" {
 		return []plugin.Credential{
 			{Key: "llm_api_key", Label: "LLM API key", Secret: true},
 		}, "Autonomous agent LLM endpoint"
@@ -196,18 +192,16 @@ func credentialDeleteExecute(_ *cobra.Command, args []string) error {
 
 	if len(args) == 2 {
 		key := args[1]
-		if !credentialDeleteYes && !confirm(fmt.Sprintf("Remove field '%s' from %s?", key, source)) {
-			fmt.Println("Aborted.")
-			return nil
+		if err := requireConfirm(fmt.Sprintf("Remove field '%s' from %s?", key, source)); err != nil {
+			return err
 		}
 		if err := keychain.DeleteField(source, key); err != nil {
 			return err
 		}
 		fmt.Printf("Field '%s' removed from %s\n", key, source)
 	} else {
-		if !credentialDeleteYes && !confirm(fmt.Sprintf("Remove ALL credentials for %s?", source)) {
-			fmt.Println("Aborted.")
-			return nil
+		if err := requireConfirm(fmt.Sprintf("Remove ALL credentials for %s?", source)); err != nil {
+			return err
 		}
 		if err := keychain.DeleteSource(source); err != nil {
 			return err

@@ -5,41 +5,105 @@
 *Pronounced "aid".*
 
 [![build](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/matheus-meneses/aide)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![license](https://img.shields.io/badge/license-BSL--1.1-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.26%2B-00ADD8)](https://go.dev)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](https://python.org)
 
 > aide is a local-first work assistant that pulls together everything competing for your attention — tickets, reviews,
-> approvals, meetings, absences — into one view on your machine. It ships an autonomous agent with a web UI you can ask
-> anything. Your data never leaves your laptop, and aide knows nothing about your tools until *you* teach it, one plugin
-> at a time.
+> approvals, meetings, absences — into one view on your machine, and answers the question nothing else does: *what
+> actually needs me right now?* It comes as a **native desktop app** with a guided setup and a built-in chat agent, and
+> as a **CLI** for power users and automation — they share the same engine and the same local data. Your data never
+> leaves your laptop, and aide knows nothing about your tools until *you* teach it, one plugin at a time.
 
 **What the name means.** An *aide* (pronounced "aid") is a trusted assistant — someone who quietly helps you get
 things done without taking over. That is exactly the role this tool plays for your work: a helper that keeps track of
 everything competing for your attention so you don't have to.
 
-## The problem
+## Install
 
-If you lead a team or work across many systems, your day is scattered: tickets in one tool, code reviews in another,
-approval queues somewhere else, meetings in your calendar, HR requests in a portal. Nothing talks to each other, and
-there is no single place that answers "what actually needs me right now?" aide is that place. It runs on your machine,
-collects from every source you connect, and gives you one honest answer — plus an agent you can ask follow-ups.
+### Brew
 
-## Quick start
+One tap publishes both the CLI formula and the desktop-app cask:
 
-Up and running in under a minute (macOS / Linux):
+```sh
+brew tap matheus-meneses/aide
+
+brew install aide                 # CLI (macOS / Linux)
+brew install --cask aide          # desktop app (macOS)
+```
+
+Prefer not to tap? Use the fully-qualified names:
+
+```sh
+brew install matheus-meneses/aide/aide
+brew install --cask matheus-meneses/aide/aide
+```
+
+Upgrade or remove later:
+
+```sh
+brew upgrade aide                 # CLI
+brew upgrade --cask aide          # desktop app
+brew uninstall aide               # CLI
+brew uninstall --cask aide        # desktop app
+```
+
+### cURL
+
+No Homebrew? The install script drops the `aide` CLI on your PATH (macOS / Linux / Windows):
 
 ```sh
 curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh | bash
+```
 
-aide init                      # creates ~/.aide, installs a Python runtime, fetches the registry
-aide plugin install            # browse the registry and pick a source interactively
-aide config source add <name>  # connect it (interactive wizard, prompts for credentials)
-aide run && aide report        # collect everything, then see what needs you
+For the desktop app, grab `Aide-<version>.dmg` from the
+[releases page](https://github.com/matheus-meneses/aide/releases), open it, and drag **Aide.app** to Applications:
+
+```sh
+curl -fLO https://github.com/matheus-meneses/aide/releases/download/v<version>/Aide-<version>.dmg
+open Aide-<version>.dmg
+```
+
+You can also grab any prebuilt binary or the `.dmg` directly from the
+[releases page](https://github.com/matheus-meneses/aide/releases).
+
+### From source (Go 1.26+, Python 3.11+, Node 18+)
+
+```sh
+git clone https://github.com/matheus-meneses/aide.git
+cd aide
+make build       # CLI binary at bin/aide
+make verify      # full polyglot gate: Go + Python + frontend
+```
+
+### First run
+
+Launch the app with `open -a Aide` for a guided setup, or drive the CLI:
+
+```sh
+aide init                       # creates ~/.aide, installs a Python runtime, fetches the registry
+aide plugin install             # browse the registry and pick a source interactively
+aide config source add <name>   # connect it (interactive wizard, prompts for credentials)
+aide run && aide report         # collect everything, then see what needs you
 ```
 
 That's the whole loop: install, connect a source, collect, read your report. Want the agent to answer follow-ups?
-See [Agent mode](#agent-mode). Building from source or installing more sources? See [Getting started](#getting-started).
+See [Agent mode](#agent-mode).
+
+## Desktop app
+
+The desktop app (macOS) wraps the full aide engine — agent, runner, and sandboxed plugins — in a native window, so you
+get everything the CLI does without ever touching a terminal. It's the fastest way to go from install to your first
+report:
+
+- **Guided setup** — a step-by-step wizard connects your first source and points the agent at a model, no config file
+  required.
+- **Chat agent** — ask about your work in plain language and get answers, with daily briefings posted on your schedule.
+- **Live logs** — watch every source and plugin run in real time, spot failures at a glance, and prune old logs in a
+  click.
+
+The app and the CLI share the same `~/.aide`, so anything you set up in one shows up in the other — set up sources in
+the app, then script them from the CLI, or vice versa.
 
 ## Privacy & local-first
 
@@ -248,6 +312,7 @@ registry, so public and private plugins live side by side.
 ```mermaid
 flowchart LR
   subgraph host ["your machine"]
+    App["Aide.app (desktop)"]
     CLI["aide CLI (Go)"]
     Runner["runner"]
     Store["SQLite (~/.aide)"]
@@ -263,7 +328,9 @@ flowchart LR
     R2["your private registry"]
   end
 
+  App --> Agent
   CLI --> Runner
+  Agent --> Runner
   Runner -->|" JSON stdin/stdout "| P1
   Runner -->|" JSON stdin/stdout "| P2
   Runner -->|" JSON stdin/stdout "| P3
@@ -283,33 +350,6 @@ Everything runs locally. Plugins are isolated processes. Registries are just URL
   on stderr; stdout is reserved for the plugin protocol).
 - **Self-updating** — the binary checks for new releases and can update itself.
 
-## Getting started
-
-Install the release binary (macOS / Linux):
-
-```sh
-curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh | bash
-```
-
-Then set yourself up:
-
-```sh
-aide init                      # creates ~/.aide, installs a Python runtime, fetches the registry
-aide plugin install            # no name? browse and pick from the registry interactively
-aide plugin install <name>     # or install a known plugin directly
-aide config source add <name>  # interactive setup wizard
-aide run && aide report        # collect and view
-```
-
-**From source** (Go 1.26+, Python 3.11+, Node 18+):
-
-```sh
-git clone https://github.com/matheus-meneses/aide.git
-cd aide
-make build       # binary at bin/aide
-make verify      # full polyglot gate: Go + Python + frontend
-```
-
 ## Contributing
 
 Run `make verify` before opening a PR — it runs the Go, Python, and frontend gates.
@@ -318,4 +358,7 @@ in [aide-plugins](https://github.com/matheus-meneses/aide-plugins) — that is t
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+[Business Source License 1.1](LICENSE). Free for internal, personal, educational,
+evaluation, and non-commercial use. Offering aide as a paid product or hosted
+service requires a commercial license — see [COMMERCIAL.md](COMMERCIAL.md). Each
+released version converts to the Apache License 2.0 four years after its release.

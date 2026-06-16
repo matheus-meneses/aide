@@ -1,11 +1,14 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/keychain"
-	"aide/cli/internal/plugin"
+	"aide/cli/internal/platform/config"
+	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/security/keychain"
+	"aide/cli/internal/setup/provision"
+	"aide/cli/internal/ui/widgets"
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -36,14 +39,75 @@ var configCheckCmd = &cobra.Command{
 	RunE:  configCheckExecute,
 }
 
+var configSetCmd = &cobra.Command{
+	Use:   "set <key> <value>",
+	Short: "Set a general setting (concurrency, timeout_seconds, verify_ssl, ca_bundle, log_level, log_format)",
+	Args:  cobra.ExactArgs(2),
+	RunE:  configSetExecute,
+}
+
 func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configCheckCmd)
+	configCmd.AddCommand(configSetCmd)
 	rootCmd.AddCommand(configCmd)
 }
 
+func configSetExecute(_ *cobra.Command, args []string) error {
+	key, value := args[0], args[1]
+
+	snap, err := provision.ConfigSnapshot(cfgFile)
+	if err != nil {
+		return err
+	}
+
+	in := provision.GeneralSettingsInput{
+		Concurrency:    snap.Settings.Concurrency,
+		TimeoutSeconds: snap.Settings.TimeoutSeconds,
+		VerifySSL:      snap.Settings.TLS.VerifySSL,
+		CABundle:       snap.Settings.TLS.CABundle,
+		LogLevel:       snap.Settings.LogLevel,
+		LogFormat:      snap.Settings.LogFormat,
+	}
+
+	switch key {
+	case "concurrency":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("concurrency must be an integer: %w", err)
+		}
+		in.Concurrency = n
+	case "timeout_seconds", "timeout":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("timeout_seconds must be an integer: %w", err)
+		}
+		in.TimeoutSeconds = n
+	case "verify_ssl":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("verify_ssl must be true or false: %w", err)
+		}
+		in.VerifySSL = &b
+	case "ca_bundle":
+		in.CABundle = value
+	case "log_level":
+		in.LogLevel = value
+	case "log_format":
+		in.LogFormat = value
+	default:
+		return fmt.Errorf("unknown setting %q (valid: concurrency, timeout_seconds, verify_ssl, ca_bundle, log_level, log_format)", key)
+	}
+
+	if err := provision.SetGeneralSettings(cfgFile, in); err != nil {
+		return err
+	}
+	widgets.PrintSuccess("Set %s = %s", key, value)
+	return nil
+}
+
 func configShowExecute(_ *cobra.Command, _ []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return err
 	}
@@ -87,7 +151,7 @@ func configShowExecute(_ *cobra.Command, _ []string) error {
 }
 
 func configCheckExecute(_ *cobra.Command, _ []string) error {
-	cfg, err := config.LoadRaw(cfgFile)
+	cfg, err := loadRawConfig()
 	if err != nil {
 		return fmt.Errorf("config load failed: %w", err)
 	}

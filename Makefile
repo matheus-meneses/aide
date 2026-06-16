@@ -4,7 +4,7 @@ BIN_DIR    := bin
 SANDBOX    := $(HOME)/.aide-sandbox
 SDK_PATH   := $(CURDIR)/sdk/python
 SDK_DIR    := sdk/python
-FRONTEND_DIR := cli/internal/agent/frontend
+FRONTEND_DIR := cli/internal/ui/webui/frontend
 PLUGINS_SRC := $(CURDIR)/../aide-plugins/plugins
 
 .PHONY: build dev dev-plugins clean verify go-lint go-test go-vuln py-lint py-type py-test fe-lint fmt

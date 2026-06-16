@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aide/cli/internal/config"
-	"aide/cli/internal/store"
+	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
 	"fmt"
 	"sort"
 

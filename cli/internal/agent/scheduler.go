@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/events"
 	"context"
 	"fmt"
 	"strconv"
@@ -8,35 +9,83 @@ import (
 	"time"
 )
 
-func (a *Agent) StartAutonomous(ctx context.Context, port int) error {
+func (a *Agent) StartAutonomous(ctx context.Context) error {
 	a.loadMemory()
+	a.sessions.startJanitor(ctx)
 
-	interval := a.cfg.Agent.RunIntervalDuration()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	a.schedMu.Lock()
+	a.autoCtx = ctx
+	a.reschedule = make(chan struct{}, 1)
+	a.schedMu.Unlock()
 
-	go func() {
-		a.runAgentCycle(ctx)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				a.runAgentCycle(ctx)
-			}
-		}
-	}()
+	go a.runScheduleLoop(ctx)
 
 	go func() {
 		time.Sleep(2 * time.Second)
 		a.checkIdentityOnStart()
 	}()
 
-	if len(a.cfg.Agent.BriefingTimes) > 0 {
-		go a.runBriefingScheduler(ctx)
-	}
+	a.maybeStartBriefingScheduler(ctx)
 
-	return a.Serve(ctx, port)
+	<-ctx.Done()
+	return nil
+}
+
+func (a *Agent) runScheduleLoop(ctx context.Context) {
+	interval := a.getConfig().Agent.RunIntervalDuration()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	a.runAgentCycle(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.runAgentCycle(ctx)
+		case <-a.reschedule:
+			if next := a.getConfig().Agent.RunIntervalDuration(); next > 0 && next != interval {
+				interval = next
+				ticker.Reset(interval)
+				alog.Info("run interval updated to %s", interval)
+			}
+		}
+	}
+}
+
+// signalReschedule asks the running schedule loop to re-read the configured run
+// interval (and reset its ticker) and lazily starts the briefing scheduler if it
+// was not running. Safe to call before StartAutonomous (it becomes a no-op).
+func (a *Agent) signalReschedule() {
+	a.schedMu.Lock()
+	ch := a.reschedule
+	ctx := a.autoCtx
+	a.schedMu.Unlock()
+
+	if ch != nil {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+	if ctx != nil {
+		a.maybeStartBriefingScheduler(ctx)
+	}
+}
+
+func (a *Agent) maybeStartBriefingScheduler(ctx context.Context) {
+	if len(a.getConfig().Agent.BriefingTimes) == 0 {
+		return
+	}
+	a.schedMu.Lock()
+	if a.briefingStarted {
+		a.schedMu.Unlock()
+		return
+	}
+	a.briefingStarted = true
+	a.schedMu.Unlock()
+
+	go a.runBriefingScheduler(ctx)
 }
 
 func (a *Agent) runBriefingScheduler(ctx context.Context) {
@@ -44,36 +93,47 @@ func (a *Agent) runBriefingScheduler(ctx context.Context) {
 	defer ticker.Stop()
 
 	firedToday := make(map[string]bool)
-	lastDate := time.Now().Format("2006-01-02")
+	lastDate := a.clock.Now().Format("2006-01-02")
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			now := time.Now()
+			now := a.clock.Now()
 			today := now.Format("2006-01-02")
 			if today != lastDate {
 				firedToday = make(map[string]bool)
 				lastDate = today
 			}
 
-			currentTime := now.Format("15:04")
-			for _, bt := range a.cfg.Agent.BriefingTimes {
-				if firedToday[bt] {
-					continue
-				}
-				if currentTime == bt || (now.After(parseTime(bt)) && now.Before(parseTime(bt).Add(45*time.Second))) {
-					firedToday[bt] = true
-					a.publishBriefing()
-				}
+			for _, bt := range dueBriefings(now, a.getConfig().Agent.BriefingTimes, firedToday) {
+				firedToday[bt] = true
+				a.publishBriefing()
 			}
 		}
 	}
 }
 
-func parseTime(hhmm string) time.Time {
-	now := time.Now()
+// dueBriefings returns the configured briefing times that should fire at now and
+// have not already fired today. Kept pure so scheduling decisions are unit
+// testable without real timers.
+func dueBriefings(now time.Time, times []string, firedToday map[string]bool) []string {
+	current := now.Format("15:04")
+	var due []string
+	for _, bt := range times {
+		if firedToday[bt] {
+			continue
+		}
+		target := parseTime(now, bt)
+		if current == bt || (now.After(target) && now.Before(target.Add(45*time.Second))) {
+			due = append(due, bt)
+		}
+	}
+	return due
+}
+
+func parseTime(now time.Time, hhmm string) time.Time {
 	parts := strings.SplitN(hhmm, ":", 2)
 	if len(parts) != 2 {
 		return now
@@ -85,31 +145,35 @@ func parseTime(hhmm string) time.Time {
 
 func (a *Agent) publishBriefing() {
 	counts, _ := a.store.Items.CountOpenBySource()
-	events, _ := a.store.Items.TodayEvents()
+	todayEvents, _ := a.store.Items.TodayEvents()
 
 	var body strings.Builder
 	body.WriteString("Good morning! Here's your briefing:\n")
-	if len(events) > 0 {
-		fmt.Fprintf(&body, "- %d meetings today\n", len(events))
+	if len(todayEvents) > 0 {
+		fmt.Fprintf(&body, "- %d meetings today\n", len(todayEvents))
 	}
 	total := 0
 	for source, count := range counts {
 		fmt.Fprintf(&body, "- %d open %s items\n", count, source)
 		total += count
 	}
-	if total == 0 && len(events) == 0 {
+	if total == 0 && len(todayEvents) == 0 {
 		body.WriteString("- No open items or meetings. Clean slate!")
 	}
 
 	if a.bus != nil {
-		a.bus.Publish(Event{
+		a.bus.Publish(events.Event{
 			Type:     "briefing",
 			Priority: "normal",
 			Data:     fmt.Sprintf(`{"title":"Daily Briefing","body":%q}`, body.String()),
 		})
 	}
 
-	a.postToChatAndSSE(body.String(), time.Now().UTC().Format(time.RFC3339))
+	if err := a.notifier.Notify("Daily Briefing", body.String()); err != nil {
+		alog.Warn("briefing notification: %v", err)
+	}
+
+	a.postToChatAndSSE(body.String(), a.clock.Now().UTC().Format(time.RFC3339))
 }
 
 func (a *Agent) checkIdentityOnStart() {
@@ -123,6 +187,6 @@ func (a *Agent) checkIdentityOnStart() {
 		"Use the command: `/whoami set <Your Name> <email> <nickname>`\n\n" +
 		"For example: `/whoami set John Doe john@company.com John`"
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := a.clock.Now().UTC().Format(time.RFC3339)
 	a.postToChatAndSSE(msg, now)
 }
