@@ -271,7 +271,7 @@ func buildVenv(pluginDir, reqFile string) error {
 }
 
 func pluginUsesPlaywright(reqFile string) bool {
-	data, err := os.ReadFile(reqFile) //nolint:gosec // reqFile is a known plugin requirements path, not user input
+	data, err := os.ReadFile(reqFile)
 	if err != nil {
 		return false
 	}
