@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Boxes, Plug, Settings2, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ArrowUpCircle, Boxes, Plug, Settings2, SlidersHorizontal, Trash2 } from "lucide-react";
 import * as api from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { useInstallProgress } from "@/hooks/useInstallProgress";
 import { ConfigField, Field } from "@/components/forms/Field";
 import {
   Badge,
@@ -34,11 +35,13 @@ export function InstalledTab({
   onConsumeTarget?: () => void;
 }) {
   const { toast } = useToast();
+  const { progress, reset } = useInstallProgress();
   const [entries, setEntries] = useState<InstalledEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<string>("");
   const [pendingUninstall, setPendingUninstall] = useState<string>("");
   const [uninstalling, setUninstalling] = useState(false);
+  const [updating, setUpdating] = useState<string>("");
 
   const reload = useCallback(async () => {
     try {
@@ -71,6 +74,31 @@ export function InstalledTab({
       onConsumeTarget?.();
     }
   }, [configureTarget, entries, onConsumeTarget]);
+
+  useEffect(() => {
+    if (updating && progress.done === updating) {
+      toast(`Updated ${updating} to the latest version`, "success");
+      setUpdating("");
+      reset();
+      void reload();
+    }
+    if (updating && progress.error) {
+      toast(progress.error, "error");
+      setUpdating("");
+      reset();
+    }
+  }, [progress.done, progress.error, updating, reset, reload, toast]);
+
+  const update = async (name: string) => {
+    setUpdating(name);
+    reset();
+    try {
+      await api.updatePlugin(name);
+    } catch (e) {
+      toast(String(e), "error");
+      setUpdating("");
+    }
+  };
 
   const toggle = async (name: string, enabled: boolean) => {
     setEntries((list) =>
@@ -150,6 +178,9 @@ export function InstalledTab({
                         <Badge tone="warning">needs setup</Badge>
                       )}
                       {source && !source.enabled && <Badge tone="warning">disabled</Badge>}
+                      {plugin.update_available && (
+                        <Badge tone="info">update → {plugin.latest_version}</Badge>
+                      )}
                     </div>
                     {plugin.description && (
                       <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
@@ -178,6 +209,18 @@ export function InstalledTab({
                     </Button>
                   )}
                   <div className="flex items-center gap-1">
+                    {plugin.update_available && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void update(plugin.name)}
+                        loading={updating === plugin.name}
+                        disabled={updating !== "" && updating !== plugin.name}
+                      >
+                        {updating !== plugin.name && <ArrowUpCircle className="h-3.5 w-3.5" />}{" "}
+                        Update
+                      </Button>
+                    )}
                     {source && (
                       <Button
                         variant="ghost"

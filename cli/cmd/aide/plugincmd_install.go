@@ -88,21 +88,7 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 		if m.Description != "" {
 			widgets.Printf("Description: %s\n", m.Description)
 		}
-		if len(m.Capabilities.Network) > 0 {
-			widgets.Printf("Network access: %s\n", strings.Join(m.Capabilities.Network, ", "))
-		}
-		if len(m.Capabilities.Filesystem) > 0 {
-			paths := make([]string, 0, len(m.Capabilities.Filesystem))
-			for _, f := range m.Capabilities.Filesystem {
-				if f.Read != "" {
-					paths = append(paths, "r:"+f.Read)
-				}
-				if f.Write != "" {
-					paths = append(paths, "w:"+f.Write)
-				}
-			}
-			widgets.Printf("Filesystem access: %s\n", strings.Join(paths, ", "))
-		}
+		printPluginCapabilities(m)
 		return confirm("Install this plugin?")
 	}
 

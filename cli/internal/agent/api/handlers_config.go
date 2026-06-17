@@ -96,6 +96,32 @@ func (h *handlers) handleInstallPlugin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "started"})
 }
 
+func (h *handlers) handleUpdatePlugin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name                    string `json:"name"`
+		AcknowledgeCapabilities bool   `json:"acknowledge_capabilities"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "plugin name required"})
+		return
+	}
+	if !req.AcknowledgeCapabilities {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "plugin capabilities must be acknowledged before update"})
+		return
+	}
+
+	go func() {
+		h.a.PublishProgress("install_progress", "Updating "+req.Name+"…")
+		if _, err := provision.UpdatePlugin(detachedCtx(), h.a.ConfigPath(), req.Name, req.AcknowledgeCapabilities); err != nil {
+			h.a.PublishProgress("install_error", err.Error())
+			return
+		}
+		h.a.PublishProgress("install_done", req.Name)
+	}()
+
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "started"})
+}
+
 func (h *handlers) handleAddSource(w http.ResponseWriter, r *http.Request) {
 	var in provision.SourceInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {

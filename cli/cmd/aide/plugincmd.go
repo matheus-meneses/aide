@@ -83,9 +83,11 @@ func init() {
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryURL, "registry", "", "extra registry URL to include in merge")
 	pluginInstallCmd.Flags().StringVar(&pluginRegistryVersion, "registry-version", "", "registry release version/tag to pull the index from (default: latest)")
 	pluginInstallCmd.Flags().StringVar(&pluginInstallLocal, "local", "", "install from a local directory instead of the registry")
+	pluginUpdateCmd.Flags().BoolVar(&pluginUpdateCheck, "check", false, "only report available updates without applying them")
 
 	pluginCmd.AddCommand(pluginListCmd)
 	pluginCmd.AddCommand(pluginInstallCmd)
+	pluginCmd.AddCommand(pluginUpdateCmd)
 	pluginCmd.AddCommand(pluginConfigureCmd)
 	pluginCmd.AddCommand(pluginEnableCmd)
 	pluginCmd.AddCommand(pluginDisableCmd)

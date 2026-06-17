@@ -3,6 +3,7 @@ package provision
 import (
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/runtime/updater"
 	"aide/cli/internal/security/keychain"
 	"context"
 	"fmt"
@@ -10,11 +11,16 @@ import (
 )
 
 type PluginListItem struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Runtime     string `json:"runtime,omitempty"`
-	Installed   bool   `json:"installed"`
-	Configured  bool   `json:"configured"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	Runtime          string `json:"runtime,omitempty"`
+	Icon             string `json:"icon,omitempty"`
+	Source           string `json:"source,omitempty"`
+	Installed        bool   `json:"installed"`
+	Configured       bool   `json:"configured"`
+	InstalledVersion string `json:"installed_version,omitempty"`
+	LatestVersion    string `json:"latest_version,omitempty"`
+	UpdateAvailable  bool   `json:"update_available"`
 }
 
 // ListPlugins merges installed plugins with the cached registry so the UI can
@@ -35,17 +41,6 @@ func ListPlugins(cfgPath string) ([]PluginListItem, error) {
 		registries = cfg.Registries
 	}
 
-	items := map[string]*PluginListItem{}
-	for _, m := range installed {
-		items[m.Name] = &PluginListItem{
-			Name:        m.Name,
-			Description: m.Description,
-			Runtime:     m.Runtime,
-			Installed:   true,
-			Configured:  configured[m.Name],
-		}
-	}
-
 	idx, err := plugin.LoadCachedIndex()
 	if err != nil || len(idx.Plugins) == 0 {
 		if fresh, ferr := plugin.MergedIndex(registries); ferr == nil {
@@ -53,6 +48,31 @@ func ListPlugins(cfgPath string) ([]PluginListItem, error) {
 			_ = plugin.CacheIndex(fresh)
 		}
 	}
+
+	items := map[string]*PluginListItem{}
+	for _, m := range installed {
+		item := &PluginListItem{
+			Name:             m.Name,
+			Description:      m.Description,
+			Runtime:          m.Runtime,
+			Icon:             m.Icon,
+			Installed:        true,
+			Configured:       configured[m.Name],
+			InstalledVersion: m.Version,
+		}
+		if idx != nil {
+			if entry, ok := idx.Plugins[m.Name]; ok {
+				item.Source = entry.Source
+				item.LatestVersion = entry.Latest
+				item.UpdateAvailable = entry.Latest != "" && updater.IsNewer(entry.Latest, m.Version)
+				if item.Icon == "" {
+					item.Icon = entry.Icon
+				}
+			}
+		}
+		items[m.Name] = item
+	}
+
 	if idx != nil {
 		for name, entry := range idx.Plugins {
 			if _, ok := items[name]; ok {
@@ -61,6 +81,8 @@ func ListPlugins(cfgPath string) ([]PluginListItem, error) {
 			items[name] = &PluginListItem{
 				Name:        name,
 				Description: entry.Description,
+				Icon:        entry.Icon,
+				Source:      entry.Source,
 				Installed:   false,
 			}
 		}
@@ -96,6 +118,63 @@ func InstallPlugin(ctx context.Context, name, version string, ackCapabilities bo
 		}
 	}
 	return plugin.Install(ctx, idx, name, version, func(*plugin.Manifest) bool { return true })
+}
+
+// UpdatePlugin re-installs the plugin at the registry's latest version,
+// rebuilding its runtime. Config and stored credentials are untouched (they
+// live in config.yaml and the keychain, not the plugin directory). It refuses
+// when the plugin is not installed or already at the latest version. Because an
+// update can change a plugin's declared capabilities, callers must confirm via
+// ackCapabilities, exactly as for a fresh install.
+func UpdatePlugin(ctx context.Context, cfgPath, name string, ackCapabilities bool) (*plugin.Manifest, error) {
+	if !ackCapabilities {
+		return nil, fmt.Errorf("plugin capabilities must be acknowledged before update")
+	}
+	installedVersion := ""
+	if m, err := plugin.NewManager().Get(name); err == nil {
+		installedVersion = m.Version
+	} else {
+		return nil, fmt.Errorf("plugin %q is not installed", name)
+	}
+
+	var registries []string
+	if cfg, err := config.LoadRaw(cfgPath); err == nil {
+		registries = cfg.Registries
+	}
+	idx, err := plugin.MergedIndex(registries)
+	if err != nil {
+		idx, err = plugin.LoadCachedIndex()
+		if err != nil {
+			return nil, fmt.Errorf("loading registry: %w", err)
+		}
+	} else {
+		_ = plugin.CacheIndex(idx)
+	}
+
+	entry, ok := idx.Plugins[name]
+	if !ok {
+		return nil, fmt.Errorf("plugin %q not found in any registry", name)
+	}
+	if !updater.IsNewer(entry.Latest, installedVersion) {
+		return nil, fmt.Errorf("plugin %q is already up to date (%s)", name, installedVersion)
+	}
+	return plugin.Install(ctx, idx, name, entry.Latest, func(*plugin.Manifest) bool { return true })
+}
+
+// Updatable returns the installed plugins that have a newer version available
+// in the configured registries, so callers can update all at once.
+func Updatable(cfgPath string) ([]PluginListItem, error) {
+	items, err := ListPlugins(cfgPath)
+	if err != nil {
+		return nil, err
+	}
+	var out []PluginListItem
+	for _, it := range items {
+		if it.UpdateAvailable {
+			out = append(out, it)
+		}
+	}
+	return out, nil
 }
 
 // UninstallPlugin removes a source (if configured), its stored credentials, and

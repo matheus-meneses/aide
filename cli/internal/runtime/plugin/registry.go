@@ -68,8 +68,15 @@ type Index struct {
 type PluginEntry struct {
 	Latest      string         `yaml:"latest"`
 	Description string         `yaml:"description,omitempty"`
+	Icon        string         `yaml:"icon,omitempty"`
+	Source      string         `yaml:"source,omitempty"`
 	Versions    []VersionEntry `yaml:"versions"`
 }
+
+const (
+	SourceBuiltin = "builtin"
+	SourcePrivate = "private"
+)
 
 type VersionEntry struct {
 	Version     string                 `yaml:"version"`
@@ -216,6 +223,10 @@ func MergedIndex(userRegistries []string) (*Index, error) {
 		clog.Warn("skipping default registry %s: %v", DefaultRegistryURL(), err)
 		base = &Index{Plugins: make(map[string]PluginEntry)}
 	}
+	for name, entry := range base.Plugins {
+		entry.Source = SourceBuiltin
+		base.Plugins[name] = entry
+	}
 	for _, url := range userRegistries {
 		extra, err := FetchIndex(url)
 		if err != nil {
@@ -224,6 +235,7 @@ func MergedIndex(userRegistries []string) (*Index, error) {
 		}
 		for name, entry := range extra.Plugins {
 			if _, exists := base.Plugins[name]; !exists {
+				entry.Source = SourcePrivate
 				base.Plugins[name] = entry
 			}
 		}

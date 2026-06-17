@@ -138,6 +138,12 @@ func Install(_ context.Context, idx *Index, name, version string, consent func(*
 	}
 
 	clog.Info("extracting")
+	if err := os.RemoveAll(installDir); err != nil {
+		return nil, fmt.Errorf("clearing previous install: %w", err)
+	}
+	if err := os.MkdirAll(installDir, 0o755); err != nil {
+		return nil, fmt.Errorf("recreating install dir: %w", err)
+	}
 	if err := extractTarGz(tmpArtifact.Name(), installDir); err != nil {
 		return nil, fmt.Errorf("extracting artifact: %w", err)
 	}

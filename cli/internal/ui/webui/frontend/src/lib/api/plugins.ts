@@ -4,8 +4,13 @@ export interface PluginItem {
   name: string;
   description: string;
   runtime?: string;
+  icon?: string;
+  source?: "builtin" | "private";
   installed: boolean;
   configured: boolean;
+  installed_version?: string;
+  latest_version?: string;
+  update_available: boolean;
 }
 
 export interface ManifestField {
@@ -42,6 +47,14 @@ export async function fetchPluginManifest(name: string): Promise<PluginManifest>
 
 export async function installPlugin(name: string): Promise<void> {
   await checkedFetch(`${BASE}/api/plugins/install`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, acknowledge_capabilities: true }),
+  });
+}
+
+export async function updatePlugin(name: string): Promise<void> {
+  await checkedFetch(`${BASE}/api/plugins/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, acknowledge_capabilities: true }),

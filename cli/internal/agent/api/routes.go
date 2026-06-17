@@ -35,6 +35,7 @@ func Register(a *agent.Agent, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/plugins", h.handlePlugins)
 	mux.HandleFunc("GET /api/plugins/{name}/manifest", h.handlePluginManifest)
 	mux.HandleFunc("POST /api/plugins/install", h.handleInstallPlugin)
+	mux.HandleFunc("POST /api/plugins/update", h.handleUpdatePlugin)
 	mux.HandleFunc("POST /api/sources", h.handleAddSource)
 	mux.HandleFunc("POST /api/sources/remove", h.handleRemoveSource)
 	mux.HandleFunc("POST /api/llm", h.handleSetLLM)

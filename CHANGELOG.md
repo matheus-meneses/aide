@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Plugin updates** — `aide plugin update [name]` upgrades one or every
+  installed plugin to the latest version published in the configured
+  registries, rebuilding its runtime in place while preserving config and
+  stored credentials (`--check` to only report what would change). `aide plugin
+  list` now flags plugins with an update available. In the web UI, the
+  Marketplace and Installed tabs show an `update → vX.Y.Z` badge and a one-click
+  **Update** button.
+- **Plugin source & icon in the catalog** — the Marketplace tags each plugin as
+  `builtin` (default catalog) or `private` (a user-added registry), and the
+  plugin manifest gains an optional `icon` field (an emoji, a URL, or a data
+  URI) rendered in the catalog and installed lists.
+
+### Fixed
+
+- Installing or updating a plugin now wipes the previous install directory
+  before extracting, so files removed in a newer version no longer linger.
+
 ## [0.2.0] - 2026-06-17
 
 0.2.0 brings a **native macOS desktop app**, a streamlined CLI — a new `aide ui`
