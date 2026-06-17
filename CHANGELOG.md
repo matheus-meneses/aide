@@ -59,6 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Plugin log levels in the runner** — the CLI runner now parses the `[level]`
+  tag on plugin stderr lines, so plugin `debug`/`warn`/`error` output shows its
+  real level in the Logs view instead of all appearing as INFO.
 - Installing or updating a plugin now wipes the previous install directory
   before extracting, so files removed in a newer version no longer linger.
 - **Always-visible progress** — the Marketplace and Installed tabs show an
@@ -78,6 +81,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Header dropdown clipping** — the status-bar summary menu renders through a
   portal, so it's no longer hidden behind the sidebar/content by the header's
   `backdrop-blur` stacking context.
+
+### Security
+
+- **Registry TLS verified by default** — the plugin registry HTTPS client no
+  longer disables certificate verification. Self-hosted registries served by an
+  internal CA are supported by pointing `AIDE_REGISTRY_CA_BUNDLE` at a PEM file,
+  whose roots are trusted on top of the system pool, and a minimum of TLS 1.2 is
+  enforced.
+- **Security policy & pinned release deps** — added a repository `SECURITY.md`
+  describing private vulnerability reporting, and pinned the `pip`, `pytest`, and
+  `build` versions used by the SDK publish workflow.
+- **Expanded Go test coverage** — added tests for the registry cache lifecycle
+  and CA-bundle client construction, manager listing of corrupt manifests, the
+  pre-network install guards, updater throttle/upgrade-info/method detection, and
+  the admin version/ready API handlers.
 
 ## [0.2.1]
 
