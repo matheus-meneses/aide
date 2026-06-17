@@ -48,12 +48,31 @@ brew uninstall aide               # CLI
 brew uninstall --cask aide        # desktop app
 ```
 
+Homebrew always tracks the latest **stable** release — prereleases (`-rc`,
+`-beta`, …) are never published to the tap, so `brew upgrade` won't pull one.
+To install a specific version (including a prerelease), use the install script
+with `AIDE_VERSION` (see [cURL](#curl)), or pin an older stable formula from the
+tap's history:
+
+```sh
+brew install \
+  "https://raw.githubusercontent.com/matheus-meneses/homebrew-aide/$(git -C "$(brew --repo matheus-meneses/aide)" log --format=%H -1 --grep='aide 0.2.0' -- Formula/aide.rb)/Formula/aide.rb"
+```
+
 ### cURL
 
 No Homebrew? The install script drops the `aide` CLI on your PATH (macOS / Linux / Windows):
 
 ```sh
 curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh | bash
+```
+
+Install a specific version (including a prerelease) by setting `AIDE_VERSION`
+to a release tag:
+
+```sh
+curl -fsSL https://github.com/matheus-meneses/aide/releases/latest/download/install.sh \
+  | AIDE_VERSION=v0.3.0-rc.1 bash
 ```
 
 For the desktop app, grab `Aide-<version>.dmg` from the
