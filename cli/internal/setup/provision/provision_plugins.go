@@ -130,12 +130,11 @@ func UpdatePlugin(ctx context.Context, cfgPath, name string, ackCapabilities boo
 	if !ackCapabilities {
 		return nil, fmt.Errorf("plugin capabilities must be acknowledged before update")
 	}
-	installedVersion := ""
-	if m, err := plugin.NewManager().Get(name); err == nil {
-		installedVersion = m.Version
-	} else {
+	m, err := plugin.NewManager().Get(name)
+	if err != nil {
 		return nil, fmt.Errorf("plugin %q is not installed", name)
 	}
+	installedVersion := m.Version
 
 	var registries []string
 	if cfg, err := config.LoadRaw(cfgPath); err == nil {
