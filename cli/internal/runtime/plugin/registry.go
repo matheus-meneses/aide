@@ -46,6 +46,9 @@ func registryVersion() string {
 }
 
 func DefaultRegistryURL() string {
+	if u := os.Getenv("AIDE_REGISTRY_URL"); u != "" {
+		return u
+	}
 	repo := registryRepo()
 	if v := registryVersion(); v != "" {
 		return fmt.Sprintf("https://github.com/%s/releases/download/%s/index.yaml", repo, v)
@@ -241,6 +244,53 @@ func MergedIndex(userRegistries []string) (*Index, error) {
 		}
 	}
 	return base, nil
+}
+
+// ResolveIndex returns the plugin registry index, preferring a fresh network
+// fetch (which it then caches) and falling back to the on-disk cache when the
+// network is unavailable. Use it when freshness matters, e.g. installs/updates.
+func ResolveIndex(userRegistries []string) (*Index, error) {
+	idx, err := MergedIndex(userRegistries)
+	if err != nil {
+		clog.Warn("registry fetch failed (%v); falling back to cache", err)
+		cached, cacheErr := LoadCachedIndex()
+		if cacheErr != nil {
+			return nil, fmt.Errorf("registry unavailable and no cache: %w", err)
+		}
+		return cached, nil
+	}
+	if err := CacheIndex(idx); err != nil {
+		clog.Warn("could not cache registry: %v", err)
+	}
+	return idx, nil
+}
+
+// CachedOrFreshIndex returns the cached index when it has entries, otherwise it
+// fetches and caches a fresh one. Use it on latency-sensitive paths (listing,
+// install) where a slightly stale catalog is acceptable. A cache missing the
+// builtin/private source tags is treated as stale and re-merged, so older
+// caches self-heal instead of leaving the UI unable to distinguish sources.
+func CachedOrFreshIndex(userRegistries []string) (*Index, error) {
+	if idx, err := LoadCachedIndex(); err == nil && len(idx.Plugins) > 0 && indexHasSource(idx) {
+		return idx, nil
+	}
+	idx, err := MergedIndex(userRegistries)
+	if err != nil {
+		return nil, err
+	}
+	if err := CacheIndex(idx); err != nil {
+		clog.Warn("could not cache registry: %v", err)
+	}
+	return idx, nil
+}
+
+func indexHasSource(idx *Index) bool {
+	for _, entry := range idx.Plugins {
+		if entry.Source != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func CacheIndex(idx *Index) error {

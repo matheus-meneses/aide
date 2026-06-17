@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Loader2, PanelLeft, PanelLeftClose } from "lucide-react";
 import { type AgentEvent, useSSE } from "@/hooks/useSSE";
+import { cn } from "@/lib/cn";
 import { isDesktopApp } from "@/lib/platform";
 import { TitleBar } from "@/components/TitleBar";
 import { StatusBar } from "@/components/StatusBar";
@@ -169,10 +170,32 @@ function MainApp() {
         <div
           role="status"
           aria-live="polite"
-          className="flex items-center justify-center gap-2 border-b border-warning/25 bg-warning/10 px-4 py-1 text-xs text-warning-foreground"
+          className={cn(
+            "animate-fade-in relative overflow-hidden border-b text-xs",
+            everConnected
+              ? "border-warning/25 bg-warning/10 text-warning-foreground"
+              : "border-border/60 bg-muted/30 text-muted-foreground",
+          )}
         >
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          {everConnected ? "Reconnecting to the agent…" : "Connecting to the agent…"}
+          <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden">
+            <div
+              className={cn(
+                "animate-indeterminate absolute inset-y-0 rounded-full",
+                everConnected ? "bg-warning" : "bg-primary",
+              )}
+            />
+          </div>
+          <div className="flex items-center justify-center gap-2 px-4 py-1.5">
+            <Loader2
+              className={cn(
+                "h-3.5 w-3.5 animate-spin",
+                everConnected ? "text-warning" : "text-primary",
+              )}
+            />
+            <span>
+              {everConnected ? "Reconnecting to the agent…" : "Connecting to the agent…"}
+            </span>
+          </div>
         </div>
       )}
       {isDesktopApp && showLogs ? (

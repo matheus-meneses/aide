@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchNotifications } from "@/lib/api";
+import { subscribeConnection, subscribeEvent } from "@/lib/eventBus";
 import {
   type AgentEvent,
   MAX_EVENTS,
@@ -17,7 +18,6 @@ export { describeEvent } from "@/lib/notifications";
 export function useSSE(url: string) {
   const [events, setEvents] = useState<AgentEvent[]>(loadFromStorage);
   const [connected, setConnected] = useState(false);
-  const sourceRef = useRef<EventSource | null>(null);
   const chatCallbackRef = useRef<((event: AgentEvent) => void) | null>(null);
   const lastEventIdRef = useRef<number>(0);
   const { notificationPermission, enableNotifications, queueBrowserNotification, cleanupGrouping } =
@@ -55,12 +55,6 @@ export function useSSE(url: string) {
       if (maxId > lastEventIdRef.current) lastEventIdRef.current = maxId;
     }
 
-    const es = new EventSource(url);
-    sourceRef.current = es;
-
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
-
     const appendEvent = (event: AgentEvent) => {
       const key = eventKey(event);
       setEvents((prev) => {
@@ -74,8 +68,8 @@ export function useSSE(url: string) {
       });
     };
 
-    const handleNotifiable = (e: MessageEvent<string>) => {
-      const event = safeParse(e.data);
+    const handleNotifiable = (data: string) => {
+      const event = safeParse(data);
       if (!event) return;
       appendEvent(event);
       if (shouldNotify(event)) {
@@ -83,29 +77,31 @@ export function useSSE(url: string) {
       }
     };
 
-    const handleSilent = (e: MessageEvent<string>) => {
-      const event = safeParse(e.data);
+    const handleSilent = (data: string) => {
+      const event = safeParse(data);
       if (!event) return;
       appendEvent(event);
     };
 
-    const handleChatMessage = (e: MessageEvent<string>) => {
-      const event = safeParse(e.data);
+    const handleChatMessage = (data: string) => {
+      const event = safeParse(data);
       if (event) {
         chatCallbackRef.current?.(event);
       }
     };
 
-    es.addEventListener("notification", handleNotifiable);
-    es.addEventListener("briefing", handleNotifiable);
-    es.addEventListener("scrape_complete", handleSilent);
-    es.addEventListener("cycle_error", handleSilent);
-    es.addEventListener("status", handleSilent);
-    es.addEventListener("chat_message", handleChatMessage);
+    const unsubs = [
+      subscribeConnection(setConnected),
+      subscribeEvent("notification", handleNotifiable),
+      subscribeEvent("briefing", handleNotifiable),
+      subscribeEvent("scrape_complete", handleSilent),
+      subscribeEvent("cycle_error", handleSilent),
+      subscribeEvent("status", handleSilent),
+      subscribeEvent("chat_message", handleChatMessage),
+    ];
 
     return () => {
-      es.close();
-      sourceRef.current = null;
+      unsubs.forEach((u) => u());
       cleanupGrouping();
     };
   }, [url, queueBrowserNotification, cleanupGrouping]);

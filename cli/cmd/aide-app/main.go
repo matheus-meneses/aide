@@ -75,7 +75,9 @@ func main() {
 	}()
 
 	url := fmt.Sprintf("http://localhost:%d", port)
-	waitForServer(url, 15*time.Second)
+	if !waitForServer(url, 15*time.Second) {
+		clog.Warn("web server did not become ready within 15s; opening window anyway")
+	}
 
 	runApp(url, ag, st, cancel)
 }
@@ -89,15 +91,20 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-func waitForServer(url string, timeout time.Duration) {
+// waitForServer polls a zero-network readiness probe until the local server
+// accepts requests. It deliberately avoids /api/version, which can block on
+// GitHub, so the window opens as soon as the UI can be served. It reports
+// whether the server became ready before the timeout.
+func waitForServer(url string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	client := &http.Client{Timeout: time.Second}
 	for time.Now().Before(deadline) {
-		resp, err := client.Get(url + "/api/version")
+		resp, err := client.Get(url + "/api/ready")
 		if err == nil {
 			resp.Body.Close()
-			return
+			return true
 		}
 		time.Sleep(150 * time.Millisecond)
 	}
+	return false
 }

@@ -57,6 +57,11 @@ export async function fetchVersion(): Promise<VersionInfo> {
   return resp.json() as Promise<VersionInfo>;
 }
 
+export async function checkVersion(): Promise<VersionInfo> {
+  const resp = await checkedFetch(`${BASE}/api/version/check`);
+  return resp.json() as Promise<VersionInfo>;
+}
+
 export function triggerUpdate(): Promise<void> {
   return postJSON("/api/update", {});
 }

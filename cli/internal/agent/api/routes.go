@@ -24,7 +24,9 @@ func Register(a *agent.Agent, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/whoami", h.handleSetWhoami)
 	mux.HandleFunc("GET /api/sessions", h.handleSessions)
 	mux.HandleFunc("GET /api/sessions/{id}", h.handleSessionMessages)
+	mux.HandleFunc("GET /api/ready", handleReady)
 	mux.HandleFunc("GET /api/version", handleVersion)
+	mux.HandleFunc("GET /api/version/check", handleVersionCheck)
 	mux.HandleFunc("POST /api/update", h.handleUpdate)
 	mux.HandleFunc("GET /api/runtime", h.handleRuntime)
 

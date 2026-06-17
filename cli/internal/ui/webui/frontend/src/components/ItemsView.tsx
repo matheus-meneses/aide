@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Info, RefreshCw, X } 
 import { fetchItems } from "@/lib/api";
 import type { ItemData as Item } from "@/lib/api";
 import { handleExternalClick } from "@/lib/openExternal";
-import { Button, EmptyState, Skeleton, useToast } from "@/components/ui";
+import { Button, EmptyState, Select, Skeleton, useToast } from "@/components/ui";
 
 interface Props {
   source: string;
@@ -97,15 +97,15 @@ export function ItemsView({ source, onClose }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
-            className="text-xs border rounded px-2 py-1 bg-background"
+            className="w-auto px-2 py-1 text-xs"
           >
             <option value="category">Group by category</option>
             <option value="member">Group by member</option>
             <option value="priority">Group by priority</option>
-          </select>
+          </Select>
           <button
             onClick={load}
             className="p-1.5 rounded hover:bg-accent transition-colors"
@@ -180,7 +180,7 @@ export function ItemsView({ source, onClose }: Props) {
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => handleExternalClick(e, item.link)}
-                              className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
+                              className="shrink-0 p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent transition-all"
                             >
                               <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                             </a>

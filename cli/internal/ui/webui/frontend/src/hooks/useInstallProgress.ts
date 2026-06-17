@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { subscribeEvent } from "@/lib/eventBus";
 
 export interface InstallProgress {
   lines: string[];
@@ -28,20 +29,16 @@ function parseMessage(raw: string): string {
 // Shared by the setup wizard and the marketplace.
 export function useInstallProgress() {
   const [progress, setProgress] = useState<InstallProgress>(empty);
-  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const es = new EventSource("/api/events");
-    esRef.current = es;
-
-    const on = (type: string, fn: (msg: string) => void) =>
-      es.addEventListener(type, (e: MessageEvent<string>) => fn(parseMessage(e.data)));
-
-    on("install_progress", (m) => setProgress((p) => ({ ...p, lines: [...p.lines, m] })));
-    on("install_done", (m) => setProgress((p) => ({ ...p, done: m })));
-    on("install_error", (m) => setProgress((p) => ({ ...p, error: m })));
-
-    return () => es.close();
+    const unsubs = [
+      subscribeEvent("install_progress", (d) =>
+        setProgress((p) => ({ ...p, lines: [...p.lines, parseMessage(d)] })),
+      ),
+      subscribeEvent("install_done", (d) => setProgress((p) => ({ ...p, done: parseMessage(d) }))),
+      subscribeEvent("install_error", (d) => setProgress((p) => ({ ...p, error: parseMessage(d) }))),
+    ];
+    return () => unsubs.forEach((u) => u());
   }, []);
 
   const reset = useCallback(() => setProgress(empty), []);

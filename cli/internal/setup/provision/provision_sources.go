@@ -1,6 +1,7 @@
 package provision
 
 import (
+	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/security/keychain"
@@ -258,7 +259,9 @@ func RemoveSource(cfgPath, name string) error {
 	if err := cfg.Save(cfgPath); err != nil {
 		return err
 	}
-	_ = keychain.DeleteSource(name)
+	if err := keychain.DeleteSource(name); err != nil {
+		clog.Warn("could not delete credentials for %q: %v", name, err)
+	}
 	return nil
 }
 

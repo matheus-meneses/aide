@@ -1,6 +1,7 @@
 package provision
 
 import (
+	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/runtime/updater"
@@ -41,12 +42,10 @@ func ListPlugins(cfgPath string) ([]PluginListItem, error) {
 		registries = cfg.Registries
 	}
 
-	idx, err := plugin.LoadCachedIndex()
-	if err != nil || len(idx.Plugins) == 0 {
-		if fresh, ferr := plugin.MergedIndex(registries); ferr == nil {
-			idx = fresh
-			_ = plugin.CacheIndex(fresh)
-		}
+	idx, err := plugin.CachedOrFreshIndex(registries)
+	if err != nil {
+		clog.Warn("could not resolve plugin registry: %v", err)
+		idx = nil
 	}
 
 	items := map[string]*PluginListItem{}
@@ -106,16 +105,17 @@ func PluginManifest(name string) (*plugin.Manifest, error) {
 // aide home, building its runtime (Python venv) as needed. The caller must set
 // ackCapabilities to confirm the user has acknowledged the plugin's declared
 // network/filesystem capabilities; installation is refused otherwise.
-func InstallPlugin(ctx context.Context, name, version string, ackCapabilities bool) (*plugin.Manifest, error) {
+func InstallPlugin(ctx context.Context, cfgPath, name, version string, ackCapabilities bool) (*plugin.Manifest, error) {
 	if !ackCapabilities {
 		return nil, fmt.Errorf("plugin capabilities must be acknowledged before install")
 	}
-	idx, err := plugin.LoadCachedIndex()
+	var registries []string
+	if cfg, err := config.LoadRaw(cfgPath); err == nil {
+		registries = cfg.Registries
+	}
+	idx, err := plugin.CachedOrFreshIndex(registries)
 	if err != nil {
-		idx, err = plugin.MergedIndex(nil)
-		if err != nil {
-			return nil, fmt.Errorf("loading registry: %w", err)
-		}
+		return nil, fmt.Errorf("loading registry: %w", err)
 	}
 	return plugin.Install(ctx, idx, name, version, func(*plugin.Manifest) bool { return true })
 }
@@ -140,14 +140,9 @@ func UpdatePlugin(ctx context.Context, cfgPath, name string, ackCapabilities boo
 	if cfg, err := config.LoadRaw(cfgPath); err == nil {
 		registries = cfg.Registries
 	}
-	idx, err := plugin.MergedIndex(registries)
+	idx, err := plugin.ResolveIndex(registries)
 	if err != nil {
-		idx, err = plugin.LoadCachedIndex()
-		if err != nil {
-			return nil, fmt.Errorf("loading registry: %w", err)
-		}
-	} else {
-		_ = plugin.CacheIndex(idx)
+		return nil, err
 	}
 
 	entry, ok := idx.Plugins[name]
@@ -189,7 +184,9 @@ func UninstallPlugin(cfgPath, name string) error {
 			return err
 		}
 	}
-	_ = keychain.DeleteSource(name)
+	if err := keychain.DeleteSource(name); err != nil {
+		clog.Warn("could not delete credentials for %q: %v", name, err)
+	}
 
 	if err := plugin.NewManager().Remove(name); err != nil {
 		return fmt.Errorf("removing plugin %q: %w", name, err)

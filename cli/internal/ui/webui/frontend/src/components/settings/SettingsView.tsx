@@ -152,7 +152,7 @@ export function SettingsView({
                         ? "bg-accent font-medium text-accent-foreground"
                         : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                     )}
-                    aria-current={active === t.id}
+                    aria-current={active === t.id ? "page" : undefined}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     {t.label}

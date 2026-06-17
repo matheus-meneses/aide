@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -87,6 +88,94 @@ func markChecked() {
 	path := filepath.Join(aideHome(), throttleFile)
 	_ = os.MkdirAll(filepath.Dir(path), 0o755)
 	_ = os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o600)
+}
+
+// UpgradeInfo is the resolved view of "is there an update for the running
+// build" plus the notes to show. It is cheap to copy and safe to cache.
+type UpgradeInfo struct {
+	Latest          string
+	UpdateAvailable bool
+	Notes           string
+	ReleaseURL      string
+}
+
+var (
+	upgradeMu       sync.RWMutex
+	upgradeCache    *UpgradeInfo
+	upgradeChecked  time.Time
+	upgradeInFlight bool
+)
+
+// computeUpgradeInfo queries GitHub for the most relevant upgrade for current.
+// Stable builds with no newer release fall back to the running version's own
+// notes so the UI can still show "what's in this release".
+func computeUpgradeInfo(current string) UpgradeInfo {
+	var info UpgradeInfo
+	if current == "dev" {
+		return info
+	}
+	if rel, err := LatestUpgrade(current); err == nil {
+		info.Latest = rel.Tag
+		info.UpdateAvailable = IsNewer(rel.Tag, current)
+		if info.UpdateAvailable {
+			info.Notes = rel.Notes
+			info.ReleaseURL = rel.URL
+		}
+	}
+	if !info.UpdateAvailable {
+		if cur, err := ReleaseByTag(current); err == nil {
+			info.Notes = cur.Notes
+			info.ReleaseURL = cur.URL
+		}
+	}
+	return info
+}
+
+// CachedUpgradeInfo returns the last computed upgrade info, if any. It never
+// touches the network, so it is safe to serve on a latency-sensitive path.
+func CachedUpgradeInfo() (UpgradeInfo, bool) {
+	upgradeMu.RLock()
+	defer upgradeMu.RUnlock()
+	if upgradeCache == nil {
+		return UpgradeInfo{}, false
+	}
+	return *upgradeCache, true
+}
+
+// RefreshUpgradeInfo synchronously queries GitHub, updates the cache, and
+// returns the fresh result. Use it for explicit "check for updates" actions.
+func RefreshUpgradeInfo(current string) UpgradeInfo {
+	info := computeUpgradeInfo(current)
+	upgradeMu.Lock()
+	upgradeCache = &info
+	upgradeChecked = time.Now()
+	upgradeMu.Unlock()
+	return info
+}
+
+// RefreshUpgradeInfoAsync kicks a background refresh at most once per throttle
+// window, deduping concurrent refreshes. It returns immediately and is safe to
+// call on every request.
+func RefreshUpgradeInfoAsync(current string) {
+	if current == "dev" {
+		return
+	}
+	upgradeMu.Lock()
+	if upgradeInFlight || (upgradeCache != nil && time.Since(upgradeChecked) < throttleWindow) {
+		upgradeMu.Unlock()
+		return
+	}
+	upgradeInFlight = true
+	upgradeMu.Unlock()
+
+	go func() {
+		info := computeUpgradeInfo(current)
+		upgradeMu.Lock()
+		upgradeCache = &info
+		upgradeChecked = time.Now()
+		upgradeInFlight = false
+		upgradeMu.Unlock()
+	}()
 }
 
 // Release describes the latest published release and its notes.

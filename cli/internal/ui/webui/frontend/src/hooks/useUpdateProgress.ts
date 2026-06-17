@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { subscribeEvent } from "@/lib/eventBus";
 
 export interface UpdateProgress {
   running: boolean;
@@ -28,22 +29,20 @@ function parseMessage(raw: string): string {
 // exposes the running log, completion (the installed version), and errors.
 export function useUpdateProgress() {
   const [progress, setProgress] = useState<UpdateProgress>(empty);
-  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const es = new EventSource("/api/events");
-    esRef.current = es;
-
-    const on = (type: string, fn: (msg: string) => void) =>
-      es.addEventListener(type, (e: MessageEvent<string>) => fn(parseMessage(e.data)));
-
-    on("update_progress", (m) =>
-      setProgress((p) => ({ ...p, running: true, lines: [...p.lines, m] })),
-    );
-    on("update_done", (m) => setProgress((p) => ({ ...p, running: false, done: m })));
-    on("update_error", (m) => setProgress((p) => ({ ...p, running: false, error: m })));
-
-    return () => es.close();
+    const unsubs = [
+      subscribeEvent("update_progress", (d) =>
+        setProgress((p) => ({ ...p, running: true, lines: [...p.lines, parseMessage(d)] })),
+      ),
+      subscribeEvent("update_done", (d) =>
+        setProgress((p) => ({ ...p, running: false, done: parseMessage(d) })),
+      ),
+      subscribeEvent("update_error", (d) =>
+        setProgress((p) => ({ ...p, running: false, error: parseMessage(d) })),
+      ),
+    ];
+    return () => unsubs.forEach((u) => u());
   }, []);
 
   const start = useCallback(() => setProgress({ ...empty, running: true }), []);

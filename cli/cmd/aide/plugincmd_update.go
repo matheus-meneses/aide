@@ -1,11 +1,9 @@
 package main
 
 import (
-	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/runtime/updater"
 	"aide/cli/internal/ui/widgets"
-	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -31,7 +29,7 @@ type pluginUpgrade struct {
 	latest    string
 }
 
-func pluginUpdateExecute(_ *cobra.Command, args []string) error {
+func pluginUpdateExecute(cmd *cobra.Command, args []string) error {
 	cfg, cfgErr := loadConfig()
 	if cfgErr != nil {
 		return cfgErr
@@ -39,16 +37,10 @@ func pluginUpdateExecute(_ *cobra.Command, args []string) error {
 
 	sp := widgets.NewSpinner("Fetching registry…")
 	sp.Start()
-	idx, idxErr := plugin.MergedIndex(cfg.Registries)
+	idx, idxErr := plugin.ResolveIndex(cfg.Registries)
 	sp.Stop()
 	if idxErr != nil {
-		clog.Warn("registry fetch failed (%v), trying cache", idxErr)
-		idx, idxErr = plugin.LoadCachedIndex()
-		if idxErr != nil {
-			return fmt.Errorf("registry unavailable and no cache: %w", idxErr)
-		}
-	} else {
-		_ = plugin.CacheIndex(idx)
+		return idxErr
 	}
 
 	installed, err := plugin.NewManager().List()
@@ -110,7 +102,7 @@ func pluginUpdateExecute(_ *cobra.Command, args []string) error {
 			printPluginCapabilities(m)
 			return confirm("Apply this update?")
 		}
-		if _, err := plugin.Install(context.Background(), idx, u.name, u.latest, consent); err != nil {
+		if _, err := plugin.Install(cmd.Context(), idx, u.name, u.latest, consent); err != nil {
 			widgets.PrintWarn("failed to update %s: %v", u.name, err)
 			failed = append(failed, u.name)
 			continue

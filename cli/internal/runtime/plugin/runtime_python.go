@@ -24,8 +24,9 @@ func pythonCmdOpts(ctx context.Context, m *Manifest, reqJSON []byte, interactive
 	cmd.Stdin = newBytesReader(reqJSON)
 	env := os.Environ()
 	if m.Capabilities.Browser {
-		systemBrowsersPath := filepath.Join(os.Getenv("HOME"), "Library", "Caches", "ms-playwright")
-		env = append(env, "PLAYWRIGHT_BROWSERS_PATH="+systemBrowsersPath)
+		if p := playwrightBrowsersPath(); p != "" {
+			env = append(env, "PLAYWRIGHT_BROWSERS_PATH="+p)
+		}
 	}
 	if interactive {
 		env = append(env, "AIDE_INTERACTIVE=1")
@@ -48,4 +49,28 @@ func pythonCmdOpts(ctx context.Context, m *Manifest, reqJSON []byte, interactive
 		}
 	}
 	return cmd, nil
+}
+
+// playwrightBrowsersPath returns the OS-specific default ms-playwright browser
+// cache directory, matching where `playwright install` places browsers during
+// venv build. Returns "" when the location can't be resolved.
+func playwrightBrowsersPath() string {
+	switch runtime.GOOS {
+	case "windows":
+		if base := os.Getenv("LOCALAPPDATA"); base != "" {
+			return filepath.Join(base, "ms-playwright")
+		}
+		return ""
+	case "darwin", "linux":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		if runtime.GOOS == "darwin" {
+			return filepath.Join(home, "Library", "Caches", "ms-playwright")
+		}
+		return filepath.Join(home, ".cache", "ms-playwright")
+	default:
+		return ""
+	}
 }

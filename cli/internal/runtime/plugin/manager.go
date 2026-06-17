@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/xdg"
 	"fmt"
 	"os"
@@ -65,6 +66,7 @@ func (mgr *Manager) List() ([]*Manifest, error) {
 		dir := filepath.Join(mgr.root, e.Name())
 		m, err := LoadManifest(dir)
 		if err != nil {
+			clog.Warn("skipping plugin %q: %v", e.Name(), err)
 			continue
 		}
 		manifests = append(manifests, m)

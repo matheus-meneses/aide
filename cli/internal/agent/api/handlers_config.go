@@ -86,7 +86,7 @@ func (h *handlers) handleInstallPlugin(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		h.a.PublishProgress("install_progress", "Installing "+req.Name+"…")
-		if _, err := provision.InstallPlugin(detachedCtx(), req.Name, req.Version, req.AcknowledgeCapabilities); err != nil {
+		if _, err := provision.InstallPlugin(detachedCtx(), h.a.ConfigPath(), req.Name, req.Version, req.AcknowledgeCapabilities); err != nil {
 			h.a.PublishProgress("install_error", err.Error())
 			return
 		}

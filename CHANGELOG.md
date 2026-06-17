@@ -20,11 +20,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `builtin` (default catalog) or `private` (a user-added registry), and the
   plugin manifest gains an optional `icon` field (an emoji, a URL, or a data
   URI) rendered in the catalog and installed lists.
+- **Manual update check** — `GET /api/version/check` performs an on-demand
+  GitHub lookup for the About tab, separate from the cached version info served
+  on load.
+- **Mobile dashboard navigation** — the status bar now exposes the item and
+  meeting stat pills in a horizontally scrollable row on small screens, so the
+  quick filters are no longer desktop-only.
+- **Plugin search & source tag** — the Marketplace and Installed tabs gain a
+  search box, and every card shows a `builtin` or `private` tag so it's clear at
+  a glance which catalog a plugin came from.
+
+### Changed
+
+- **Calmer status bar** — the dashboard counts collapse into a single quiet
+  summary (e.g. `56 open`) that opens a popover with the per-source breakdown,
+  meetings, and unread, replacing the row of look-alike pills. The connection
+  state is now a subtle status dot.
+- **Friendlier connection feed** — the initial "Connecting…" banner is neutral
+  with a slim indeterminate progress bar (it's expected, not an error) and only
+  escalates to the amber warning style when reconnecting after a drop.
+- **Faster app startup** — the desktop window now waits on a new zero-network
+  `GET /api/ready` probe instead of `/api/version`, so it opens immediately
+  regardless of network conditions. Update availability is computed from an
+  in-memory cache refreshed by a throttled background goroutine (12h) and served
+  by a non-blocking `GET /api/version`, instead of making a synchronous GitHub
+  call on every load.
+- **Single SSE connection** — install, update, setup, and log streams now share
+  one `EventSource` via a central event bus rather than opening a separate
+  connection per hook.
+- **Touch-friendly controls** — hover-only actions (notification dismiss, item
+  external links, message timestamps) are now visible without hover on small
+  screens, and the group-by selector in Items uses the shared `Select`
+  component for consistent styling.
+- **Plugin installs/updates are cancelable** — venv builds and pip invocations
+  run under the request context (`exec.CommandContext`), so a disconnect or
+  Ctrl+C stops in-flight work. Web-UI installs now resolve against the
+  configured registries so private-registry plugins are found.
 
 ### Fixed
 
 - Installing or updating a plugin now wipes the previous install directory
   before extracting, so files removed in a newer version no longer linger.
+- **Always-visible progress** — the Marketplace and Installed tabs show an
+  indeterminate "Installing…/Updating…" indicator as soon as the action starts,
+  before the first streamed log line, and the source form renders skeleton
+  fields while its manifest loads instead of flashing empty.
+- **Dark-mode and accessibility polish** — item priority/category badges and the
+  LLM banner use semantic color tokens (so they adapt to the theme), and the
+  settings navigation reports the active tab with `aria-current="page"`.
+- **More robust plugin handling** — corrupt plugin manifests are now logged and
+  skipped (instead of silently dropped), swallowed cache/keychain errors are
+  surfaced as warnings, plugin execution errors preserve their underlying cause,
+  and the Playwright browser cache path is resolved per-OS.
+- **Missing builtin/private tags** — a registry cache written without source
+  tags is now treated as stale and re-merged, so the Marketplace can always tell
+  builtin and private plugins apart instead of showing neither.
+- **Header dropdown clipping** — the status-bar summary menu renders through a
+  portal, so it's no longer hidden behind the sidebar/content by the header's
+  `backdrop-blur` stacking context.
 
 ## [0.2.1]
 
