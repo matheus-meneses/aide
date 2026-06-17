@@ -211,7 +211,10 @@ jobs:
 
   update-homebrew-tap:
     needs: [release, release-macos-app]
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Only stable tags update the rolling tap formula/cask. Prerelease tags
+    # (e.g. v0.3.0-rc.1, which contain a hyphen) still publish their GitHub
+    # release assets, but must not change what `brew install aide` resolves to.
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
