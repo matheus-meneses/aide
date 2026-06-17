@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-17
+
+0.2.0 brings a **native macOS desktop app**, a streamlined CLI — a new `aide ui`
+launcher and a consolidated `aide plugin` command tree — built-in **auto-update**,
+and a round of plugin/sandbox security hardening.
+
 ### Added
 
 - **Auto-update** for both the CLI and the macOS app. aide now detects how it
@@ -20,15 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **One-click "Update now"** in the web UI banner, plus a new **About** settings
   tab showing the current version, platform, the changelog, and an
   `auto_update` preference (`off` / `notify` / `auto`).
-
-## [0.2.0]
-
-0.2.0 brings a **native macOS desktop app** and a streamlined CLI — a new
-`aide ui` launcher and a consolidated `aide plugin` command tree — alongside a
-round of plugin/sandbox security hardening.
-
-### Added
-
 - **Native desktop app (macOS)** — a single Aide.app that bundles the agent and
   the web UI, with a guided first-run setup and a redesigned interface. Install
   with Homebrew (`brew install --cask aide`) or the `.dmg`.
@@ -85,6 +82,9 @@ round of plugin/sandbox security hardening.
 - `aide ui` no longer spams `unsupported protocol scheme ""` LLM errors when
   started before a model is configured. The autonomous loop now stays idle until
   setup is complete and kicks off automatically once a model is saved.
+- The web chat no longer shows an empty "Nothing to show." card while a reply is
+  still streaming — only the typing indicator appears until the first token
+  arrives.
 
 ### Security
 
@@ -123,6 +123,6 @@ round of plugin/sandbox security hardening.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0-rc.6...HEAD
-[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0-rc.6
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0
