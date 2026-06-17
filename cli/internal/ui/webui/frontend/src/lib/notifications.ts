@@ -81,7 +81,7 @@ export function showBrowserNotification(event: AgentEvent) {
     body = event.data.length > 200 ? `${event.data.slice(0, 200)}...` : event.data;
   }
 
-  const n = new Notification(title, { body, icon: "/favicon.ico", tag });
+  const n = new Notification(title, { body, icon: "/favicon.png", tag });
   n.onclick = () => {
     window.focus();
     n.close();
@@ -104,7 +104,7 @@ export function flushGroupedBuffer(buffer: AgentEvent[]) {
   } else if ("Notification" in window && Notification.permission === "granted") {
     new Notification(APP_NAME, {
       body: `${buffer.length} new updates`,
-      icon: "/favicon.ico",
+      icon: "/favicon.png",
       tag: "aide-grouped",
     });
   }
