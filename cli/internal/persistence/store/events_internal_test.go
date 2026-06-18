@@ -111,6 +111,93 @@ func TestNextEventFrom(t *testing.T) {
 			t.Fatalf("got %v, want ok", got)
 		}
 	})
+
+	t.Run("long in-progress block does not mask upcoming meeting", func(t *testing.T) {
+		events := []Item{
+			ev("Focused", today, "10:45 (7h15m)"),
+			ev("Standup", today, "14:00 (1h00m)"),
+			ev("Review", today, "16:00 (30m)"),
+		}
+		at := time.Date(2026, 6, 18, 13, 0, 0, 0, time.Local)
+		got := nextEventFrom(events, at)
+		if got == nil || got.Item.Title != "Standup" {
+			t.Fatalf("got %v, want Standup", got)
+		}
+		if got.InProgress {
+			t.Error("Standup is upcoming, should not be in progress")
+		}
+		if got.MinutesUntil != 60 {
+			t.Errorf("minutesUntil = %d, want 60", got.MinutesUntil)
+		}
+	})
+
+	t.Run("in-progress meeting wins over long block", func(t *testing.T) {
+		events := []Item{
+			ev("Focused", today, "10:45 (7h15m)"),
+			ev("1:1", today, "13:30 (30m)"),
+		}
+		at := time.Date(2026, 6, 18, 13, 40, 0, 0, time.Local)
+		got := nextEventFrom(events, at)
+		if got == nil || got.Item.Title != "1:1" {
+			t.Fatalf("got %v, want 1:1", got)
+		}
+		if !got.InProgress {
+			t.Error("1:1 should be in progress")
+		}
+	})
+
+	t.Run("soonest start wins when nothing in progress", func(t *testing.T) {
+		events := []Item{
+			ev("Workshop", today, "16:00 (2h00m)"),
+			ev("Quick", today, "16:30 (15m)"),
+		}
+		at := time.Date(2026, 6, 18, 15, 0, 0, 0, time.Local)
+		got := nextEventFrom(events, at)
+		if got == nil || got.Item.Title != "Workshop" {
+			t.Fatalf("got %v, want Workshop", got)
+		}
+	})
+}
+
+func TestUpcomingEventInfos(t *testing.T) {
+	now := time.Date(2026, 6, 18, 13, 0, 0, 0, time.Local)
+	today := "2026-06-18"
+	tomorrow := "2026-06-19"
+	ev := func(title, date, detail string) Item {
+		return Item{Title: title, EntryDate: date, Detail: detail, Category: "event"}
+	}
+
+	events := []Item{
+		ev("ended", today, "09:00 (1h00m)"),
+		ev("Focused", today, "10:45 (7h15m)"),
+		ev("Standup", today, "14:00 (1h00m)"),
+		ev("Sync", today, "14:00 (30m)"),
+		ev("notime", today, "all day"),
+		ev("Review", today, "16:00 (30m)"),
+		ev("future", tomorrow, "09:00 (1h00m)"),
+	}
+
+	got := upcomingEventInfos(events, now)
+
+	titles := make([]string, len(got))
+	for i, g := range got {
+		titles[i] = g.Item.Title
+	}
+	want := []string{"Focused", "Sync", "Standup", "Review"}
+	if len(titles) != len(want) {
+		t.Fatalf("got %v, want %v", titles, want)
+	}
+	for i := range want {
+		if titles[i] != want[i] {
+			t.Fatalf("order = %v, want %v", titles, want)
+		}
+	}
+	if !got[0].InProgress {
+		t.Error("Focused should be in progress")
+	}
+	if got[2].InProgress {
+		t.Error("Standup should not be in progress")
+	}
 }
 
 func TestImminentCount(t *testing.T) {

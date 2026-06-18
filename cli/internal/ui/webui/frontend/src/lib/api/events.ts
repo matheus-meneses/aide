@@ -14,6 +14,11 @@ export async function fetchNextEvent(): Promise<NextEvent | null> {
   return (await resp.json()) as NextEvent | null;
 }
 
+export async function fetchUpcomingEvents(): Promise<NextEvent[]> {
+  const resp = await checkedFetch(`${BASE}/api/events/upcoming`);
+  return ((await resp.json()) as NextEvent[] | null) ?? [];
+}
+
 export type UICommandAction = "show" | "navigate" | "quit";
 
 export async function sendUICommand(action: UICommandAction, view?: string): Promise<void> {

@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"aide/cli/internal/persistence/store"
 )
 
 func (h *handlers) handleItems(w http.ResponseWriter, r *http.Request) {
@@ -45,15 +47,35 @@ func (h *handlers) handleNextEvent(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, nil)
 		return
 	}
-	title := strings.TrimPrefix(next.Item.Title, "Meeting: ")
-	writeJSON(w, http.StatusOK, map[string]any{
-		"title":         title,
-		"member":        next.Item.Member,
-		"time":          next.Start.Format("15:04"),
-		"start":         next.Start.Format(time.RFC3339),
-		"minutes_until": next.MinutesUntil,
-		"in_progress":   next.InProgress,
-	})
+	writeJSON(w, http.StatusOK, eventPayload(*next))
+}
+
+func (h *handlers) handleUpcomingEvents(w http.ResponseWriter, _ *http.Request) {
+	events, err := h.a.Store().Items.UpcomingEventInfos()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	const maxEvents = 12
+	if len(events) > maxEvents {
+		events = events[:maxEvents]
+	}
+	out := make([]map[string]any, 0, len(events))
+	for _, ev := range events {
+		out = append(out, eventPayload(ev))
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func eventPayload(ev store.NextEventInfo) map[string]any {
+	return map[string]any{
+		"title":         strings.TrimPrefix(ev.Item.Title, "Meeting: "),
+		"member":        ev.Item.Member,
+		"time":          ev.Start.Format("15:04"),
+		"start":         ev.Start.Format(time.RFC3339),
+		"minutes_until": ev.MinutesUntil,
+		"in_progress":   ev.InProgress,
+	}
 }
 
 func (h *handlers) handleStatus(w http.ResponseWriter, _ *http.Request) {

@@ -30,6 +30,9 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 	opts := application.Options{
 		Name:        "Aide",
 		Description: "Your personal work assistant",
+		Mac: application.MacOptions{
+			ActivationPolicy: application.ActivationPolicyAccessory,
+		},
 	}
 
 	var notifSvc *notifications.NotificationService
@@ -97,6 +100,8 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 		BackgroundType: application.BackgroundTypeTransparent,
 		Mac: application.MacWindow{
 			Backdrop: application.MacBackdropTranslucent,
+			CollectionBehavior: application.MacWindowCollectionBehaviorCanJoinAllSpaces |
+				application.MacWindowCollectionBehaviorFullScreenAuxiliary,
 		},
 	})
 
