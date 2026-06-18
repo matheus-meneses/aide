@@ -10,7 +10,7 @@ import {
   Settings,
 } from "lucide-react";
 import {
-  fetchNextEvent,
+  fetchUpcomingEvents,
   sendUICommand,
   triggerSync,
   type NextEvent,
@@ -37,16 +37,20 @@ function dayPrefix(startISO: string): string {
   return start.toLocaleDateString(undefined, { weekday: "short" }) + " ";
 }
 
+function isImminent(ev: NextEvent): boolean {
+  return ev.in_progress || (ev.minutes_until >= 0 && ev.minutes_until <= 10);
+}
+
 export function TrayPanel() {
-  const [event, setEvent] = useState<NextEvent | null>(null);
+  const [events, setEvents] = useState<NextEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const refresh = useCallback(() => {
-    fetchNextEvent()
-      .then((e) => {
-        setEvent(e);
+    fetchUpcomingEvents()
+      .then((list) => {
+        setEvents(list);
         setError(false);
       })
       .catch(() => setError(true))
@@ -73,8 +77,6 @@ export function TrayPanel() {
     });
   }, [refresh]);
 
-  const imminent = !!event && (event.in_progress || (event.minutes_until >= 0 && event.minutes_until <= 10));
-
   return (
     <div className="h-screen w-screen p-1.5">
       <div className="flex h-full flex-col overflow-hidden rounded-2xl border bg-popover/95 shadow-xl backdrop-blur-xl">
@@ -86,8 +88,13 @@ export function TrayPanel() {
           </div>
         </div>
 
-        <div className="px-2">
-          {loaded && error && !event ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-2">
+          {!loaded ? (
+            <div className="flex items-center gap-3 px-2.5 py-2.5 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : error && events.length === 0 ? (
             <div className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                 <CalendarClock className="h-[18px] w-[18px]" />
@@ -106,41 +113,54 @@ export function TrayPanel() {
                 Retry
               </button>
             </div>
-          ) : (
-          <button
-            type="button"
-            onClick={() => command("show")}
-            className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-accent"
-          >
-            <span
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                imminent ? "bg-warning/15 text-warning" : "bg-primary/10 text-foreground/80",
-              )}
+          ) : events.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => command("show")}
+              className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-accent"
             >
-              <CalendarClock className="h-[18px] w-[18px]" />
-            </span>
-            <span className="min-w-0 flex-1">
-              {!loaded ? (
-                <span className="text-sm text-muted-foreground">Loading…</span>
-              ) : event ? (
-                <>
-                  <span className="block truncate text-sm font-medium leading-tight">{event.title}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {dayPrefix(event.start)}
-                    {event.time}
-                    <span className={cn("ml-1", imminent && "font-medium text-warning")}>
-                      · {relativeLabel(event)}
-                    </span>
-                    {event.member ? ` · ${event.member}` : ""}
-                  </span>
-                </>
-              ) : (
-                <span className="text-sm text-muted-foreground">No upcoming meetings</span>
-              )}
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-          </button>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-foreground/80">
+                <CalendarClock className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">No upcoming meetings</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ) : (
+            <ul className="space-y-0.5">
+              {events.map((event, i) => {
+                const imminent = isImminent(event);
+                return (
+                  <li key={`${event.start}-${event.title}-${i}`}>
+                    <button
+                      type="button"
+                      onClick={() => command("show")}
+                      className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-accent"
+                    >
+                      <span
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                          imminent ? "bg-warning/15 text-warning" : "bg-primary/10 text-foreground/80",
+                        )}
+                      >
+                        <CalendarClock className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium leading-tight">{event.title}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {dayPrefix(event.start)}
+                          {event.time}
+                          <span className={cn("ml-1", imminent && "font-medium text-warning")}>
+                            · {relativeLabel(event)}
+                          </span>
+                          {event.member ? ` · ${event.member}` : ""}
+                        </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 

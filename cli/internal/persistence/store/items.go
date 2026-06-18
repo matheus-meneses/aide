@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -257,6 +258,45 @@ func (r *ItemRepo) ImminentEventCount(within time.Duration) (int, error) {
 	return imminentCount(events, time.Now(), within), nil
 }
 
+func (r *ItemRepo) UpcomingEventInfos() ([]NextEventInfo, error) {
+	events, err := r.UpcomingEvents()
+	if err != nil {
+		return nil, err
+	}
+	return upcomingEventInfos(events, time.Now()), nil
+}
+
+func upcomingEventInfos(events []Item, now time.Time) []NextEventInfo {
+	out := make([]NextEventInfo, 0, len(events))
+	for i := range events {
+		start, dur, ok := parseEventTimes(events[i].EntryDate, events[i].Detail)
+		if !ok {
+			continue
+		}
+		end := start.Add(dur)
+		if !end.After(now) {
+			continue
+		}
+		if start.Year() != now.Year() || start.YearDay() != now.YearDay() {
+			continue
+		}
+		out = append(out, NextEventInfo{
+			Item:         events[i],
+			Start:        start,
+			End:          end,
+			InProgress:   !start.After(now),
+			MinutesUntil: int(math.Round(start.Sub(now).Minutes())),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Start.Equal(out[j].Start) {
+			return out[i].End.Before(out[j].End)
+		}
+		return out[i].Start.Before(out[j].Start)
+	})
+	return out
+}
+
 func imminentCount(events []Item, now time.Time, within time.Duration) int {
 	n := 0
 	for i := range events {
@@ -275,7 +315,12 @@ func imminentCount(events []Item, now time.Time, within time.Duration) int {
 }
 
 func nextEventFrom(events []Item, now time.Time) *NextEventInfo {
-	var best *NextEventInfo
+	type candidate struct {
+		item  Item
+		start time.Time
+		end   time.Time
+	}
+	var current, upcoming []candidate
 	for i := range events {
 		start, dur, ok := parseEventTimes(events[i].EntryDate, events[i].Detail)
 		if !ok {
@@ -285,17 +330,43 @@ func nextEventFrom(events []Item, now time.Time) *NextEventInfo {
 		if !end.After(now) {
 			continue
 		}
-		if best == nil || start.Before(best.Start) {
-			best = &NextEventInfo{
-				Item:         events[i],
-				Start:        start,
-				End:          end,
-				InProgress:   !start.After(now),
-				MinutesUntil: int(math.Round(start.Sub(now).Minutes())),
+		c := candidate{item: events[i], start: start, end: end}
+		if start.After(now) {
+			upcoming = append(upcoming, c)
+		} else {
+			current = append(current, c)
+		}
+	}
+
+	var best *candidate
+	if len(current) > 0 {
+		pool := make([]candidate, 0, len(current)+len(upcoming))
+		pool = append(pool, current...)
+		pool = append(pool, upcoming...)
+		for i := range pool {
+			if best == nil || pool[i].end.Before(best.end) ||
+				(pool[i].end.Equal(best.end) && pool[i].start.After(best.start)) {
+				best = &pool[i]
+			}
+		}
+	} else {
+		for i := range upcoming {
+			if best == nil || upcoming[i].start.Before(best.start) ||
+				(upcoming[i].start.Equal(best.start) && upcoming[i].end.Before(best.end)) {
+				best = &upcoming[i]
 			}
 		}
 	}
-	return best
+	if best == nil {
+		return nil
+	}
+	return &NextEventInfo{
+		Item:         best.item,
+		Start:        best.start,
+		End:          best.end,
+		InProgress:   !best.start.After(now),
+		MinutesUntil: int(math.Round(best.start.Sub(now).Minutes())),
+	}
 }
 
 func parseEventTimes(entryDate, detail string) (start time.Time, dur time.Duration, ok bool) {
