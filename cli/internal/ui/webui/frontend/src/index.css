@@ -73,6 +73,11 @@
     @apply bg-background text-foreground;
   }
 
+  html.tray-panel,
+  html.tray-panel body {
+    background: transparent !important;
+  }
+
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;

@@ -14,8 +14,8 @@ interface Props {
 }
 
 function statusDot(status: string) {
-  if (status === "ok" || status === "success") return "bg-green-500";
-  if (status === "error" || status === "failed") return "bg-red-500";
+  if (status === "ok" || status === "success") return "bg-success";
+  if (status === "error" || status === "failed") return "bg-destructive";
   return "bg-muted-foreground";
 }
 

@@ -134,7 +134,10 @@ export function SettingsView({
           </Select>
         </div>
 
-        <nav className="hidden w-48 shrink-0 space-y-4 overflow-y-auto border-r p-3 md:block">
+        <nav
+          aria-label="Settings sections"
+          className="hidden w-48 shrink-0 space-y-4 overflow-y-auto border-r p-3 md:block"
+        >
           {groups.map((group) => (
             <div key={group.label} className="space-y-1">
               <div className="px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">

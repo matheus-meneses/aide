@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { AlertCircle, Bell, BellOff, CheckCircle, Info, X, AlertTriangle } from "lucide-react";
 import { type AgentEvent, describeEvent } from "@/hooks/useSSE";
 import { type NotificationState } from "@/lib/notifications";
@@ -135,24 +135,7 @@ export function NotificationFeed({
   notificationPermission,
   onEnableNotifications,
 }: Props) {
-  const [lastSeenCount, setLastSeenCount] = useState(events.length);
-  const feedOpenRef = useRef(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    feedOpenRef.current = true;
-    return () => {
-      feedOpenRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (feedOpenRef.current) {
-      setLastSeenCount(events.length);
-    }
-  }, [events.length]);
-
-  const unreadCount = Math.max(0, events.length - lastSeenCount);
 
   const visibleEvents = events.filter((event) => {
     const { title, body } = displayContent(event);
@@ -191,11 +174,6 @@ export function NotificationFeed({
   return (
     <div className="flex flex-col h-full">
       <PermissionBanner permission={notificationPermission} onEnable={onEnableNotifications} />
-      {unreadCount > 0 && (
-        <div className="px-3 py-1 text-xs text-primary font-medium border-b bg-primary/5">
-          {unreadCount} new
-        </div>
-      )}
       <div className="flex flex-col gap-1 p-2 flex-1 overflow-y-auto scrollbar-thin">
         {visibleEvents.map((event) => {
           const { title, body } = displayContent(event);

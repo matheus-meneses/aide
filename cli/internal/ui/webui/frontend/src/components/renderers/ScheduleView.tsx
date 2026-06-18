@@ -52,7 +52,7 @@ export function ScheduleView({ data }: Props) {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 text-sm",
                 "border-l-2",
-                ooo ? "border-l-muted-foreground/30" : "border-l-blue-500/60",
+                ooo ? "border-l-muted-foreground/30" : "border-l-info/60",
               )}
             >
               <span className="font-mono text-xs text-muted-foreground w-12 shrink-0">{time}</span>

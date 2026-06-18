@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowUpCircle,
@@ -10,6 +10,7 @@ import {
   Layers,
   Moon,
   PanelLeft,
+  RefreshCw,
   ScrollText,
   Settings,
   Sparkles,
@@ -32,6 +33,7 @@ interface StatusData {
 interface Props {
   connected: boolean;
   onToggleSidebar: () => void;
+  unreadCount?: number;
   activeSource?: string | null;
   onSourceClick?: (source: string | null) => void;
   onOpenSettings?: () => void;
@@ -41,6 +43,7 @@ interface Props {
 export function StatusBar({
   connected,
   onToggleSidebar,
+  unreadCount = 0,
   activeSource,
   onSourceClick,
   onOpenSettings,
@@ -55,8 +58,8 @@ export function StatusBar({
   const { progress, start } = useUpdateProgress();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
 
-  useEffect(() => {
-    void fetchStatus()
+  const loadStatus = useCallback(() => {
+    return fetchStatus()
       .then((d) => {
         setStatus(d as unknown as StatusData);
         setStatusError(false);
@@ -64,6 +67,10 @@ export function StatusBar({
       .catch(() => {
         setStatusError(true);
       });
+  }, []);
+
+  useEffect(() => {
+    void loadStatus();
 
     void fetchWhoami()
       .then((p) => {
@@ -80,19 +87,12 @@ export function StatusBar({
       .catch(() => {});
 
     const interval = setInterval(() => {
-      void fetchStatus()
-        .then((d) => {
-          setStatus(d as unknown as StatusData);
-          setStatusError(false);
-        })
-        .catch(() => {
-          setStatusError(true);
-        });
+      void loadStatus();
     }, 60000);
     return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [loadStatus]);
 
   const toggleDark = () => {
     const next = !dark;
@@ -196,10 +196,15 @@ export function StatusBar({
         <div className="flex min-w-0 items-center gap-3 text-sm">
           <button
             onClick={onToggleSidebar}
-            className="rounded p-1 transition-colors hover:bg-accent md:hidden"
-            aria-label="Toggle sidebar"
+            className="relative rounded p-1 transition-colors hover:bg-accent md:hidden"
+            aria-label={unreadCount > 0 ? `Toggle sidebar, ${unreadCount} new` : "Toggle sidebar"}
           >
             <PanelLeft className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </button>
 
           <div className="flex items-center gap-2">
@@ -221,7 +226,13 @@ export function StatusBar({
               onSourceClick={onSourceClick}
             />
           ) : statusError ? (
-            <span className="hidden text-xs text-destructive sm:inline">Could not load status</span>
+            <button
+              onClick={() => void loadStatus()}
+              className="hidden items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/5 px-2.5 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Retry status
+            </button>
           ) : !status ? (
             <div className="h-8 w-28 animate-pulse rounded-full bg-muted" />
           ) : null}

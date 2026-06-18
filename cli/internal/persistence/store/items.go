@@ -3,8 +3,16 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	eventTimeRe     = regexp.MustCompile(`\b([01]?\d|2[0-3]):[0-5]\d\b`)
+	eventDurationRe = regexp.MustCompile(`\(([0-9hm]+)\)`)
 )
 
 type ItemRepo struct {
@@ -216,6 +224,105 @@ func (r *ItemRepo) TodayEvents() ([]Item, error) {
 	q := `SELECT id, fingerprint, source, member, category, title, detail, entry_date, priority, link, status, first_seen_at, last_seen_at, COALESCE(resolved_at, '')
 		FROM items WHERE status = 'open' AND category = 'event' AND entry_date = ? ORDER BY detail ASC`
 	return r.queryItems(q, today)
+}
+
+func (r *ItemRepo) UpcomingEvents() ([]Item, error) {
+	today := time.Now().Format("2006-01-02")
+	q := `SELECT id, fingerprint, source, member, category, title, detail, entry_date, priority, link, status, first_seen_at, last_seen_at, COALESCE(resolved_at, '')
+		FROM items WHERE status = 'open' AND category = 'event' AND entry_date >= ? ORDER BY entry_date ASC, detail ASC`
+	return r.queryItems(q, today)
+}
+
+type NextEventInfo struct {
+	Item         Item
+	Start        time.Time
+	End          time.Time
+	InProgress   bool
+	MinutesUntil int
+}
+
+func (r *ItemRepo) NextEvent() (*NextEventInfo, error) {
+	events, err := r.UpcomingEvents()
+	if err != nil {
+		return nil, err
+	}
+	return nextEventFrom(events, time.Now()), nil
+}
+
+func (r *ItemRepo) ImminentEventCount(within time.Duration) (int, error) {
+	events, err := r.UpcomingEvents()
+	if err != nil {
+		return 0, err
+	}
+	return imminentCount(events, time.Now(), within), nil
+}
+
+func imminentCount(events []Item, now time.Time, within time.Duration) int {
+	n := 0
+	for i := range events {
+		start, dur, ok := parseEventTimes(events[i].EntryDate, events[i].Detail)
+		if !ok {
+			continue
+		}
+		if !start.Add(dur).After(now) {
+			continue
+		}
+		if !start.After(now) || start.Sub(now) <= within {
+			n++
+		}
+	}
+	return n
+}
+
+func nextEventFrom(events []Item, now time.Time) *NextEventInfo {
+	var best *NextEventInfo
+	for i := range events {
+		start, dur, ok := parseEventTimes(events[i].EntryDate, events[i].Detail)
+		if !ok {
+			continue
+		}
+		end := start.Add(dur)
+		if !end.After(now) {
+			continue
+		}
+		if best == nil || start.Before(best.Start) {
+			best = &NextEventInfo{
+				Item:         events[i],
+				Start:        start,
+				End:          end,
+				InProgress:   !start.After(now),
+				MinutesUntil: int(math.Round(start.Sub(now).Minutes())),
+			}
+		}
+	}
+	return best
+}
+
+func parseEventTimes(entryDate, detail string) (start time.Time, dur time.Duration, ok bool) {
+	hhmm := eventTimeRe.FindString(detail)
+	if hhmm == "" {
+		return time.Time{}, 0, false
+	}
+	start, err := time.ParseInLocation("2006-01-02 15:04", entryDate+" "+hhmm, time.Local)
+	if err != nil {
+		return time.Time{}, 0, false
+	}
+	if m := eventDurationRe.FindStringSubmatch(detail); m != nil {
+		dur = parseEventDuration(m[1])
+	}
+	return start, dur, true
+}
+
+func parseEventDuration(s string) time.Duration {
+	var hours, mins int
+	if i := strings.IndexByte(s, 'h'); i >= 0 {
+		hours, _ = strconv.Atoi(s[:i])
+		s = s[i+1:]
+	}
+	if i := strings.IndexByte(s, 'm'); i >= 0 {
+		mins, _ = strconv.Atoi(s[:i])
+	}
+	return time.Duration(hours)*time.Hour + time.Duration(mins)*time.Minute
 }
 
 func (r *ItemRepo) queryItems(query string, args ...any) ([]Item, error) {
