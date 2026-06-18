@@ -1,11 +1,10 @@
 package api
 
 import (
+	"aide/cli/internal/persistence/store"
 	"net/http"
 	"strings"
 	"time"
-
-	"aide/cli/internal/persistence/store"
 )
 
 func (h *handlers) handleItems(w http.ResponseWriter, r *http.Request) {
