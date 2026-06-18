@@ -28,6 +28,14 @@ func (a *Agent) PublishProgress(eventType, msg string) {
 	}
 }
 
+// PublishUICommand emits a ui_command event consumed by the desktop shell (to
+// show/quit the window) and the main web UI (to navigate to a view).
+func (a *Agent) PublishUICommand(action, view string) {
+	if a.bus != nil {
+		a.bus.Publish(events.Event{Type: "ui_command", Data: fmt.Sprintf(`{"action":%q,"view":%q}`, action, view)})
+	}
+}
+
 func (a *Agent) ensureWebSession() {
 	if err := a.store.Chat.CreateSession("web-default", time.Now().UTC().Format(time.RFC3339)); err != nil {
 		alog.Warn("failed to ensure web session: %v", err)

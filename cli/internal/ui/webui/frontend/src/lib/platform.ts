@@ -16,3 +16,14 @@ function detectDesktop(): boolean {
 }
 
 export const isDesktopApp = detectDesktop();
+
+function detectTrayPanel(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URLSearchParams(window.location.search).get("panel") === "tray";
+  } catch {
+    return false;
+  }
+}
+
+export const isTrayPanel = detectTrayPanel();

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Pause, Play, Trash2 } from "lucide-react";
-import { Button, Input, Select } from "@/components/ui";
+import { ArrowLeft, Pause, Play, ScrollText, SearchX, Trash2, WifiOff } from "lucide-react";
+import { Button, EmptyState, Input, Select } from "@/components/ui";
 import { useLogStream } from "@/hooks/useLogStream";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { cn } from "@/lib/cn";
@@ -134,8 +134,41 @@ export function LogsView({ onClose }: Props) {
         className="flex-1 overflow-auto bg-background px-4 py-2 font-mono text-xs leading-relaxed"
       >
         {filtered.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            {logs.length === 0 ? "Waiting for logs…" : "No logs match the current filter."}
+          <div className="flex h-full items-center justify-center p-4">
+            {logs.length > 0 ? (
+              <EmptyState
+                icon={SearchX}
+                title="No matching logs"
+                description="No logs match the current level or filter."
+                className="border-0"
+              />
+            ) : paused ? (
+              <EmptyState
+                icon={Pause}
+                title="Streaming paused"
+                description="Resume to keep tailing the agent log."
+                action={
+                  <Button size="sm" variant="secondary" onClick={togglePaused}>
+                    Resume
+                  </Button>
+                }
+                className="border-0"
+              />
+            ) : !connected ? (
+              <EmptyState
+                icon={WifiOff}
+                title="Log stream disconnected"
+                description="Trying to reconnect to the agent…"
+                className="border-0"
+              />
+            ) : (
+              <EmptyState
+                icon={ScrollText}
+                title="Waiting for logs"
+                description="New agent activity will appear here."
+                className="border-0"
+              />
+            )}
           </div>
         ) : (
           filtered.map((l, i) => (

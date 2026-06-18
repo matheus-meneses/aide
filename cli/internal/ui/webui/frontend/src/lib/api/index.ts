@@ -1,5 +1,6 @@
 export * from "./status";
 export * from "./items";
+export * from "./events";
 export * from "./setup";
 export * from "./plugins";
 export * from "./sources";

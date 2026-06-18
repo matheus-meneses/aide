@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Loader2, PanelLeft, PanelLeftClose } from "lucide-react";
 import { type AgentEvent, useSSE } from "@/hooks/useSSE";
+import { subscribeEvent } from "@/lib/eventBus";
 import { cn } from "@/lib/cn";
 import { isDesktopApp } from "@/lib/platform";
 import { TitleBar } from "@/components/TitleBar";
@@ -70,9 +71,17 @@ function App() {
 }
 
 function MainApp() {
-  const { events, connected, dismiss, onChatMessage, notificationPermission, enableNotifications } =
-    useSSE("/api/events");
+  const {
+    events,
+    connected,
+    dismiss,
+    clear,
+    onChatMessage,
+    notificationPermission,
+    enableNotifications,
+  } = useSSE("/api/events");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lastSeenCount, setLastSeenCount] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [pendingEvent, setPendingEvent] = useState<AgentEvent | null>(null);
@@ -86,6 +95,12 @@ function MainApp() {
     if (connected) setEverConnected(true);
   }, [connected]);
 
+  useEffect(() => {
+    if (sidebarOpen) setLastSeenCount(events.length);
+  }, [sidebarOpen, events.length]);
+
+  const unreadCount = Math.max(0, events.length - lastSeenCount);
+
   const openSettings = useCallback((tab: TabId = "profile") => {
     setShowLogs(false);
     setSettingsTab(tab);
@@ -96,6 +111,20 @@ function MainApp() {
     setShowSettings(false);
     setShowLogs(true);
   }, []);
+
+  useEffect(() => {
+    return subscribeEvent("ui_command", (data) => {
+      try {
+        const outer = JSON.parse(data) as { data?: string };
+        const inner = JSON.parse(outer.data ?? "{}") as { action?: string; view?: string };
+        if (inner.action !== "navigate") return;
+        if (inner.view === "logs") openLogs();
+        else if (inner.view === "settings") openSettings();
+      } catch {
+        // ignore malformed command
+      }
+    });
+  }, [openLogs, openSettings]);
 
   const handleEventClick = useCallback((event: AgentEvent) => {
     setActiveSource(null);
@@ -158,9 +187,16 @@ function MainApp() {
       onEventConsumed={() => setPendingEvent(null)}
     >
     <div className="h-full flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Skip to content
+      </a>
       <StatusBar
         connected={connected}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        unreadCount={unreadCount}
         activeSource={activeSource}
         onSourceClick={setActiveSource}
         onOpenSettings={() => openSettings()}
@@ -229,13 +265,24 @@ function MainApp() {
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Activity
             </span>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-1 rounded hover:bg-accent transition-colors"
-              aria-label="Close sidebar"
-            >
-              <PanelLeftClose className="w-4 h-4 text-muted-foreground" />
-            </button>
+            <div className="flex items-center gap-1">
+              {events.length > 0 && (
+                <button
+                  onClick={clear}
+                  className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  aria-label="Clear all notifications"
+                >
+                  Clear all
+                </button>
+              )}
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-1 rounded hover:bg-accent transition-colors"
+                aria-label="Close sidebar"
+              >
+                <PanelLeftClose className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-hidden">
             <NotificationFeed
@@ -250,14 +297,21 @@ function MainApp() {
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col overflow-hidden focus:outline-none">
           {!sidebarOpen && !isMobile && (
             <button
               onClick={() => setSidebarOpen(true)}
               className="absolute top-2 left-2 z-10 p-1.5 rounded-md bg-card border hover:bg-accent transition-colors"
-              aria-label="Open sidebar"
+              aria-label={
+                unreadCount > 0 ? `Open sidebar, ${unreadCount} new` : "Open sidebar"
+              }
             >
               <PanelLeft className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </button>
           )}
           {activeSource ? (

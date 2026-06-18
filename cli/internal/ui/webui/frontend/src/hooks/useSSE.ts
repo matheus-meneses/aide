@@ -96,7 +96,6 @@ export function useSSE(url: string) {
       subscribeEvent("briefing", handleNotifiable),
       subscribeEvent("scrape_complete", handleSilent),
       subscribeEvent("cycle_error", handleSilent),
-      subscribeEvent("status", handleSilent),
       subscribeEvent("chat_message", handleChatMessage),
     ];
 

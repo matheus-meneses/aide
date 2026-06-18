@@ -13,7 +13,9 @@ export function LLMBanner({ onConfigure }: { onConfigure: () => void }) {
       .then((cfg) => {
         if (!cfg.agent.model || !cfg.agent.base_url) setShow(true);
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        console.warn("LLMBanner: failed to load config", err);
+      });
   }, []);
 
   if (!show) return null;
