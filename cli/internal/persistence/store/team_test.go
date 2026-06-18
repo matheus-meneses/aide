@@ -281,6 +281,182 @@ func TestTeamRepo_Resolve(t *testing.T) {
 	}
 }
 
+func TestTeamRepo_Add(t *testing.T) {
+	s := openTestStore(t)
+
+	created, err := s.Team.Add(store.Member{Name: "Alice", Registration: "001", Role: "Manager"})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if created.ID == 0 {
+		t.Fatal("Add should return a member with a non-zero id")
+	}
+	if created.Source != "manual" {
+		t.Errorf("expected source=manual, got %q", created.Source)
+	}
+	if created.Fingerprint != store.MemberFingerprint("Alice", "001", "") {
+		t.Errorf("unexpected fingerprint %q", created.Fingerprint)
+	}
+
+	report, err := s.Team.Add(store.Member{Name: "Bob", Registration: "002", ManagerRef: "001"})
+	if err != nil {
+		t.Fatalf("Add report: %v", err)
+	}
+	if report.ManagerID == nil || *report.ManagerID != created.ID {
+		t.Fatalf("Bob's manager should resolve to Alice's id %d, got %v", created.ID, report.ManagerID)
+	}
+}
+
+func TestTeamRepo_AddDuplicateFingerprint(t *testing.T) {
+	s := openTestStore(t)
+
+	if _, err := s.Team.Add(store.Member{Name: "Alice", Registration: "001"}); err != nil {
+		t.Fatalf("first Add: %v", err)
+	}
+	if _, err := s.Team.Add(store.Member{Name: "Alice", Registration: "001"}); err == nil {
+		t.Fatal("expected error adding a member with a duplicate fingerprint")
+	}
+}
+
+func TestTeamRepo_AddWithExplicitManagerID(t *testing.T) {
+	s := openTestStore(t)
+
+	mgr, err := s.Team.Add(store.Member{Name: "Alice", Registration: "001"})
+	if err != nil {
+		t.Fatalf("Add manager: %v", err)
+	}
+	rep, err := s.Team.Add(store.Member{Name: "Bob", Registration: "002", ManagerID: &mgr.ID})
+	if err != nil {
+		t.Fatalf("Add report: %v", err)
+	}
+	if rep.ManagerID == nil || *rep.ManagerID != mgr.ID {
+		t.Fatalf("expected manager_id=%d, got %v", mgr.ID, rep.ManagerID)
+	}
+}
+
+func TestTeamRepo_Update(t *testing.T) {
+	s := openTestStore(t)
+
+	mgr, err := s.Team.Add(store.Member{Name: "Alice", Registration: "001"})
+	if err != nil {
+		t.Fatalf("Add manager: %v", err)
+	}
+	bob, err := s.Team.Add(store.Member{Name: "Bob", Registration: "002", Role: "Engineer"})
+	if err != nil {
+		t.Fatalf("Add Bob: %v", err)
+	}
+
+	if err := s.Team.Update(bob.ID, store.Member{
+		Name:         "Bob",
+		Registration: "002",
+		Role:         "Senior Engineer",
+		ManagerID:    &mgr.ID,
+	}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	all, err := s.Team.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+	var updated *store.Member
+	for i := range all {
+		if all[i].ID == bob.ID {
+			updated = &all[i]
+		}
+	}
+	if updated == nil {
+		t.Fatal("Bob missing after update")
+	}
+	if updated.Role != "Senior Engineer" {
+		t.Errorf("expected updated role, got %q", updated.Role)
+	}
+	if updated.ManagerID == nil || *updated.ManagerID != mgr.ID {
+		t.Errorf("expected manager_id=%d, got %v", mgr.ID, updated.ManagerID)
+	}
+}
+
+func TestTeamRepo_UpdateMissing(t *testing.T) {
+	s := openTestStore(t)
+	if err := s.Team.Update(999, store.Member{Name: "Ghost"}); err == nil {
+		t.Fatal("expected error updating a non-existent member")
+	}
+}
+
+func TestTeamRepo_DeletePromotesReports(t *testing.T) {
+	s := openTestStore(t)
+
+	mgr, err := s.Team.Add(store.Member{Name: "Alice", Registration: "001"})
+	if err != nil {
+		t.Fatalf("Add manager: %v", err)
+	}
+	rep, err := s.Team.Add(store.Member{Name: "Bob", Registration: "002", ManagerID: &mgr.ID})
+	if err != nil {
+		t.Fatalf("Add report: %v", err)
+	}
+
+	if err := s.Team.Delete(mgr.ID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+
+	all, err := s.Team.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("expected 1 member after delete, got %d", len(all))
+	}
+	if all[0].ID != rep.ID {
+		t.Fatalf("expected Bob to remain, got id %d", all[0].ID)
+	}
+	if all[0].ManagerID != nil {
+		t.Errorf("Bob should be promoted to root (manager_id NULL), got %v", all[0].ManagerID)
+	}
+}
+
+func TestTeamRepo_DeleteMissing(t *testing.T) {
+	s := openTestStore(t)
+	if err := s.Team.Delete(999); err == nil {
+		t.Fatal("expected error deleting a non-existent member")
+	}
+}
+
+func TestTeamRepo_ScrapeDoesNotDisturbManual(t *testing.T) {
+	s := openTestStore(t)
+
+	manual, err := s.Team.Add(store.Member{Name: "Alice", Registration: "001", Role: "Manager"})
+	if err != nil {
+		t.Fatalf("Add manual: %v", err)
+	}
+
+	scrape := []store.Member{
+		{Name: "Dan", Registration: "777", Source: "rh_portal"},
+	}
+	if err := s.Team.Upsert(scrape); err != nil {
+		t.Fatalf("scrape Upsert: %v", err)
+	}
+	if err := s.Team.Upsert([]store.Member{{Name: "Erin", Registration: "888", Source: "rh_portal"}}); err != nil {
+		t.Fatalf("second scrape Upsert: %v", err)
+	}
+
+	all, err := s.Team.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+	var found *store.Member
+	for i := range all {
+		if all[i].ID == manual.ID {
+			found = &all[i]
+		}
+	}
+	if found == nil {
+		t.Fatal("manual member was removed by a plugin scrape")
+	}
+	if found.Source != "manual" || found.Role != "Manager" {
+		t.Errorf("manual member was mutated by scrape: %+v", found)
+	}
+}
+
 func TestMigration_TeamMembersTableExists(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "aide.db")

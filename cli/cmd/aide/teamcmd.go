@@ -3,10 +3,9 @@ package main
 import (
 	"aide/cli/internal/persistence/store"
 	"aide/cli/internal/platform/config"
-	"aide/cli/internal/runtime/runner"
-	"aide/cli/internal/setup/provision"
 	"aide/cli/internal/ui/render"
 	"aide/cli/internal/ui/widgets"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -51,7 +50,7 @@ var teamSyncCmd = &cobra.Command{
 
 var teamAddCmd = &cobra.Command{
 	Use:   "add <name>",
-	Short: "Add a team member to config",
+	Short: "Add a team member",
 	Args:  cobra.ExactArgs(1),
 	RunE:  teamAddExecute,
 }
@@ -65,7 +64,7 @@ var teamEditCmd = &cobra.Command{
 
 var teamRemoveCmd = &cobra.Command{
 	Use:   "remove <name>",
-	Short: "Remove a team member from config",
+	Short: "Remove a team member",
 	Args:  cobra.ExactArgs(1),
 	RunE:  teamRemoveExecute,
 }
@@ -82,7 +81,7 @@ func registerTeamMemberFlags(cmd *cobra.Command) {
 
 func init() {
 	teamListCmd.Flags().StringVar(&teamListView, "view", "tree", "output view: tree or flat")
-	teamListCmd.Flags().StringVar(&teamListSource, "source", "", "filter by source (config, rh_portal, …)")
+	teamListCmd.Flags().StringVar(&teamListSource, "source", "", "filter by source (manual, rh_portal, …)")
 	registerTeamMemberFlags(teamAddCmd)
 	registerTeamMemberFlags(teamEditCmd)
 	teamCmd.AddCommand(teamListCmd)
@@ -103,117 +102,123 @@ func parseAliases(s string) []string {
 	return out
 }
 
-func syncTeamToStore() error {
-	return withStore(runner.SyncTeamFromConfig)
+func aliasesJSON(s string) string {
+	al := parseAliases(s)
+	if len(al) == 0 {
+		return "[]"
+	}
+	b, err := json.Marshal(al)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
 }
 
 func teamAddExecute(_ *cobra.Command, args []string) error {
 	name := args[0]
-	members, err := provision.GetTeam(cfgFile)
-	if err != nil {
-		return err
-	}
-	for _, m := range members {
-		if m.Name == name {
-			return fmt.Errorf("team member %q already exists (use 'aide team edit')", name)
+	return withStore(func(_ *config.Config, s *store.Store) error {
+		existing, err := s.Team.All()
+		if err != nil {
+			return err
 		}
-	}
-	members = append(members, config.TeamMember{
-		Name:         name,
-		Email:        teamEmail,
-		Role:         teamRole,
-		Department:   teamDepartment,
-		Branch:       teamBranch,
-		Registration: teamRegistration,
-		Manager:      teamManager,
-		Aliases:      parseAliases(teamAliases),
+		for _, m := range existing {
+			if m.Name == name {
+				return fmt.Errorf("team member %q already exists (use 'aide team edit')", name)
+			}
+		}
+		if _, err := s.Team.Add(store.Member{
+			Name:                name,
+			Email:               teamEmail,
+			Aliases:             aliasesJSON(teamAliases),
+			Role:                teamRole,
+			Department:          teamDepartment,
+			Branch:              teamBranch,
+			Registration:        teamRegistration,
+			ManagerRef:          teamManager,
+			ManagerRegistration: teamManager,
+			Source:              "manual",
+		}); err != nil {
+			return err
+		}
+		widgets.PrintSuccess("Added team member %q.", name)
+		return nil
 	})
-	if err := provision.SetTeam(cfgFile, members); err != nil {
-		return err
-	}
-	if err := syncTeamToStore(); err != nil {
-		return err
-	}
-	widgets.PrintSuccess("Added team member %q.", name)
-	return nil
 }
 
 func teamEditExecute(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	members, err := provision.GetTeam(cfgFile)
-	if err != nil {
-		return err
-	}
-	idx := -1
-	for i, m := range members {
-		if m.Name == name {
-			idx = i
-			break
+	return withStore(func(_ *config.Config, s *store.Store) error {
+		members, err := s.Team.All()
+		if err != nil {
+			return err
 		}
-	}
-	if idx < 0 {
-		return fmt.Errorf("team member %q not found", name)
-	}
+		var target *store.Member
+		for i := range members {
+			if members[i].Name == name {
+				target = &members[i]
+				break
+			}
+		}
+		if target == nil {
+			return fmt.Errorf("team member %q not found", name)
+		}
 
-	f := cmd.Flags()
-	if f.Changed("email") {
-		members[idx].Email = teamEmail
-	}
-	if f.Changed("role") {
-		members[idx].Role = teamRole
-	}
-	if f.Changed("department") {
-		members[idx].Department = teamDepartment
-	}
-	if f.Changed("branch") {
-		members[idx].Branch = teamBranch
-	}
-	if f.Changed("registration") {
-		members[idx].Registration = teamRegistration
-	}
-	if f.Changed("manager") {
-		members[idx].Manager = teamManager
-	}
-	if f.Changed("aliases") {
-		members[idx].Aliases = parseAliases(teamAliases)
-	}
+		f := cmd.Flags()
+		if f.Changed("email") {
+			target.Email = teamEmail
+		}
+		if f.Changed("role") {
+			target.Role = teamRole
+		}
+		if f.Changed("department") {
+			target.Department = teamDepartment
+		}
+		if f.Changed("branch") {
+			target.Branch = teamBranch
+		}
+		if f.Changed("registration") {
+			target.Registration = teamRegistration
+		}
+		if f.Changed("manager") {
+			target.ManagerRef = teamManager
+			target.ManagerRegistration = teamManager
+			target.ManagerID = nil
+		}
+		if f.Changed("aliases") {
+			target.Aliases = aliasesJSON(teamAliases)
+		}
 
-	if err := provision.SetTeam(cfgFile, members); err != nil {
-		return err
-	}
-	if err := syncTeamToStore(); err != nil {
-		return err
-	}
-	widgets.PrintSuccess("Updated team member %q.", name)
-	return nil
+		if err := s.Team.Update(target.ID, *target); err != nil {
+			return err
+		}
+		widgets.PrintSuccess("Updated team member %q.", name)
+		return nil
+	})
 }
 
 func teamRemoveExecute(_ *cobra.Command, args []string) error {
 	name := args[0]
-	members, err := provision.GetTeam(cfgFile)
-	if err != nil {
-		return err
-	}
-	filtered := members[:0]
-	found := false
-	for _, m := range members {
-		if m.Name == name {
-			found = true
-			continue
+	return withStore(func(_ *config.Config, s *store.Store) error {
+		members, err := s.Team.All()
+		if err != nil {
+			return err
 		}
-		filtered = append(filtered, m)
-	}
-	if !found {
-		return fmt.Errorf("team member %q not found", name)
-	}
-	if err := provision.SetTeam(cfgFile, filtered); err != nil {
-		return err
-	}
-	if err := syncTeamToStore(); err != nil {
-		return err
-	}
-	widgets.PrintSuccess("Removed team member %q.", name)
-	return nil
+		id := int64(-1)
+		for _, m := range members {
+			if m.Name == name {
+				id = m.ID
+				break
+			}
+		}
+		if id < 0 {
+			return fmt.Errorf("team member %q not found", name)
+		}
+		if err := s.Team.Delete(id); err != nil {
+			return err
+		}
+		widgets.PrintSuccess("Removed team member %q.", name)
+		return nil
+	})
 }
 
 func teamListExecute(_ *cobra.Command, _ []string) error {

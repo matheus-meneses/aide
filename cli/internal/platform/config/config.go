@@ -14,7 +14,6 @@ import (
 
 type Config struct {
 	Settings   Settings          `yaml:"settings"`
-	Team       []TeamMember      `yaml:"team"`
 	Sources    map[string]Source `yaml:"sources"`
 	Agent      AgentConfig       `yaml:"agent"`
 	Registries []string          `yaml:"registries,omitempty"`
@@ -67,17 +66,6 @@ func ValidAutoUpdate(mode string) bool {
 	default:
 		return false
 	}
-}
-
-type TeamMember struct {
-	Name         string   `yaml:"name" json:"name"`
-	Aliases      []string `yaml:"aliases" json:"aliases"`
-	Email        string   `yaml:"email" json:"email"`
-	Role         string   `yaml:"role" json:"role"`
-	Department   string   `yaml:"department" json:"department"`
-	Branch       string   `yaml:"branch" json:"branch"`
-	Registration string   `yaml:"registration" json:"registration"`
-	Manager      string   `yaml:"manager" json:"manager"`
 }
 
 type Source struct {
@@ -168,20 +156,6 @@ func (c *Config) EnabledSources() map[string]Source {
 		}
 	}
 	return enabled
-}
-
-func (c *Config) ResolveMember(alias string) string {
-	for _, member := range c.Team {
-		if member.Name == alias {
-			return member.Name
-		}
-		for _, a := range member.Aliases {
-			if a == alias {
-				return member.Name
-			}
-		}
-	}
-	return alias
 }
 
 func DefaultConfigPath() string {

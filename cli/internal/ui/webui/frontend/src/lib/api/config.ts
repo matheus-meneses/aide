@@ -1,6 +1,5 @@
 import { BASE, checkedFetch, postJSON } from "./http";
 import type { SourceSnapshot } from "./sources";
-import type { TeamMember } from "./team";
 
 export interface TLSSettings {
   verify_ssl?: boolean | null;
@@ -29,7 +28,6 @@ export interface AgentSnapshot {
 export interface ConfigSnapshot {
   settings: GeneralSettings;
   agent: AgentSnapshot;
-  team: TeamMember[] | null;
   sources: SourceSnapshot[] | null;
   registries: string[] | null;
 }

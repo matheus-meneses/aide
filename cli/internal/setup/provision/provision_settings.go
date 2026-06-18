@@ -20,11 +20,10 @@ type AgentSnapshot struct {
 // Snapshot is a sanitized view of config.yaml used to prefill the management UI.
 // It never contains API keys or stored credential values.
 type Snapshot struct {
-	Settings   config.Settings     `json:"settings"`
-	Agent      AgentSnapshot       `json:"agent"`
-	Team       []config.TeamMember `json:"team"`
-	Sources    []SourceSnapshot    `json:"sources"`
-	Registries []string            `json:"registries"`
+	Settings   config.Settings  `json:"settings"`
+	Agent      AgentSnapshot    `json:"agent"`
+	Sources    []SourceSnapshot `json:"sources"`
+	Registries []string         `json:"registries"`
 }
 
 // ConfigSnapshot returns a secret-free view of the current configuration.
@@ -67,7 +66,6 @@ func ConfigSnapshot(cfgPath string) (*Snapshot, error) {
 			BriefingTimes: cfg.Agent.BriefingTimes,
 			HasAPIKey:     hasKey,
 		},
-		Team:       cfg.Team,
 		Sources:    sources,
 		Registries: cfg.Registries,
 	}, nil

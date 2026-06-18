@@ -189,10 +189,6 @@ func (a *Agent) ReloadConfig() error {
 
 	a.registerDefaultTools()
 
-	if err := runner.SyncTeamFromConfig(cfg, a.store); err != nil {
-		alog.Warn("team config sync: %v", err)
-	}
-
 	a.signalReschedule()
 	return nil
 }
@@ -263,10 +259,6 @@ func New(cfg *config.Config, s *store.Store, r *runner.Runner) (*Agent, error) {
 	}
 	a.bus = events.NewEventBus()
 	a.registerDefaultTools()
-
-	if err := runner.SyncTeamFromConfig(cfg, s); err != nil {
-		alog.Warn("team config sync: %v", err)
-	}
 
 	return a, nil
 }

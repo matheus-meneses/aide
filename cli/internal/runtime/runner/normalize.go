@@ -33,7 +33,7 @@ func (r *Runner) normalizeResponse(source string, resp *plugin.Response) ([]stor
 			continue
 		}
 
-		member := r.cfg.ResolveMember(e.Member)
+		member := r.store.Team.Resolve(e.Member)
 		link := e.Link
 		if link == "" && e.Metadata != nil {
 			if url, ok := e.Metadata["web_url"].(string); ok {
@@ -99,7 +99,7 @@ func (r *Runner) partitionEntries(result SourceResult) ([]store.Item, []metricEn
 			continue
 		}
 
-		member := r.cfg.ResolveMember(e.Member)
+		member := r.store.Team.Resolve(e.Member)
 		link := ""
 		if e.Metadata != nil {
 			if url, ok := e.Metadata["web_url"].(string); ok {

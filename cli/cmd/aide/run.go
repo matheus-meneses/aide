@@ -31,10 +31,6 @@ func runExecute(cmd *cobra.Command, _ []string) error {
 			cfg.Settings.Concurrency = concurrency
 		}
 
-		if err := runner.SyncTeamFromConfig(cfg, s); err != nil {
-			return fmt.Errorf("syncing team from config: %w", err)
-		}
-
 		r := runner.New(cfg, s)
 		r.SetLogLevel(logLevel())
 		r.SetLogFormat(logFormatValue())

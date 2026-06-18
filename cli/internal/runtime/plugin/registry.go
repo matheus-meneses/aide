@@ -6,6 +6,7 @@ import (
 	"aide/cli/internal/security/keychain"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -56,12 +58,36 @@ func DefaultRegistryURL() string {
 	return fmt.Sprintf("https://github.com/%s/releases/latest/download/index.yaml", repo)
 }
 
-var registryHTTPClient = &http.Client{
-	Timeout: 15 * time.Second,
-	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // G402: InsecureSkipVerify supports self-hosted registries at non-public URLs
-		Proxy:           http.ProxyFromEnvironment,
-	},
+var registryClient = sync.OnceValue(newRegistryClient)
+
+// newRegistryClient builds the HTTPS client used for registry index and asset
+// downloads. TLS verification stays on by default; to reach a self-hosted
+// registry served by an internal CA, point AIDE_REGISTRY_CA_BUNDLE at a PEM
+// file and those roots are trusted on top of the system pool.
+func newRegistryClient() *http.Client {
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	if bundle := os.Getenv("AIDE_REGISTRY_CA_BUNDLE"); bundle != "" {
+		if pem, err := os.ReadFile(bundle); err == nil { //nolint:gosec // G703: path is operator-provided config (env var), not untrusted input
+			pool, perr := x509.SystemCertPool()
+			if perr != nil || pool == nil {
+				pool = x509.NewCertPool()
+			}
+			if pool.AppendCertsFromPEM(pem) {
+				tlsCfg.RootCAs = pool
+			} else {
+				clog.Warn("AIDE_REGISTRY_CA_BUNDLE %s contained no usable certificates", bundle)
+			}
+		} else {
+			clog.Warn("could not read AIDE_REGISTRY_CA_BUNDLE %s: %v", bundle, err)
+		}
+	}
+	return &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsCfg,
+			Proxy:           http.ProxyFromEnvironment,
+		},
+	}
 }
 
 type Index struct {
@@ -132,7 +158,7 @@ func httpGetAsset(rawURL string) (*http.Response, error) {
 	if accept != "" {
 		req.Header.Set("Accept", accept)
 	}
-	return registryHTTPClient.Do(req)
+	return registryClient().Do(req)
 }
 
 func githubAssetAPIURL(rawURL, token string) (string, bool) {
@@ -169,7 +195,7 @@ func lookupAssetURL(releaseAPI, file, token string) (string, error) {
 	}
 	req.Header.Set("Authorization", "token "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := registryHTTPClient.Do(req)
+	resp, err := registryClient().Do(req)
 	if err != nil {
 		return "", err
 	}

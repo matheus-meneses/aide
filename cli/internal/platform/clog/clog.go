@@ -153,15 +153,13 @@ func emit(scope, lvl, msg string) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// The file sink captures every level so the Logs viewer is full-fidelity and
-	// filters client-side; only the console honors the configured threshold.
+	if levelValues[lvl] < level {
+		return
+	}
+
 	line := marshalEntry(ts, lvl, scope, msg)
 	if logFile != nil {
 		writeFileLocked(line)
-	}
-
-	if levelValues[lvl] < level {
-		return
 	}
 
 	if format == "json" {

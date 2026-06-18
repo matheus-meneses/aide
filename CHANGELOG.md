@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Team is now database-backed** — the team roster lives entirely in the
+  SQLite store; the `team:` block in `config.yaml` has been removed. The
+  Settings → Team panel renders the live org chart, lets you add/edit/delete
+  manual members (`source = manual`) and pick a manager to build the hierarchy
+  (leave it blank for a top-level node), while plugin-synced members (e.g.
+  `rh_portal`) stay read-only. `aide team add|edit|remove` now write to the
+  database, and member-alias resolution is served from the store. Existing
+  config-synced rows are migrated to `manual` so nothing is lost.
+
 - **Calmer status bar** — the dashboard counts collapse into a single quiet
   summary (e.g. `56 open`) that opens a popover with the per-source breakdown,
   meetings, and unread, replacing the row of look-alike pills. The connection
