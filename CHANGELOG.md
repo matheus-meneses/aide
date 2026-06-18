@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-18
+
+0.3.0 makes plugins self-updating, moves the team roster into the database, and
+gives the dashboard a calmer status bar — plus a reworked menu-bar meeting
+popover that shows your whole day at a glance and finally behaves over
+fullscreen apps.
+
 ### Added
 
+- **Today's meetings in the tray** — the menu-bar popover now lists every
+  ongoing and upcoming meeting for the current day (`GET /api/events/upcoming`)
+  with in-progress/imminent highlighting, instead of showing only a single next
+  event. Overlapping and concurrent meetings are all visible.
 - **Plugin updates** — `aide plugin update [name]` upgrades one or every
   installed plugin to the latest version published in the configured
   registries, rebuilding its runtime in place while preserving config and
@@ -68,6 +79,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Next meeting in the tray** — a long in-progress calendar block (e.g. a
+  day-long "Focused" block) no longer masks the real upcoming meetings in the
+  tray badge and popover. The surfaced event is now the soonest to end while a
+  meeting is in progress, and the soonest to start otherwise. Far-future
+  multi-day events are kept out of the popover list.
+- **Tray popover over fullscreen** — clicking the menu-bar icon while a
+  fullscreen or maximized app is active now opens the popover in place. The app
+  runs under the macOS Accessory activation policy and the panel uses
+  `CanJoinAllSpaces | FullScreenAuxiliary`, so opening it no longer switches
+  Spaces (at the cost of the Dock icon).
 - **Plugin log levels in the runner** — the CLI runner now parses the `[level]`
   tag on plugin stderr lines, so plugin `debug`/`warn`/`error` output shows its
   real level in the Logs view instead of all appearing as INFO.
