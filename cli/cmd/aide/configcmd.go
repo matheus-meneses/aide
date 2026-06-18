@@ -139,14 +139,6 @@ func configShowExecute(_ *cobra.Command, _ []string) error {
 	}
 	widgets.Println("╰──────────────────────────────────────────╯")
 
-	if len(cfg.Team) > 0 {
-		widgets.Println("\n╭─ Team ───────────────────────────────────╮")
-		for _, m := range cfg.Team {
-			widgets.Printf("│  %-40s│\n", m.Name)
-		}
-		widgets.Println("╰──────────────────────────────────────────╯")
-	}
-
 	return nil
 }
 

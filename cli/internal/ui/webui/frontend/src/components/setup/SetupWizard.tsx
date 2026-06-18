@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Card } from "@/components/ui";
 import { APP_NAME } from "@/lib/brand";
+import { subscribeEvent } from "@/lib/eventBus";
 import { type Progress, type Step, emptyProgress, parseMessage } from "./types";
 import { BootstrapStep } from "./steps/BootstrapStep";
 import { SourceStep } from "./steps/SourceStep";
@@ -10,23 +11,27 @@ import { ProviderStep } from "./steps/ProviderStep";
 export default function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>("bootstrap");
   const [progress, setProgress] = useState<Progress>(emptyProgress);
-  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const es = new EventSource("/api/events");
-    esRef.current = es;
-
-    const on = (type: string, fn: (msg: string) => void) =>
-      es.addEventListener(type, (e: MessageEvent<string>) => fn(parseMessage(e.data)));
-
-    on("setup_progress", (m) => setProgress((p) => ({ ...p, setupLines: [...p.setupLines, m] })));
-    on("setup_done", () => setProgress((p) => ({ ...p, setupDone: true })));
-    on("setup_error", (m) => setProgress((p) => ({ ...p, setupError: m })));
-    on("install_progress", (m) => setProgress((p) => ({ ...p, installLines: [...p.installLines, m] })));
-    on("install_done", (m) => setProgress((p) => ({ ...p, installDone: m })));
-    on("install_error", (m) => setProgress((p) => ({ ...p, installError: m })));
-
-    return () => es.close();
+    const unsubs = [
+      subscribeEvent("setup_progress", (d) =>
+        setProgress((p) => ({ ...p, setupLines: [...p.setupLines, parseMessage(d)] })),
+      ),
+      subscribeEvent("setup_done", () => setProgress((p) => ({ ...p, setupDone: true }))),
+      subscribeEvent("setup_error", (d) =>
+        setProgress((p) => ({ ...p, setupError: parseMessage(d) })),
+      ),
+      subscribeEvent("install_progress", (d) =>
+        setProgress((p) => ({ ...p, installLines: [...p.installLines, parseMessage(d)] })),
+      ),
+      subscribeEvent("install_done", (d) =>
+        setProgress((p) => ({ ...p, installDone: parseMessage(d) })),
+      ),
+      subscribeEvent("install_error", (d) =>
+        setProgress((p) => ({ ...p, installError: parseMessage(d) })),
+      ),
+    ];
+    return () => unsubs.forEach((u) => u());
   }, []);
 
   const resetInstall = useCallback(

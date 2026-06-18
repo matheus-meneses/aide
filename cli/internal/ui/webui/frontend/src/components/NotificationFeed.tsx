@@ -228,7 +228,7 @@ export function NotificationFeed({
                     e.stopPropagation();
                     handleDismiss(event);
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent transition-all"
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-0.5 rounded hover:bg-accent transition-all"
                   title="Acknowledge"
                   aria-label="Dismiss notification"
                 >

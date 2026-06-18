@@ -1,28 +1,42 @@
 package runner
 
 import (
+	"aide/cli/internal/persistence/store"
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
+	"encoding/json"
 	"testing"
 )
 
-func testRunner() *Runner {
+func testRunner(t *testing.T) *Runner {
+	t.Helper()
 	cfg := &config.Config{
 		Sources: map[string]config.Source{
 			"jira":   {Enabled: true},
 			"github": {Enabled: false},
 			"slack":  {Enabled: true},
 		},
-		Team: []config.TeamMember{
-			{Name: "Alice", Aliases: []string{"al", "a.lice"}},
-		},
 	}
 	cfg.Settings.Concurrency = 1
-	return &Runner{cfg: cfg}
+
+	s, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+
+	aliases, _ := json.Marshal([]string{"al", "a.lice"})
+	if err := s.Team.Upsert([]store.Member{
+		{Name: "Alice", Registration: "001", Aliases: string(aliases), Source: "manual"},
+	}); err != nil {
+		t.Fatalf("seed team: %v", err)
+	}
+
+	return &Runner{cfg: cfg, store: s}
 }
 
 func TestValidateFilter(t *testing.T) {
-	r := testRunner()
+	r := testRunner(t)
 	tests := []struct {
 		name    string
 		filter  []string
@@ -47,7 +61,7 @@ func TestValidateFilter(t *testing.T) {
 }
 
 func TestResolveSources(t *testing.T) {
-	r := testRunner()
+	r := testRunner(t)
 
 	all := r.resolveSources(nil)
 	if len(all) != 2 {
@@ -69,7 +83,7 @@ func TestResolveSources(t *testing.T) {
 }
 
 func TestNormalizeResponse(t *testing.T) {
-	r := testRunner()
+	r := testRunner(t)
 
 	resp := &plugin.Response{
 		Entries: []plugin.Entry{

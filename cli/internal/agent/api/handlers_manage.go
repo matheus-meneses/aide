@@ -1,10 +1,12 @@
 package api
 
 import (
-	"aide/cli/internal/platform/config"
+	"aide/cli/internal/persistence/store"
 	"aide/cli/internal/setup/provision"
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 func (h *handlers) handleConfigSnapshot(w http.ResponseWriter, _ *http.Request) {
@@ -82,26 +84,168 @@ func (h *handlers) handleSetSettings(w http.ResponseWriter, r *http.Request) {
 	h.respondReload(w)
 }
 
+type teamMemberRequest struct {
+	Name                string   `json:"name"`
+	Email               string   `json:"email"`
+	Aliases             []string `json:"aliases"`
+	Role                string   `json:"role"`
+	Department          string   `json:"department"`
+	Branch              string   `json:"branch"`
+	Registration        string   `json:"registration"`
+	ManagerID           *int64   `json:"manager_id"`
+	ManagerRegistration string   `json:"manager_registration"`
+}
+
+type teamMemberResponse struct {
+	ID                  int64    `json:"id"`
+	Name                string   `json:"name"`
+	Email               string   `json:"email"`
+	Aliases             []string `json:"aliases"`
+	Role                string   `json:"role"`
+	Department          string   `json:"department"`
+	Branch              string   `json:"branch"`
+	Registration        string   `json:"registration"`
+	ManagerID           *int64   `json:"manager_id"`
+	ManagerRegistration string   `json:"manager_registration"`
+	Source              string   `json:"source"`
+}
+
+func (req teamMemberRequest) toMember() store.Member {
+	aliases := "[]"
+	if len(req.Aliases) > 0 {
+		if b, err := json.Marshal(req.Aliases); err == nil {
+			aliases = string(b)
+		}
+	}
+	return store.Member{
+		Name:                strings.TrimSpace(req.Name),
+		Email:               req.Email,
+		Aliases:             aliases,
+		Role:                req.Role,
+		Department:          req.Department,
+		Branch:              req.Branch,
+		Registration:        req.Registration,
+		ManagerID:           req.ManagerID,
+		ManagerRegistration: req.ManagerRegistration,
+	}
+}
+
+func toTeamResponse(m store.Member) teamMemberResponse {
+	var aliases []string
+	if m.Aliases != "" {
+		_ = json.Unmarshal([]byte(m.Aliases), &aliases)
+	}
+	return teamMemberResponse{
+		ID:                  m.ID,
+		Name:                m.Name,
+		Email:               m.Email,
+		Aliases:             aliases,
+		Role:                m.Role,
+		Department:          m.Department,
+		Branch:              m.Branch,
+		Registration:        m.Registration,
+		ManagerID:           m.ManagerID,
+		ManagerRegistration: m.ManagerRegistration,
+		Source:              m.Source,
+	}
+}
+
+func wouldCycle(members []store.Member, memberID, managerID int64) bool {
+	parent := make(map[int64]*int64, len(members))
+	for _, m := range members {
+		parent[m.ID] = m.ManagerID
+	}
+	for cur := managerID; ; {
+		if cur == memberID {
+			return true
+		}
+		next, ok := parent[cur]
+		if !ok || next == nil {
+			return false
+		}
+		cur = *next
+	}
+}
+
 func (h *handlers) handleGetTeam(w http.ResponseWriter, _ *http.Request) {
-	members, err := provision.GetTeam(h.a.ConfigPath())
+	members, err := h.a.Store().Team.All()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, members)
+	out := make([]teamMemberResponse, 0, len(members))
+	for _, m := range members {
+		out = append(out, toTeamResponse(m))
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
-func (h *handlers) handleSetTeam(w http.ResponseWriter, r *http.Request) {
-	var members []config.TeamMember
-	if err := json.NewDecoder(r.Body).Decode(&members); err != nil {
+func (h *handlers) handleAddTeamMember(w http.ResponseWriter, r *http.Request) {
+	var req teamMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
 		return
 	}
-	if err := provision.SetTeam(h.a.ConfigPath(), members); err != nil {
+	if strings.TrimSpace(req.Name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+	created, err := h.a.Store().Team.Add(req.toMember())
+	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	h.respondReload(w)
+	writeJSON(w, http.StatusOK, toTeamResponse(created))
+}
+
+func (h *handlers) handleUpdateTeamMember(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var req teamMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+	if req.ManagerID != nil && *req.ManagerID == id {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "a member cannot manage themselves"})
+		return
+	}
+	if req.ManagerID != nil {
+		members, err := h.a.Store().Team.All()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if wouldCycle(members, id, *req.ManagerID) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "manager selection would create a cycle"})
+			return
+		}
+	}
+	if err := h.a.Store().Team.Update(id, req.toMember()); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *handlers) handleDeleteTeamMember(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	if err := h.a.Store().Team.Delete(id); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *handlers) handleListRegistries(w http.ResponseWriter, _ *http.Request) {

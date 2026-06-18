@@ -44,18 +44,22 @@ func BuildPackage(abs, outDir string, m *plugin.Manifest, artifactKey string) (*
 		return nil, fmt.Errorf("hashing artifact: %w", err)
 	}
 
+	iconLine := ""
+	if m.Icon != "" {
+		iconLine = fmt.Sprintf("    icon: %q\n", m.Icon)
+	}
 	indexEntry := fmt.Sprintf(`plugins:
   %s:
     latest: %s
     description: "%s"
-    versions:
+%s    versions:
       - version: %s
         manifest_url: "https://<host>/%s-%s.plugin.yaml"
         artifacts:
           %s:
             url: "https://<host>/%s-%s.tar.gz"
             sha256: "%s"
-`, m.Name, m.Version, m.Description, m.Version, m.Name, m.Version, artifactKey, m.Name, m.Version, digest)
+`, m.Name, m.Version, m.Description, iconLine, m.Version, m.Name, m.Version, artifactKey, m.Name, m.Version, digest)
 
 	return &PackageResult{
 		Tarball:     tarball,

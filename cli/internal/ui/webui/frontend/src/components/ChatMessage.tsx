@@ -232,7 +232,7 @@ export function ChatMessage({
             </div>
           )}
         </div>
-        <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity px-1">
+        <span className="text-[10px] text-muted-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity px-1">
           {timeAgo(timestamp)}
         </span>
       </div>

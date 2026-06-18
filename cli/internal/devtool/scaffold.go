@@ -88,7 +88,7 @@ func ScaffoldFiles(d ScaffoldData) map[string]string {
 	if d.IsPython {
 		files["__main__.py"] = renderTemplate(pyMainTmpl, d)
 		files["scraper.py"] = renderTemplate(pyScraperTmpl, d)
-		files["requirements.txt"] = "aide-sdk\n"
+		files["requirements.txt"] = "aide-plugin-sdk>=0.1.0\n"
 	} else {
 		files["main.go"] = renderTemplate(goMainTmpl, d)
 		files["go.mod"] = renderTemplate(goModTmpl, d)
@@ -135,6 +135,7 @@ const manifestTmpl = `name: {{.Name}}
 version: 0.1.0
 runtime: {{.Runtime}}
 description: "{{.Description}}"
+icon: ""
 categories: [{{.CategoriesCSV}}]
 entrypoint:
 {{- if .IsPython}}

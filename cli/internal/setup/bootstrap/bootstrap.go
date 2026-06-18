@@ -136,10 +136,6 @@ func defaultConfig(base string) string {
   timeout_seconds: 120
   data_dir: "%s/data"
 
-team:
-  - name: "Your Name"
-    aliases: ["you@example.com"]
-
 sources: {}
 
 agent:

@@ -119,39 +119,35 @@ func (h *handlers) handleNotifications(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleVersion(w http.ResponseWriter, _ *http.Request) {
-	var latest, notes, releaseURL string
-	updateAvailable := false
-	method := updater.DetectMethod(agent.Version)
-	if agent.Version != "dev" {
-		if rel, err := updater.LatestUpgrade(agent.Version); err == nil {
-			latest = rel.Tag
-			updateAvailable = updater.IsNewer(latest, agent.Version)
-			if updateAvailable {
-				notes = rel.Notes
-				releaseURL = rel.URL
-			}
-		}
-		// When there's no newer release to advertise (e.g. running a prerelease
-		// ahead of the latest stable), show the running version's own notes
-		// rather than an older release's changelog.
-		if !updateAvailable {
-			if cur, err := updater.ReleaseByTag(agent.Version); err == nil {
-				notes = cur.Notes
-				releaseURL = cur.URL
-			}
-		}
-	}
+func handleReady(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+// handleVersion serves the running version immediately. Update information is
+// served from an in-memory cache (empty on a cold start) and a throttled
+// background refresh is kicked off, so the call never blocks on GitHub.
+func handleVersion(w http.ResponseWriter, _ *http.Request) {
+	info, _ := updater.CachedUpgradeInfo()
+	updater.RefreshUpgradeInfoAsync(agent.Version)
+	writeVersionInfo(w, info)
+}
+
+// handleVersionCheck forces a synchronous GitHub check and refreshes the cache.
+// It backs the explicit "Check for updates" action in the About tab.
+func handleVersionCheck(w http.ResponseWriter, _ *http.Request) {
+	writeVersionInfo(w, updater.RefreshUpgradeInfo(agent.Version))
+}
+
+func writeVersionInfo(w http.ResponseWriter, info updater.UpgradeInfo) {
+	method := updater.DetectMethod(agent.Version)
+	writeJSON(w, http.StatusOK, map[string]any{
 		"current":          agent.Version,
-		"latest":           latest,
-		"update_available": updateAvailable,
+		"latest":           info.Latest,
+		"update_available": info.UpdateAvailable,
 		"update_url":       updater.InstallURL(),
 		"can_self_update":  method.CanSelfUpdate(),
-		"notes":            notes,
-		"release_url":      releaseURL,
+		"notes":            info.Notes,
+		"release_url":      info.ReleaseURL,
 		"platform":         runtime.GOOS + "/" + runtime.GOARCH,
 	})
 }

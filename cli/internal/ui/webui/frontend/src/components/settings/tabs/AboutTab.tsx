@@ -31,7 +31,8 @@ export function AboutTab() {
   const check = async () => {
     setChecking(true);
     try {
-      const v = await loadVersion();
+      const v = await api.checkVersion();
+      setInfo(v);
       toast(v.update_available ? `Update available: ${v.latest}` : "You're on the latest version", "success");
     } catch (e) {
       toast(String(e), "error");

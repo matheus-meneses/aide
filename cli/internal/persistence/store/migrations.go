@@ -115,6 +115,8 @@ var migrations = []string{
 	CREATE INDEX IF NOT EXISTS idx_team_members_manager_id   ON team_members(manager_id);`,
 
 	`ALTER TABLE team_members ADD COLUMN manager_registration TEXT NOT NULL DEFAULT '';`,
+
+	`UPDATE team_members SET source = 'manual' WHERE source = 'config';`,
 }
 
 func migrate(db *sql.DB) error {

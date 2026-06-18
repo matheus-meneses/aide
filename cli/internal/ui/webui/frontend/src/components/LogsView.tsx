@@ -20,6 +20,17 @@ const LEVEL_STYLES: Record<string, string> = {
   error: "text-destructive",
 };
 
+function formatLocalTime(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 export function LogsView({ onClose }: Props) {
   const { logs, connected, paused, clear, togglePaused } = useLogStream();
   const [minLevel, setMinLevel] = useState("all");
@@ -129,7 +140,9 @@ export function LogsView({ onClose }: Props) {
         ) : (
           filtered.map((l, i) => (
             <div key={`${l.ts}-${i}`} className="flex gap-2 whitespace-pre-wrap break-words py-0.5">
-              <span className="shrink-0 text-muted-foreground">{l.ts}</span>
+              <span className="shrink-0 text-muted-foreground" title={l.ts}>
+                {formatLocalTime(l.ts)}
+              </span>
               <span className={cn("w-12 shrink-0 uppercase", LEVEL_STYLES[l.level])}>{l.level}</span>
               <span className="shrink-0 text-primary">{l.scope}</span>
               <span className="text-foreground">{l.msg}</span>

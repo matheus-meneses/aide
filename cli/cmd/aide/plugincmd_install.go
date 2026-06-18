@@ -1,13 +1,11 @@
 package main
 
 import (
-	"aide/cli/internal/platform/clog"
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
 	"aide/cli/internal/security/keychain"
 	"aide/cli/internal/ui/prompt"
 	"aide/cli/internal/ui/widgets"
-	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -19,7 +17,7 @@ import (
 	"golang.org/x/term"
 )
 
-func pluginInstallExecute(_ *cobra.Command, args []string) error {
+func pluginInstallExecute(cmd *cobra.Command, args []string) error {
 	if pluginInstallLocal != "" {
 		consent := func(m *plugin.Manifest) bool {
 			if assumeYes {
@@ -31,7 +29,7 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 			}
 			return confirm("Install this plugin?")
 		}
-		m, err := plugin.InstallLocal(context.Background(), pluginInstallLocal, consent)
+		m, err := plugin.InstallLocal(cmd.Context(), pluginInstallLocal, consent)
 		if err != nil {
 			return err
 		}
@@ -62,14 +60,10 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 
 	sp := widgets.NewSpinner("Fetching registry…")
 	sp.Start()
-	idx, idxErr := plugin.MergedIndex(extraRegistries)
+	idx, idxErr := plugin.ResolveIndex(extraRegistries)
 	sp.Stop()
 	if idxErr != nil {
-		clog.Warn("registry fetch failed (%v), trying cache", idxErr)
-		idx, idxErr = plugin.LoadCachedIndex()
-		if idxErr != nil {
-			return fmt.Errorf("registry unavailable and no cache: %w", idxErr)
-		}
+		return idxErr
 	}
 
 	var name, version string
@@ -88,25 +82,11 @@ func pluginInstallExecute(_ *cobra.Command, args []string) error {
 		if m.Description != "" {
 			widgets.Printf("Description: %s\n", m.Description)
 		}
-		if len(m.Capabilities.Network) > 0 {
-			widgets.Printf("Network access: %s\n", strings.Join(m.Capabilities.Network, ", "))
-		}
-		if len(m.Capabilities.Filesystem) > 0 {
-			paths := make([]string, 0, len(m.Capabilities.Filesystem))
-			for _, f := range m.Capabilities.Filesystem {
-				if f.Read != "" {
-					paths = append(paths, "r:"+f.Read)
-				}
-				if f.Write != "" {
-					paths = append(paths, "w:"+f.Write)
-				}
-			}
-			widgets.Printf("Filesystem access: %s\n", strings.Join(paths, ", "))
-		}
+		printPluginCapabilities(m)
 		return confirm("Install this plugin?")
 	}
 
-	m, err := plugin.Install(context.Background(), idx, name, version, consent)
+	m, err := plugin.Install(cmd.Context(), idx, name, version, consent)
 	if err != nil {
 		return err
 	}

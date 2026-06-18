@@ -150,3 +150,22 @@
 .animate-msg-in {
   animation: msg-in 0.2s ease-out;
 }
+
+@keyframes indeterminate {
+  0% {
+    left: -45%;
+    width: 45%;
+  }
+  50% {
+    left: 25%;
+    width: 55%;
+  }
+  100% {
+    left: 100%;
+    width: 45%;
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.15s ease-in-out infinite;
+}

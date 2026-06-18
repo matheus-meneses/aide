@@ -6,6 +6,7 @@ import (
 	"aide/cli/internal/security/keychain"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -46,6 +48,9 @@ func registryVersion() string {
 }
 
 func DefaultRegistryURL() string {
+	if u := os.Getenv("AIDE_REGISTRY_URL"); u != "" {
+		return u
+	}
 	repo := registryRepo()
 	if v := registryVersion(); v != "" {
 		return fmt.Sprintf("https://github.com/%s/releases/download/%s/index.yaml", repo, v)
@@ -53,12 +58,36 @@ func DefaultRegistryURL() string {
 	return fmt.Sprintf("https://github.com/%s/releases/latest/download/index.yaml", repo)
 }
 
-var registryHTTPClient = &http.Client{
-	Timeout: 15 * time.Second,
-	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // G402: InsecureSkipVerify supports self-hosted registries at non-public URLs
-		Proxy:           http.ProxyFromEnvironment,
-	},
+var registryClient = sync.OnceValue(newRegistryClient)
+
+// newRegistryClient builds the HTTPS client used for registry index and asset
+// downloads. TLS verification stays on by default; to reach a self-hosted
+// registry served by an internal CA, point AIDE_REGISTRY_CA_BUNDLE at a PEM
+// file and those roots are trusted on top of the system pool.
+func newRegistryClient() *http.Client {
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	if bundle := os.Getenv("AIDE_REGISTRY_CA_BUNDLE"); bundle != "" {
+		if pem, err := os.ReadFile(bundle); err == nil { //nolint:gosec // G703: path is operator-provided config (env var), not untrusted input
+			pool, perr := x509.SystemCertPool()
+			if perr != nil || pool == nil {
+				pool = x509.NewCertPool()
+			}
+			if pool.AppendCertsFromPEM(pem) {
+				tlsCfg.RootCAs = pool
+			} else {
+				clog.Warn("AIDE_REGISTRY_CA_BUNDLE %s contained no usable certificates", bundle)
+			}
+		} else {
+			clog.Warn("could not read AIDE_REGISTRY_CA_BUNDLE %s: %v", bundle, err)
+		}
+	}
+	return &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsCfg,
+			Proxy:           http.ProxyFromEnvironment,
+		},
+	}
 }
 
 type Index struct {
@@ -68,8 +97,15 @@ type Index struct {
 type PluginEntry struct {
 	Latest      string         `yaml:"latest"`
 	Description string         `yaml:"description,omitempty"`
+	Icon        string         `yaml:"icon,omitempty"`
+	Source      string         `yaml:"source,omitempty"`
 	Versions    []VersionEntry `yaml:"versions"`
 }
+
+const (
+	SourceBuiltin = "builtin"
+	SourcePrivate = "private"
+)
 
 type VersionEntry struct {
 	Version     string                 `yaml:"version"`
@@ -122,7 +158,7 @@ func httpGetAsset(rawURL string) (*http.Response, error) {
 	if accept != "" {
 		req.Header.Set("Accept", accept)
 	}
-	return registryHTTPClient.Do(req)
+	return registryClient().Do(req)
 }
 
 func githubAssetAPIURL(rawURL, token string) (string, bool) {
@@ -159,7 +195,7 @@ func lookupAssetURL(releaseAPI, file, token string) (string, error) {
 	}
 	req.Header.Set("Authorization", "token "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := registryHTTPClient.Do(req)
+	resp, err := registryClient().Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -216,6 +252,10 @@ func MergedIndex(userRegistries []string) (*Index, error) {
 		clog.Warn("skipping default registry %s: %v", DefaultRegistryURL(), err)
 		base = &Index{Plugins: make(map[string]PluginEntry)}
 	}
+	for name, entry := range base.Plugins {
+		entry.Source = SourceBuiltin
+		base.Plugins[name] = entry
+	}
 	for _, url := range userRegistries {
 		extra, err := FetchIndex(url)
 		if err != nil {
@@ -224,11 +264,59 @@ func MergedIndex(userRegistries []string) (*Index, error) {
 		}
 		for name, entry := range extra.Plugins {
 			if _, exists := base.Plugins[name]; !exists {
+				entry.Source = SourcePrivate
 				base.Plugins[name] = entry
 			}
 		}
 	}
 	return base, nil
+}
+
+// ResolveIndex returns the plugin registry index, preferring a fresh network
+// fetch (which it then caches) and falling back to the on-disk cache when the
+// network is unavailable. Use it when freshness matters, e.g. installs/updates.
+func ResolveIndex(userRegistries []string) (*Index, error) {
+	idx, err := MergedIndex(userRegistries)
+	if err != nil {
+		clog.Warn("registry fetch failed (%v); falling back to cache", err)
+		cached, cacheErr := LoadCachedIndex()
+		if cacheErr != nil {
+			return nil, fmt.Errorf("registry unavailable and no cache: %w", err)
+		}
+		return cached, nil
+	}
+	if err := CacheIndex(idx); err != nil {
+		clog.Warn("could not cache registry: %v", err)
+	}
+	return idx, nil
+}
+
+// CachedOrFreshIndex returns the cached index when it has entries, otherwise it
+// fetches and caches a fresh one. Use it on latency-sensitive paths (listing,
+// install) where a slightly stale catalog is acceptable. A cache missing the
+// builtin/private source tags is treated as stale and re-merged, so older
+// caches self-heal instead of leaving the UI unable to distinguish sources.
+func CachedOrFreshIndex(userRegistries []string) (*Index, error) {
+	if idx, err := LoadCachedIndex(); err == nil && len(idx.Plugins) > 0 && indexHasSource(idx) {
+		return idx, nil
+	}
+	idx, err := MergedIndex(userRegistries)
+	if err != nil {
+		return nil, err
+	}
+	if err := CacheIndex(idx); err != nil {
+		clog.Warn("could not cache registry: %v", err)
+	}
+	return idx, nil
+}
+
+func indexHasSource(idx *Index) bool {
+	for _, entry := range idx.Plugins {
+		if entry.Source != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func CacheIndex(idx *Index) error {

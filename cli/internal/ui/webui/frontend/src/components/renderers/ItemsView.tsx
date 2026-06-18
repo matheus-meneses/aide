@@ -15,19 +15,19 @@ interface Props {
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-  critical: "bg-red-500/10 text-red-600 dark:text-red-400 border-l-red-500",
-  high: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-l-amber-500",
-  medium: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-l-blue-500",
+  critical: "bg-destructive/10 text-destructive border-l-destructive",
+  high: "bg-warning/10 text-warning border-l-warning",
+  medium: "bg-info/10 text-info border-l-info",
   low: "bg-muted text-muted-foreground border-l-muted-foreground/30",
   info: "bg-muted text-muted-foreground border-l-muted-foreground/30",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  bug: "bg-red-500/10 text-red-600 dark:text-red-400",
-  task: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  story: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-  approval: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  event: "bg-green-500/10 text-green-600 dark:text-green-400",
+  bug: "bg-destructive/10 text-destructive",
+  task: "bg-info/10 text-info",
+  story: "bg-primary/10 text-primary",
+  approval: "bg-warning/10 text-warning",
+  event: "bg-success/10 text-success",
 };
 
 export function ItemsView({ data }: Props) {

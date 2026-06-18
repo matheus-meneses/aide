@@ -3,6 +3,7 @@ package main
 import (
 	"aide/cli/internal/platform/config"
 	"aide/cli/internal/runtime/plugin"
+	"aide/cli/internal/runtime/updater"
 	"aide/cli/internal/ui/widgets"
 	"fmt"
 	"sort"
@@ -37,18 +38,43 @@ func pluginListInstalledExecute() error {
 
 	sort.Slice(manifests, func(i, j int) bool { return manifests[i].Name < manifests[j].Name })
 
+	var idx *plugin.Index
+	if cached, err := plugin.LoadCachedIndex(); err == nil {
+		idx = cached
+	}
+
+	updates := 0
 	widgets.Println("Installed plugins:")
 	for _, m := range manifests {
-		widgets.Printf("  %-20s %-10s %s\n", m.Name, m.Version, pluginStatusLabel(sources, m.Name))
+		widgets.Printf("  %-20s %-10s %s%s\n", m.Name, m.Version, pluginStatusLabel(sources, m.Name), pluginUpdateLabel(idx, m))
 		if m.Description != "" {
 			widgets.Printf("    %s\n", m.Description)
 		}
+		if idx != nil {
+			if entry, ok := idx.Plugins[m.Name]; ok && updater.IsNewer(entry.Latest, m.Version) {
+				updates++
+			}
+		}
 	}
 
+	if updates > 0 {
+		widgets.Printf("\n%d update(s) available — run 'aide plugin update' to apply.\n", updates)
+	}
 	if !anyConfigured(sources) {
 		widgets.Println("\nRun 'aide plugin configure <name>' to set one up.")
 	}
 	return nil
+}
+
+func pluginUpdateLabel(idx *plugin.Index, m *plugin.Manifest) string {
+	if idx == nil {
+		return ""
+	}
+	entry, ok := idx.Plugins[m.Name]
+	if !ok || !updater.IsNewer(entry.Latest, m.Version) {
+		return ""
+	}
+	return fmt.Sprintf(" (update → %s)", entry.Latest)
 }
 
 func pluginStatusLabel(sources map[string]config.Source, name string) string {

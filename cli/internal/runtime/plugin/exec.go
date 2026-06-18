@@ -56,9 +56,9 @@ func execute(ctx context.Context, m *Manifest, req *Request, interactive bool) (
 	if runErr != nil {
 		msg := strings.TrimSpace(stderr)
 		if msg == "" {
-			msg = runErr.Error()
+			return nil, stderr, runErr
 		}
-		return nil, stderr, fmt.Errorf("%s", msg)
+		return nil, stderr, fmt.Errorf("%s: %w", msg, runErr)
 	}
 
 	resp, err := Parse(stdoutBuf.Bytes())

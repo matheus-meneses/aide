@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-func InstallLocal(_ context.Context, srcDir string, consent func(*Manifest) bool) (*Manifest, error) {
+func InstallLocal(ctx context.Context, srcDir string, consent func(*Manifest) bool) (*Manifest, error) {
 	srcDir, err := filepath.Abs(srcDir)
 	if err != nil {
 		return nil, fmt.Errorf("resolving path: %w", err)
@@ -47,7 +47,7 @@ func InstallLocal(_ context.Context, srcDir string, consent func(*Manifest) bool
 	if m.Runtime == "python" && m.Requirements != "" {
 		reqFile := filepath.Join(installDir, m.Requirements)
 		clog.Info("building venv")
-		if err := buildVenv(installDir, reqFile); err != nil {
+		if err := buildVenv(ctx, installDir, reqFile); err != nil {
 			return nil, fmt.Errorf("building venv: %w", err)
 		}
 	}
@@ -56,7 +56,7 @@ func InstallLocal(_ context.Context, srcDir string, consent func(*Manifest) bool
 	return m, nil
 }
 
-func Install(_ context.Context, idx *Index, name, version string, consent func(*Manifest) bool) (*Manifest, error) {
+func Install(ctx context.Context, idx *Index, name, version string, consent func(*Manifest) bool) (*Manifest, error) {
 	if !ValidName(name) {
 		return nil, fmt.Errorf("invalid plugin name %q", name)
 	}
@@ -138,6 +138,12 @@ func Install(_ context.Context, idx *Index, name, version string, consent func(*
 	}
 
 	clog.Info("extracting")
+	if err := os.RemoveAll(installDir); err != nil {
+		return nil, fmt.Errorf("clearing previous install: %w", err)
+	}
+	if err := os.MkdirAll(installDir, 0o755); err != nil {
+		return nil, fmt.Errorf("recreating install dir: %w", err)
+	}
 	if err := extractTarGz(tmpArtifact.Name(), installDir); err != nil {
 		return nil, fmt.Errorf("extracting artifact: %w", err)
 	}
@@ -154,7 +160,7 @@ func Install(_ context.Context, idx *Index, name, version string, consent func(*
 
 	if installed.Runtime == "python" && installed.Requirements != "" {
 		reqFile := filepath.Join(installDir, installed.Requirements)
-		if err := buildVenv(installDir, reqFile); err != nil {
+		if err := buildVenv(ctx, installDir, reqFile); err != nil {
 			return nil, fmt.Errorf("building venv: %w", err)
 		}
 	}
@@ -180,7 +186,7 @@ func EnsureRuntime(ctx context.Context, m *Manifest) error {
 		if m.Requirements == "" {
 			return fmt.Errorf("python plugin %s: no requirements file declared", m.Name)
 		}
-		return buildVenv(m.Dir, filepath.Join(m.Dir, m.Requirements))
+		return buildVenv(ctx, m.Dir, filepath.Join(m.Dir, m.Requirements))
 	case "go":
 		return buildGoBinary(ctx, m)
 	default:
@@ -210,7 +216,7 @@ func buildGoBinary(ctx context.Context, m *Manifest) error {
 	return nil
 }
 
-func buildVenv(pluginDir, reqFile string) error {
+func buildVenv(ctx context.Context, pluginDir, reqFile string) error {
 	pythonBin := filepath.Join(xdg.AideHome(), "python", "bin", "python3")
 	if runtime.GOOS == "windows" {
 		pythonBin = filepath.Join(xdg.AideHome(), "python", "python.exe")
@@ -229,7 +235,7 @@ func buildVenv(pluginDir, reqFile string) error {
 	if err := os.RemoveAll(venvDir); err != nil {
 		return fmt.Errorf("clearing stale venv: %w", err)
 	}
-	if err := runCmd(pythonBin, "-m", "venv", venvDir); err != nil {
+	if err := runCmd(ctx, pythonBin, "-m", "venv", venvDir); err != nil {
 		return fmt.Errorf("creating venv: %w", err)
 	}
 
@@ -238,21 +244,21 @@ func buildVenv(pluginDir, reqFile string) error {
 		pipBin = filepath.Join(venvDir, "Scripts", "pip.exe")
 	}
 
-	if err := runCmd(pipBin, "install", "--upgrade", "pip"); err != nil {
+	if err := runCmd(ctx, pipBin, "install", "--upgrade", "pip"); err != nil {
 		return fmt.Errorf("upgrading pip: %w", err)
 	}
 
 	if sdkPath := os.Getenv("AIDE_SDK_PATH"); sdkPath != "" {
 		clog.Info("installing local SDK from %s", sdkPath)
-		if err := runCmd(pipBin, "install", "setuptools"); err != nil {
+		if err := runCmd(ctx, pipBin, "install", "setuptools"); err != nil {
 			clog.Warn("setuptools install failed: %v", err)
 		}
-		if err := runCmd(pipBin, "install", sdkPath); err != nil {
+		if err := runCmd(ctx, pipBin, "install", sdkPath); err != nil {
 			clog.Warn("local SDK install failed: %v", err)
 		}
 	}
 
-	if err := runCmd(pipBin, "install", "-r", reqFile); err != nil {
+	if err := runCmd(ctx, pipBin, "install", "-r", reqFile); err != nil {
 		return fmt.Errorf("installing requirements: %w", err)
 	}
 
@@ -263,7 +269,7 @@ func buildVenv(pluginDir, reqFile string) error {
 
 	if pluginUsesPlaywright(reqFile) {
 		clog.Info("ensuring playwright chromium browser is installed")
-		if err := runCmdEnv(nodeTLSEnv(), pythonVenvBin, "-m", "playwright", "install", "chromium"); err != nil {
+		if err := runCmdEnv(ctx, nodeTLSEnv(), pythonVenvBin, "-m", "playwright", "install", "chromium"); err != nil {
 			clog.Warn("playwright browser install failed: %v", err)
 			clog.Warn("run manually: %s -m playwright install chromium", pythonVenvBin)
 		}
@@ -395,12 +401,12 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-func runCmd(name string, args ...string) error {
-	return runCmdEnv(nil, name, args...)
+func runCmd(ctx context.Context, name string, args ...string) error {
+	return runCmdEnv(ctx, nil, name, args...)
 }
 
-func runCmdEnv(extraEnv []string, name string, args ...string) error {
-	c := exec.Command(name, args...) //nolint:gosec // G702: name comes from plugin manifest paths, not user input
+func runCmdEnv(ctx context.Context, extraEnv []string, name string, args ...string) error {
+	c := exec.CommandContext(ctx, name, args...) //nolint:gosec // G702: name comes from plugin manifest paths, not user input
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	if len(extraEnv) > 0 {

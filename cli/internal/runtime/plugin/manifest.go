@@ -13,6 +13,7 @@ type Manifest struct {
 	Version      string       `yaml:"version"`
 	Runtime      string       `yaml:"runtime"`
 	Description  string       `yaml:"description"`
+	Icon         string       `yaml:"icon,omitempty"`
 	Categories   []string     `yaml:"categories"`
 	Entrypoint   Entrypoint   `yaml:"entrypoint"`
 	Requirements string       `yaml:"requirements"`
