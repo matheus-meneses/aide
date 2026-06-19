@@ -31,7 +31,7 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 		Name:        "Aide",
 		Description: "Your personal work assistant",
 		Mac: application.MacOptions{
-			ActivationPolicy: application.ActivationPolicyAccessory,
+			ActivationPolicy: application.ActivationPolicyRegular,
 		},
 	}
 
@@ -133,9 +133,15 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 		panel.Hide()
 	}
 
-	// HideOnFocusLost only fires the common WindowLostFocus event, which macOS
-	// never emits, so dismiss-on-click-out is wired to the native resign-key
-	// event instead.
+	// A plain NSWindow can't overlay another app's fullscreen Space, so promote
+	// the panel to a non-activating NSPanel once the webview has been realized.
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		panel.SetPosition(-10000, -10000)
+		panel.Show()
+		panel.Hide()
+		promotePanel(panel.NativeWindow())
+	})
+
 	panel.OnWindowEvent(events.Mac.WindowDidResignKey, func(*application.WindowEvent) {
 		hidePanel()
 	})
@@ -145,13 +151,11 @@ func runApp(url string, ag *agent.Agent, st *store.Store, shutdown context.Cance
 			hidePanel()
 			return
 		}
-		// The same click that dismissed the panel (via resign-key) must not
-		// reopen it.
 		if time.Since(time.Unix(0, lastPanelHide.Load())) < 250*time.Millisecond {
 			return
 		}
 		positionPanel()
-		panel.Show().Focus()
+		showPanelNative(panel.NativeWindow())
 	})
 
 	menu := app.NewMenu()

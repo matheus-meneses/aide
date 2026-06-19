@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-19
+
+### Fixed
+
+- **Dock icon and Cmd-Tab restored** — 0.3.1 shipped the desktop app as a macOS
+  accessory (`LSUIElement`) to stabilize the tray icon, which removed the app
+  from the Dock and the Cmd-Tab switcher. The app is a regular app again, so its
+  Dock icon and Cmd-Tab entry are back.
+- **Tray popover now appears over fullscreen apps** — clicking the menu-bar icon
+  while another app is fullscreen left the popover stuck on its origin Space
+  (and could even switch you to a different Space). A plain `NSWindow` cannot be
+  drawn onto another app's fullscreen Space, so the popover is now promoted to a
+  non-activating `NSPanel` (`CanJoinAllSpaces | FullScreenAuxiliary`, pop-up-menu
+  level) and shown with `orderFrontRegardless`. It overlays fullscreen apps
+  without switching Spaces or stealing focus, while the app keeps its Dock icon.
+
 ## [0.3.1] - 2026-06-19
 
 ### Fixed
@@ -270,7 +286,10 @@ and a round of plugin/sandbox security hardening.
   OS trust-store support, propagated to plugins.
 - **Prebuilt binaries** for macOS, Linux, and Windows, with built-in self-update.
 
-[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/matheus-meneses/aide/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/matheus-meneses/aide/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/matheus-meneses/aide/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/matheus-meneses/aide/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/matheus-meneses/aide/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/matheus-meneses/aide/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/matheus-meneses/aide/releases/tag/v0.1.0
