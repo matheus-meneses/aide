@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-19
+
+### Fixed
+
+- **Menu-bar icon sometimes missing on launch** — the desktop app now ships as
+  a macOS accessory app (`LSUIElement`) instead of switching its activation
+  policy from regular to accessory at runtime. That runtime flip raced with the
+  status-item creation and could drop the tray icon before it claimed a slot in
+  the menu bar; launching as an accessory from the start removes the race (and
+  the brief Dock-icon flash).
+- **Unreadable code blocks in chat markdown** — fenced code blocks (e.g. the
+  agent's summary tables) rendered as light text on a light box inside the dark
+  `prose` background, leaving them nearly invisible. Code blocks now use the
+  theme's surface and foreground tokens, so they stay legible in both light and
+  dark mode.
+
 ## [0.3.0] - 2026-06-18
 
 0.3.0 makes plugins self-updating, moves the team roster into the database, and

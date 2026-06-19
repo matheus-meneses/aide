@@ -69,15 +69,15 @@ export function MarkdownRenderer({ content, onSuggestionClick }: Props) {
     code: ({ className, children }) => {
       const isBlock = className?.includes("language-");
       if (isBlock) {
-        return (
-          <code className={`${className} block bg-muted rounded p-3 text-xs overflow-x-auto`}>
-            {children}
-          </code>
-        );
+        return <code className={className}>{children}</code>;
       }
       return <code className="px-1 py-0.5 bg-muted rounded text-xs">{children}</code>;
     },
-    pre: ({ children }) => <pre className="my-2">{children}</pre>,
+    pre: ({ children }) => (
+      <pre className="my-2 overflow-x-auto rounded-md bg-muted p-3 text-xs text-foreground [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit">
+        {children}
+      </pre>
+    ),
   };
 
   return (
