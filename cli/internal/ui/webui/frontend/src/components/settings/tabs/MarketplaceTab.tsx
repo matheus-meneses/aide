@@ -5,7 +5,6 @@ import {
   Download,
   Loader2,
   Lock,
-  Package,
   PackageSearch,
   RefreshCw,
   Search,
@@ -14,6 +13,7 @@ import {
 import * as api from "@/lib/api";
 import { useInstallProgress } from "@/hooks/useInstallProgress";
 import { Badge, Button, Card, EmptyState, Input, Skeleton, useToast } from "@/components/ui";
+import { PluginIcon } from "@/components/settings/PluginIcon";
 
 export function MarketplaceTab({ onConfigure }: { onConfigure?: (plugin: string) => void }) {
   const { toast } = useToast();
@@ -242,30 +242,6 @@ export function MarketplaceTab({ onConfigure }: { onConfigure?: (plugin: string)
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function PluginIcon({ icon }: { icon?: string }) {
-  const wrapper =
-    "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent text-accent-foreground";
-  if (icon && /^(https?:\/\/|data:image\/)/.test(icon)) {
-    return (
-      <div className={wrapper}>
-        <img src={icon} alt="" className="h-5 w-5 object-contain" />
-      </div>
-    );
-  }
-  if (icon) {
-    return (
-      <div className={wrapper}>
-        <span className="text-lg leading-none">{icon}</span>
-      </div>
-    );
-  }
-  return (
-    <div className={wrapper}>
-      <Package className="h-5 w-5" />
     </div>
   );
 }

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Plugin icons now show in the Installed list** — the Marketplace rendered each
+  plugin's `icon`, but the Installed plugins & sources list always drew a generic
+  plug glyph. Both views now share a single `PluginIcon`, so installed plugins
+  display their per-plugin icon (falling back to the plug glyph when none is set).
+
 ## [0.3.2] - 2026-06-19
 
 ### Fixed
