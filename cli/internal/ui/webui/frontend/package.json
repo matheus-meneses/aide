@@ -24,21 +24,21 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.4.20",
-    "eslint": "^9.39.4",
+    "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
+    "eslint-plugin-react-refresh": "^0.5.3",
     "postcss": "^8.4.49",
-    "prettier": "^3.8.3",
+    "prettier": "^3.8.4",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.6.3",
-    "typescript-eslint": "^8.60.1",
-    "vite": "^6.4.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1",
+    "vite": "^8.0.16"
   },
   "overrides": {
     "esbuild": "^0.28.1"
