@@ -21,10 +21,8 @@ APP="$OUT_DIR/Aide.app"
 echo "==> Building frontend"
 (
   cd "$CLI_DIR/internal/ui/webui/frontend"
-  if [ ! -d node_modules ]; then
-    echo "    installing frontend dependencies"
-    npm ci
-  fi
+  echo "    installing frontend dependencies"
+  npm ci
   npm run build
 )
 
