@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Web UI upgraded to React 19 and Tailwind CSS v4** — the desktop/web frontend
+  now builds on React 19, Tailwind CSS v4, lucide-react v1, react-markdown 10, and
+  tailwind-merge 3, with build tooling on TypeScript 6, Vite 8, ESLint 10, and
+  `@vitejs/plugin-react` 6. No user-facing behavior change.
+- **Release notes are generated from this changelog** — tagging a stable release
+  now publishes the matching `## [version]` section of this file as the GitHub
+  release body automatically, so notes no longer have to be written by hand.
+
 ## [0.3.3] - 2026-06-20
 
 ### Fixed
