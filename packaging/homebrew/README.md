@@ -6,17 +6,21 @@ tap. The files here are rendered and pushed to that tap automatically by the
 
 ## Layout
 
-- `render.sh` — renders `Formula/aide.rb` (CLI) and `Casks/aide.rb` (desktop app)
-  for a given version and set of release checksums.
+- `render.sh` — renders `Formula/aide.rb` (CLI) and `Casks/aide-app.rb` (desktop
+  app) for a given version and set of release checksums.
 - `Formula/aide.rb` — reference copy of the CLI formula (placeholder version).
-- `Casks/aide.rb` — reference copy of the desktop-app cask (placeholder version).
+- `Casks/aide-app.rb` — reference copy of the desktop-app cask (placeholder version).
+
+The CLI formula and the desktop cask use **distinct tokens** (`aide` vs
+`aide-app`) on purpose: a formula and a cask sharing one token makes
+`brew install`/`brew upgrade` ambiguous and can leave the CLI keg unlinked.
 
 ## Installing (once the tap exists)
 
 ```sh
 brew tap matheus-meneses/aide
-brew install aide          # CLI
-brew install --cask aide   # desktop app (unsigned; quarantine stripped on install)
+brew install aide              # CLI
+brew install --cask aide-app   # desktop app (unsigned; quarantine stripped on install)
 ```
 
 ## One-time tap setup

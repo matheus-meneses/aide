@@ -250,17 +250,61 @@ jobs:
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/matheus-meneses/homebrew-aide.git" tap
           mkdir -p tap/Formula tap/Casks
           cp rendered/Formula/aide.rb tap/Formula/aide.rb
-          cp rendered/Casks/aide.rb tap/Casks/aide.rb
+          cp rendered/Casks/aide-app.rb tap/Casks/aide-app.rb
+          rm -f tap/Casks/aide.rb
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/aide.rb Casks/aide.rb
+          git add -A Formula/aide.rb Casks/aide-app.rb Casks/aide.rb
           if git diff --cached --quiet; then
             echo "tap already up to date"
             exit 0
           fi
           git commit -m "aide ${VERSION}"
           git push origin HEAD
+
+  release-notes:
+    needs: [release, release-macos-app]
+    # Curate the GitHub release body straight from CHANGELOG.md so notes are not
+    # written by hand. Runs after the artifact jobs so it sets the body last.
+    # Only stable tags (no hyphen) carry a dedicated changelog section.
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Extract CHANGELOG section
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]") == 1 { insec = 1; next }
+            insec && /^## \[/ { exit }
+            insec { lines[++n] = $0 }
+            END {
+              s = 1; while (s <= n && lines[s] ~ /^[[:space:]]*$/) s++
+              e = n; while (e >= 1 && lines[e] ~ /^[[:space:]]*$/) e--
+              for (i = s; i <= e; i++) print lines[i]
+            }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No CHANGELOG.md section found for ${VERSION}; add a '## [${VERSION}]' heading"
+            exit 1
+          fi
+          echo "----- release notes for ${VERSION} -----"
+          cat release-notes.md
+
+      - name: Publish release notes
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          prerelease: false
+          body_path: release-notes.md
 
   publish-sdk:
     if: startsWith(github.ref, 'refs/tags/sdk-v')
