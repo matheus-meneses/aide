@@ -23,7 +23,4 @@ export default defineConfig({
         emptyOutDir: true,
         target: 'es2022',
     },
-    esbuild: {
-        target: 'es2022',
-    },
 })
