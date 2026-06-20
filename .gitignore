@@ -23,6 +23,7 @@ bin/config.yaml
 cli/internal/ui/webui/frontend/node_modules/
 cli/internal/ui/webui/frontend/dist/*
 !cli/internal/ui/webui/frontend/dist/.gitkeep
+*.tsbuildinfo
 
 # ide
 *.iml
