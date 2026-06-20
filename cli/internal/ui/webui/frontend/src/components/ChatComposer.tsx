@@ -1,4 +1,4 @@
-import { type FormEvent, type KeyboardEvent, type RefObject } from "react";
+import { type KeyboardEvent, type RefObject, type SyntheticEvent } from "react";
 import { Send, Square } from "lucide-react";
 import { type SlashCommand } from "@/lib/commands";
 import { APP_NAME } from "@/lib/brand";
@@ -8,8 +8,8 @@ interface Props {
   input: string;
   setInput: (value: string) => void;
   isStreaming: boolean;
-  inputRef: RefObject<HTMLTextAreaElement>;
-  onSubmit: (e: FormEvent) => void;
+  inputRef: RefObject<HTMLTextAreaElement | null>;
+  onSubmit: (e: SyntheticEvent) => void;
   onCancel: () => void;
   onKeyDown: (e: KeyboardEvent) => void;
   showCommands: boolean;

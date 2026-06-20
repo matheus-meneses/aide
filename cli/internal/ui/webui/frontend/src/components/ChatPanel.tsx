@@ -61,7 +61,7 @@ export function ChatPanel({ onConfigure }: Props) {
       });
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || isStreaming) return;
