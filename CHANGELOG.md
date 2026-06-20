@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-06-20
+
 ### Fixed
 
+- **Homebrew CLI no longer disappears after `brew upgrade`** — the tap published
+  the CLI formula and the desktop-app cask under the same token (`aide`), which
+  made `brew install`/`brew upgrade` ambiguous and could leave the `aide` binary
+  installed but unlinked (missing from `PATH`). The desktop cask now uses a
+  distinct token, so the CLI (`brew install aide`) and the app
+  (`brew install --cask aide-app`) no longer collide.
 - **Plugin icons now show in the Installed list** — the Marketplace rendered each
   plugin's `icon`, but the Installed plugins & sources list always drew a generic
   plug glyph. Both views now share a single `PluginIcon`, so installed plugins
