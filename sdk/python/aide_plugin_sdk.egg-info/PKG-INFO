@@ -1,6 +1,0 @@
-Metadata-Version: 2.4
-Name: aide-plugin-sdk
-Version: 0.1.0
-Summary: SDK for writing aide plugins
-Requires-Python: >=3.11
-Requires-Dist: pydantic>=2.0

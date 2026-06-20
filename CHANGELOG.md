@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now publishes the matching `## [version]` section of this file as the GitHub
   release body automatically, so notes no longer have to be written by hand.
 
+### Security
+
+- **Python SDK release dependencies are pinned by hash** — the `publish-sdk`
+  release job now installs `pip`, `pytest`, and `build` from hash-locked
+  requirements files (`sdk/python/requirements/`) with `--require-hashes`, and
+  installs the SDK with `--no-deps`, so the release pipeline no longer fetches
+  unpinned packages. Resolves the OpenSSF Scorecard pinned-dependencies findings.
+
 ## [0.3.3] - 2026-06-20
 
 ### Fixed
