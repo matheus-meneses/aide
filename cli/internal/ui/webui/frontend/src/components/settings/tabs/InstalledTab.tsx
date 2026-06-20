@@ -14,6 +14,7 @@ import * as api from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useInstallProgress } from "@/hooks/useInstallProgress";
 import { ConfigField, Field } from "@/components/forms/Field";
+import { PluginIcon } from "@/components/settings/PluginIcon";
 import {
   Badge,
   Button,
@@ -154,9 +155,7 @@ export function InstalledTab({
         className={cn("flex flex-col gap-3 p-4", expanded && "sm:col-span-2")}
       >
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-            <Plug className="h-5 w-5" />
-          </div>
+          <PluginIcon icon={plugin.icon} fallback={Plug} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
               {plugin.name}
