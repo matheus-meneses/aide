@@ -29,23 +29,23 @@ One tap publishes both the CLI formula and the desktop-app cask:
 brew tap matheus-meneses/aide
 
 brew install aide                 # CLI (macOS / Linux)
-brew install --cask aide          # desktop app (macOS)
+brew install --cask aide-app      # desktop app (macOS)
 ```
 
 Prefer not to tap? Use the fully-qualified names:
 
 ```sh
 brew install matheus-meneses/aide/aide
-brew install --cask matheus-meneses/aide/aide
+brew install --cask matheus-meneses/aide/aide-app
 ```
 
 Upgrade or remove later:
 
 ```sh
 brew upgrade aide                 # CLI
-brew upgrade --cask aide          # desktop app
+brew upgrade --cask aide-app      # desktop app
 brew uninstall aide               # CLI
-brew uninstall --cask aide        # desktop app
+brew uninstall --cask aide-app    # desktop app
 ```
 
 Homebrew always tracks the latest **stable** release — prereleases (`-rc`,
