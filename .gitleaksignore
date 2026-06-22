@@ -1,0 +1,10 @@
+# Reviewed false positives.
+# Historical `deploy` target used `curl -u "$NUSER:$NPASS"` with shell
+# variables (read from env/prompt), not hardcoded credentials. The rule
+# `curl-auth-user` flags the pattern regardless. The target no longer exists,
+# but full-history scans keep matching commit 2e0d8eb.
+2e0d8eb4f09cd59fdf373245862bcd18420625dd:Makefile:curl-auth-user:63
+2e0d8eb4f09cd59fdf373245862bcd18420625dd:Makefile:curl-auth-user:64
+2e0d8eb4f09cd59fdf373245862bcd18420625dd:Makefile:curl-auth-user:65
+2e0d8eb4f09cd59fdf373245862bcd18420625dd:Makefile:curl-auth-user:66
+2e0d8eb4f09cd59fdf373245862bcd18420625dd:Makefile:curl-auth-user:67
