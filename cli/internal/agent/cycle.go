@@ -120,9 +120,6 @@ func (a *Agent) runAgentCycle(ctx context.Context) {
 	a.saveMemory(history)
 }
 
-// appendAssistantTurn records the model's turn in the conversation. The native
-// path carries structured tool calls so providers can match tool results; the
-// fallback path stores only text since no tool_use block was emitted.
 func appendAssistantTurn(messages []llm.ChatMessage, content string, calls []llm.ToolCall, fallback bool) []llm.ChatMessage {
 	msg := llm.ChatMessage{Role: "assistant", Content: content}
 	if !fallback {
@@ -131,9 +128,6 @@ func appendAssistantTurn(messages []llm.ChatMessage, content string, calls []llm
 	return append(messages, msg)
 }
 
-// appendToolResult feeds a tool's output back to the model. Native tool-calling
-// uses a "tool" role message keyed by tool-call id; the fallback path threads it
-// as plain user text since the provider never saw a tool_use block.
 func appendToolResult(messages []llm.ChatMessage, call llm.ToolCall, fallback bool, content string) []llm.ChatMessage {
 	if fallback {
 		return append(messages, llm.ChatMessage{

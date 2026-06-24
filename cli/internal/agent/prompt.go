@@ -8,11 +8,6 @@ import (
 	"time"
 )
 
-// buildAgentMessages seeds the cycle conversation: a system message carrying the
-// assistant rules and the current operational snapshot, plus a kickoff user
-// message. The tool catalog now travels via native function-calling, so it is no
-// longer embedded in the prompt text; tool results are appended to the running
-// conversation across turns instead of being re-rendered each iteration.
 func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 	stateJSON, _ := json.Marshal(state)
 

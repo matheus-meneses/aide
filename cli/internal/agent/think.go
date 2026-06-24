@@ -8,16 +8,12 @@ import (
 	"strings"
 )
 
-// toolCall is the legacy prompt-JSON shape, retained only for the degraded
-// fallback used when a model does not support native function-calling.
 type toolCall struct {
 	Tool   string            `json:"tool"`
 	Params map[string]string `json:"params"`
 	Reason string            `json:"reason"`
 }
 
-// think runs one model turn over the running conversation, exposing the current
-// tool catalog via native function-calling, and records token usage.
 func (a *Agent) think(ctx context.Context, messages []llm.ChatMessage, tools []llm.ToolDefinition) (*llm.ChatResult, error) {
 	client := a.getLLM()
 	result, err := client.ChatWithTools(ctx, messages, tools)
@@ -34,8 +30,6 @@ func (a *Agent) think(ctx context.Context, messages []llm.ChatMessage, tools []l
 	return result, nil
 }
 
-// toolDefinitions snapshots the registry into provider-neutral tool definitions.
-// The registry is rebuilt on ReloadConfig, so this reflects the live catalog.
 func (a *Agent) toolDefinitions() []llm.ToolDefinition {
 	defs := a.tools.Definitions()
 	out := make([]llm.ToolDefinition, 0, len(defs))
@@ -57,8 +51,6 @@ func (a *Agent) executeTool(ctx context.Context, name string, params map[string]
 	return tool.Execute(ctx, params)
 }
 
-// argsToParams coerces a JSON arguments object into the map[string]string shape
-// the tool Execute contract expects. Non-string scalars are JSON-encoded.
 func argsToParams(raw json.RawMessage) map[string]string {
 	params := make(map[string]string)
 	if len(raw) == 0 {
@@ -86,9 +78,6 @@ func argString(raw json.RawMessage, key string) string {
 	return argsToParams(raw)[key]
 }
 
-// fallbackToolCall salvages a tool call from free-text content when a model
-// ignores native tool-calling and instead emits the legacy JSON object. It
-// returns ok=false when there is no parseable tool call.
 func fallbackToolCall(content string) (llm.ToolCall, bool) {
 	if !strings.Contains(content, "{") {
 		return llm.ToolCall{}, false

@@ -284,9 +284,6 @@ func toAnthropicTools(tools []ToolDefinition) []anthropicTool {
 	return out
 }
 
-// toAnthropicBlockMessages converts neutral messages into Anthropic's system
-// string plus block-structured messages. Assistant tool calls become tool_use
-// blocks and "tool" role results become tool_result blocks on a user message.
 func toAnthropicBlockMessages(messages []ChatMessage) (string, []anthropicBlockMessage) {
 	var system []string
 	out := make([]anthropicBlockMessage, 0, len(messages))

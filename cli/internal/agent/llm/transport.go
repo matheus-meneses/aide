@@ -18,8 +18,6 @@ const (
 	sseBufferLimit = 1024 * 1024
 )
 
-// baseClient holds the HTTP plumbing shared by every provider client. Concrete
-// clients embed it so request execution, streaming, and Model() are defined once.
 type baseClient struct {
 	baseURL string
 	model   string
@@ -40,9 +38,6 @@ func (c *baseClient) Model() string {
 	return c.model
 }
 
-// postJSON marshals body, issues a POST to url with the given headers, and
-// returns the live response on 2xx. Non-2xx responses are drained and turned
-// into an error that includes the body, so callers never leak the connection.
 func (c *baseClient) postJSON(ctx context.Context, url string, headers map[string]string, body any, stream bool) (*http.Response, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -75,8 +70,6 @@ func (c *baseClient) postJSON(ctx context.Context, url string, headers map[strin
 	return resp, nil
 }
 
-// get issues a GET to url with the given headers and returns an error on any
-// non-2xx status. Used by reachability checks.
 func (c *baseClient) get(ctx context.Context, url string, headers map[string]string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -98,9 +91,6 @@ func (c *baseClient) get(ctx context.Context, url string, headers map[string]str
 	return nil
 }
 
-// scanSSE reads a Server-Sent Events stream, invoking onData with the payload of
-// each `data:` line. onData returning errStopSSE ends the scan cleanly; any other
-// error aborts and is returned to the caller.
 func scanSSE(r io.Reader, onData func(data string) error) error {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64*1024), sseBufferLimit)
@@ -125,6 +115,4 @@ func scanSSE(r io.Reader, onData func(data string) error) error {
 	return nil
 }
 
-// errStopSSE signals scanSSE to stop reading without surfacing an error (e.g. on
-// the OpenAI "[DONE]" sentinel).
 var errStopSSE = fmt.Errorf("sse stream complete")
