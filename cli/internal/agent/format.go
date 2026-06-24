@@ -7,24 +7,28 @@ import (
 )
 
 func formatItem(item store.Item) string {
-	line := fmt.Sprintf("- [%s] %s", item.Priority, item.Title)
-	if item.Member != "" {
-		line += " (assigned: " + item.Member + ")"
+	title := sanitizeUntrusted(item.Title)
+	detail := sanitizeUntrusted(item.Detail)
+	member := sanitizeUntrusted(item.Member)
+
+	line := fmt.Sprintf("- [%s] %s", item.Priority, title)
+	if member != "" {
+		line += " (assigned: " + member + ")"
 	}
 	if item.EntryDate != "" {
 		dateLabel := tools.HumanizeDate(item.EntryDate)
 		line += " | " + dateLabel
-		if item.Category == "event" && dateLabel != "TODAY" && item.Detail != "" {
-			line += " " + item.Detail
+		if item.Category == "event" && dateLabel != "TODAY" && detail != "" {
+			line += " " + detail
 		}
 	}
 	if item.Category != "event" || tools.HumanizeDate(item.EntryDate) == "TODAY" {
-		if item.Detail != "" {
-			line += " | " + item.Detail
+		if detail != "" {
+			line += " | " + detail
 		}
 	}
 	if item.Link != "" {
-		line += " | link: " + item.Link
+		line += " | link: " + sanitizeUntrusted(item.Link)
 	}
 	return line + "\n"
 }
