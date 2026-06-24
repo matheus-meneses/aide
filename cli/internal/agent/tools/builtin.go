@@ -56,7 +56,7 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 		Name:        "scrape",
 		Description: "Run scrapers to fetch fresh data from sources.",
 		Parameters:  fmt.Sprintf(`{"source": "%s"}`, sourceParam),
-		InputSchema: objectSchema(map[string]string{"source": sourceParam}),
+		InputSchema: sourceSchema(sourceParam, sourceNames),
 		Execute: func(ctx context.Context, params map[string]string) (string, error) {
 			var sources []string
 			if s := params["source"]; s != "" {

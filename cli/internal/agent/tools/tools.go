@@ -68,23 +68,46 @@ func emptyObjectSchema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{}}`)
 }
 
+type schemaField struct {
+	Type        string   `json:"type"`
+	Description string   `json:"description,omitempty"`
+	Enum        []string `json:"enum,omitempty"`
+}
+
 // objectSchema builds a JSON Schema object from a map of property name to
 // description. All properties are typed as strings, matching the tool Execute
 // contract (map[string]string).
 func objectSchema(props map[string]string) json.RawMessage {
-	type field struct {
-		Type        string `json:"type"`
-		Description string `json:"description,omitempty"`
-	}
 	schema := struct {
-		Type       string           `json:"type"`
-		Properties map[string]field `json:"properties"`
+		Type       string                 `json:"type"`
+		Properties map[string]schemaField `json:"properties"`
 	}{
 		Type:       "object",
-		Properties: make(map[string]field, len(props)),
+		Properties: make(map[string]schemaField, len(props)),
 	}
 	for name, desc := range props {
-		schema.Properties[name] = field{Type: "string", Description: desc}
+		schema.Properties[name] = schemaField{Type: "string", Description: desc}
+	}
+	raw, err := json.Marshal(schema)
+	if err != nil {
+		return emptyObjectSchema()
+	}
+	return raw
+}
+
+// sourceSchema builds the scrape tool's object schema with a single "source"
+// string property constrained to enum (when non-empty). This lets native
+// function-calling reject unknown source names up front instead of relying on
+// the description as a hint, so the model cannot invent a non-existent source.
+func sourceSchema(desc string, enum []string) json.RawMessage {
+	schema := struct {
+		Type       string                 `json:"type"`
+		Properties map[string]schemaField `json:"properties"`
+	}{
+		Type: "object",
+		Properties: map[string]schemaField{
+			"source": {Type: "string", Description: desc, Enum: enum},
+		},
 	}
 	raw, err := json.Marshal(schema)
 	if err != nil {
