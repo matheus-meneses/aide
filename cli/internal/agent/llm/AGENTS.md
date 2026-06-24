@@ -35,6 +35,14 @@ depends on types, not vendors.
 - Both clients embed `baseClient` and share one transport (`postJSON`/`scanSSE`); request execution, SSE scanning, and `Model()` are defined once, not per provider.
 - `ChatWithTools` is non-streaming and translates the neutral `ChatMessage`/`ToolCall` model into each vendor's wire shape (OpenAI `tool_calls` + `role:"tool"`; Anthropic `tool_use`/`tool_result` content blocks). `Chat`/`ChatStream` are unchanged.
 
+## Protocol references
+
+`ChatWithTools` implements each provider's native function-calling protocol rather than a homegrown convention. Tool schemas are JSON Schema objects.
+
+- OpenAI / LiteLLM function calling (`tools`, `tool_calls`, `role:"tool"`): https://platform.openai.com/docs/guides/function-calling
+- Anthropic tool use (`tools` with `input_schema`, `tool_use` / `tool_result` content blocks): https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview
+- JSON Schema (tool `parameters` / `input_schema`): https://json-schema.org/
+
 ## Relations
 
 - Used by: `internal/agent`, `cmd/aide` (provider/URL helpers).

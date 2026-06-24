@@ -38,6 +38,9 @@ then calls `llm.ChatWithTools` each turn, executes every returned tool call, and
 `tool`-role messages until the model stops calling tools or calls `done`. If a model returns plain text
 instead of tool calls, the loop falls back to parsing the legacy prompt-JSON (`{"tool","params"}`) once.
 
+The wire protocol is each vendor's native function-calling spec (not a homegrown one); see the
+protocol references in [agent/llm/AGENTS.md](llm/AGENTS.md) for the OpenAI, Anthropic, and JSON Schema links.
+
 ## Files
 
 | File              | Responsibility                                                                       |
