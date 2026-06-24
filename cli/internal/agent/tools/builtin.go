@@ -56,6 +56,7 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 		Name:        "scrape",
 		Description: "Run scrapers to fetch fresh data from sources.",
 		Parameters:  fmt.Sprintf(`{"source": "%s"}`, sourceParam),
+		InputSchema: objectSchema(map[string]string{"source": sourceParam}),
 		Execute: func(ctx context.Context, params map[string]string) (string, error) {
 			var sources []string
 			if s := params["source"]; s != "" {
@@ -108,6 +109,7 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 				Name:        toolName,
 				Description: toolSpec.Description,
 				Parameters:  string(paramsJSON),
+				InputSchema: objectSchema(toolSpec.Params),
 				Execute: func(ctx context.Context, params map[string]string) (string, error) {
 					secrets, _ := plugin.ScopedSecrets(sourceName, m)
 					paramAny := make(map[string]any, len(params))
@@ -171,6 +173,11 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 		Name:        "notify_user",
 		Description: "Send a browser notification to the user. Use ONLY for urgent/important things that need immediate attention.",
 		Parameters:  `{"title": "required, 3-5 words", "body": "required, max 12 words", "fingerprint": "optional, item fingerprint for ack tracking"}`,
+		InputSchema: objectSchema(map[string]string{
+			"title":       "required, 3-5 words",
+			"body":        "required, max 12 words",
+			"fingerprint": "optional, item fingerprint for ack tracking",
+		}),
 		Execute: func(_ context.Context, params map[string]string) (string, error) {
 			title := params["title"]
 			body := params["body"]
@@ -207,6 +214,10 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 		Name:        "send_message",
 		Description: "Post a message to the web UI activity feed. Use for non-urgent updates the user might want to see later.",
 		Parameters:  `{"content": "required, the message to display", "fingerprint": "optional, item fingerprint for ack tracking"}`,
+		InputSchema: objectSchema(map[string]string{
+			"content":     "required, the message to display",
+			"fingerprint": "optional, item fingerprint for ack tracking",
+		}),
 		Execute: func(_ context.Context, params map[string]string) (string, error) {
 			content := params["content"]
 			fingerprint := params["fingerprint"]
@@ -238,6 +249,7 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 		Name:        "check_items",
 		Description: "Query current open items. Optionally filter by source.",
 		Parameters:  `{"source": "optional, filter by source name"}`,
+		InputSchema: objectSchema(map[string]string{"source": "optional, filter by source name"}),
 		Execute: func(_ context.Context, params map[string]string) (string, error) {
 			source := params["source"]
 			items, err := c.Store().Items.QueryOpen(source, "", "")
@@ -308,6 +320,7 @@ func RegisterBuiltins(reg *ToolRegistry, c Capabilities) {
 		Name:        "done",
 		Description: "Stop acting for this cycle. Use when there is nothing else to do.",
 		Parameters:  `{"reason": "optional, why you are stopping"}`,
+		InputSchema: objectSchema(map[string]string{"reason": "optional, why you are stopping"}),
 		Execute: func(_ context.Context, _ map[string]string) (string, error) {
 			return "cycle complete", nil
 		},

@@ -1,22 +1,16 @@
 package llm
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 )
 
 type openAIClient struct {
-	baseURL string
-	model   string
-	apiKey  string
-	client  *http.Client
+	baseClient
 }
 
 type oaiChatRequest struct {
@@ -45,16 +39,14 @@ type oaiStreamChunk struct {
 }
 
 func newOpenAIClient(baseURL, model, apiKey string) *openAIClient {
-	return &openAIClient{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		model:   model,
-		apiKey:  apiKey,
-		client:  &http.Client{Timeout: 3 * time.Minute},
-	}
+	return &openAIClient{baseClient: newBaseClient(baseURL, model, apiKey)}
 }
 
-func (c *openAIClient) Model() string {
-	return c.model
+func (c *openAIClient) authHeaders() map[string]string {
+	if c.apiKey == "" {
+		return nil
+	}
+	return map[string]string{"Authorization": "Bearer " + c.apiKey}
 }
 
 func (c *openAIClient) doRequest(ctx context.Context, messages []ChatMessage, stream bool) (*http.Response, error) {
@@ -63,36 +55,7 @@ func (c *openAIClient) doRequest(ctx context.Context, messages []ChatMessage, st
 		Messages: messages,
 		Stream:   stream,
 	}
-
-	payload, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(payload))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if stream {
-		req.Header.Set("Accept", "text/event-stream")
-	}
-	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("calling LLM: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		return nil, fmt.Errorf("LLM returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return resp, nil
+	return c.postJSON(ctx, c.baseURL+"/chat/completions", c.authHeaders(), reqBody, stream)
 }
 
 func (c *openAIClient) Chat(ctx context.Context, messages []ChatMessage) (string, *Usage, error) {
@@ -123,24 +86,15 @@ func (c *openAIClient) ChatStream(ctx context.Context, messages []ChatMessage, c
 
 	var full strings.Builder
 	var usage *Usage
-	scanner := bufio.NewScanner(resp.Body)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
+	scanErr := scanSSE(resp.Body, func(data string) error {
 		if data == "[DONE]" {
-			break
+			return errStopSSE
 		}
 
-		var chunk oaiStreamChunk
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			continue
+		chunk, ok := decodeOAIStreamChunk(data)
+		if !ok {
+			return nil
 		}
 
 		if chunk.Usage != nil {
@@ -148,7 +102,7 @@ func (c *openAIClient) ChatStream(ctx context.Context, messages []ChatMessage, c
 		}
 
 		if len(chunk.Choices) == 0 {
-			continue
+			return nil
 		}
 
 		choice := chunk.Choices[0]
@@ -163,10 +117,10 @@ func (c *openAIClient) ChatStream(ctx context.Context, messages []ChatMessage, c
 				cb(content)
 			}
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return full.String(), usage, fmt.Errorf("reading stream: %w", err)
+		return nil
+	})
+	if scanErr != nil {
+		return full.String(), usage, scanErr
 	}
 
 	if usage == nil {
@@ -180,26 +134,151 @@ func (c *openAIClient) ChatStream(ctx context.Context, messages []ChatMessage, c
 	return full.String(), usage, nil
 }
 
-func (c *openAIClient) Ping() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+type oaiTool struct {
+	Type     string          `json:"type"`
+	Function oaiToolFunction `json:"function"`
+}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/models", nil)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+type oaiToolFunction struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
+}
+
+type oaiToolCall struct {
+	ID       string              `json:"id"`
+	Type     string              `json:"type"`
+	Function oaiToolCallFunction `json:"function"`
+}
+
+type oaiToolCallFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type oaiMessage struct {
+	Role       string        `json:"role"`
+	Content    string        `json:"content,omitempty"`
+	ToolCalls  []oaiToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string        `json:"tool_call_id,omitempty"`
+	Name       string        `json:"name,omitempty"`
+}
+
+type oaiToolsRequest struct {
+	Model      string       `json:"model"`
+	Messages   []oaiMessage `json:"messages"`
+	Tools      []oaiTool    `json:"tools,omitempty"`
+	ToolChoice string       `json:"tool_choice,omitempty"`
+	Stream     bool         `json:"stream"`
+}
+
+type oaiToolsResponse struct {
+	Choices []struct {
+		Message struct {
+			Content   string        `json:"content"`
+			ToolCalls []oaiToolCall `json:"tool_calls"`
+		} `json:"message"`
+	} `json:"choices"`
+	Usage *Usage `json:"usage,omitempty"`
+}
+
+func (c *openAIClient) ChatWithTools(ctx context.Context, messages []ChatMessage, tools []ToolDefinition) (*ChatResult, error) {
+	reqBody := oaiToolsRequest{
+		Model:    c.model,
+		Messages: toOAIMessages(messages),
 	}
-	if c.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if len(tools) > 0 {
+		reqBody.Tools = toOAITools(tools)
+		reqBody.ToolChoice = "auto"
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.postJSON(ctx, c.baseURL+"/chat/completions", c.authHeaders(), reqBody, false)
 	if err != nil {
-		return fmt.Errorf("connecting to LLM: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("LLM returned status %d", resp.StatusCode)
+	var result oaiToolsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
 	}
-	return nil
+	if len(result.Choices) == 0 {
+		return nil, fmt.Errorf("LLM returned no choices")
+	}
+
+	msg := result.Choices[0].Message
+	out := &ChatResult{Content: msg.Content, Usage: result.Usage}
+	for _, tc := range msg.ToolCalls {
+		args := tc.Function.Arguments
+		if strings.TrimSpace(args) == "" {
+			args = "{}"
+		}
+		out.ToolCalls = append(out.ToolCalls, ToolCall{
+			ID:        tc.ID,
+			Name:      tc.Function.Name,
+			Arguments: json.RawMessage(args),
+		})
+	}
+	return out, nil
+}
+
+func toOAITools(tools []ToolDefinition) []oaiTool {
+	out := make([]oaiTool, 0, len(tools))
+	for _, t := range tools {
+		params := t.Parameters
+		if len(params) == 0 {
+			params = json.RawMessage(`{"type":"object","properties":{}}`)
+		}
+		out = append(out, oaiTool{
+			Type: "function",
+			Function: oaiToolFunction{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  params,
+			},
+		})
+	}
+	return out
+}
+
+func toOAIMessages(messages []ChatMessage) []oaiMessage {
+	out := make([]oaiMessage, 0, len(messages))
+	for _, m := range messages {
+		om := oaiMessage{
+			Role:       m.Role,
+			Content:    m.Content,
+			ToolCallID: m.ToolCallID,
+			Name:       m.Name,
+		}
+		for _, tc := range m.ToolCalls {
+			args := string(tc.Arguments)
+			if strings.TrimSpace(args) == "" {
+				args = "{}"
+			}
+			om.ToolCalls = append(om.ToolCalls, oaiToolCall{
+				ID:   tc.ID,
+				Type: "function",
+				Function: oaiToolCallFunction{
+					Name:      tc.Name,
+					Arguments: args,
+				},
+			})
+		}
+		out = append(out, om)
+	}
+	return out
+}
+
+func decodeOAIStreamChunk(data string) (oaiStreamChunk, bool) {
+	var chunk oaiStreamChunk
+	if json.Unmarshal([]byte(data), &chunk) != nil {
+		return oaiStreamChunk{}, false
+	}
+	return chunk, true
+}
+
+func (c *openAIClient) Ping() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return c.get(ctx, c.baseURL+"/models", c.authHeaders())
 }

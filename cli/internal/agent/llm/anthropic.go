@@ -1,12 +1,9 @@
 package llm
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -18,10 +15,7 @@ const (
 )
 
 type anthropicClient struct {
-	baseURL string
-	model   string
-	apiKey  string
-	client  *http.Client
+	baseClient
 }
 
 type anthropicMessage struct {
@@ -68,16 +62,15 @@ func newAnthropicClient(baseURL, model, apiKey string) *anthropicClient {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL(string(ProviderAnthropic))
 	}
-	return &anthropicClient{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		model:   model,
-		apiKey:  apiKey,
-		client:  &http.Client{Timeout: 3 * time.Minute},
-	}
+	return &anthropicClient{baseClient: newBaseClient(baseURL, model, apiKey)}
 }
 
-func (c *anthropicClient) Model() string {
-	return c.model
+func (c *anthropicClient) authHeaders() map[string]string {
+	h := map[string]string{"anthropic-version": anthropicVersion}
+	if c.apiKey != "" {
+		h["x-api-key"] = c.apiKey
+	}
+	return h
 }
 
 func splitSystem(messages []ChatMessage) (string, []anthropicMessage) {
@@ -106,37 +99,7 @@ func (c *anthropicClient) doRequest(ctx context.Context, messages []ChatMessage,
 		Messages:  msgs,
 		Stream:    stream,
 	}
-
-	payload, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/v1/messages", bytes.NewReader(payload))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("anthropic-version", anthropicVersion)
-	if stream {
-		req.Header.Set("Accept", "text/event-stream")
-	}
-	if c.apiKey != "" {
-		req.Header.Set("x-api-key", c.apiKey)
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("calling LLM: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		return nil, fmt.Errorf("LLM returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return resp, nil
+	return c.postJSON(ctx, c.baseURL+"/v1/messages", c.authHeaders(), reqBody, stream)
 }
 
 func (c *anthropicClient) Chat(ctx context.Context, messages []ChatMessage) (string, *Usage, error) {
@@ -170,20 +133,11 @@ func (c *anthropicClient) ChatStream(ctx context.Context, messages []ChatMessage
 
 	var full strings.Builder
 	usage := &anthropicUsage{}
-	scanner := bufio.NewScanner(resp.Body)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-
-		var event anthropicStreamEvent
-		if err := json.Unmarshal([]byte(data), &event); err != nil {
-			continue
+	scanErr := scanSSE(resp.Body, func(data string) error {
+		event, ok := decodeAnthropicStreamEvent(data)
+		if !ok {
+			return nil
 		}
 
 		switch event.Type {
@@ -204,38 +158,186 @@ func (c *anthropicClient) ChatStream(ctx context.Context, messages []ChatMessage
 			}
 		case "message_stop":
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return full.String(), anthropicUsageToUsage(usage), fmt.Errorf("reading stream: %w", err)
+		return nil
+	})
+	if scanErr != nil {
+		return full.String(), anthropicUsageToUsage(usage), scanErr
 	}
 
 	return full.String(), anthropicUsageToUsage(usage), nil
 }
 
+func decodeAnthropicStreamEvent(data string) (anthropicStreamEvent, bool) {
+	var event anthropicStreamEvent
+	if json.Unmarshal([]byte(data), &event) != nil {
+		return anthropicStreamEvent{}, false
+	}
+	return event, true
+}
+
 func (c *anthropicClient) Ping() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	return c.get(ctx, c.baseURL+"/v1/models", c.authHeaders())
+}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/v1/models", nil)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+type anthropicTool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	InputSchema json.RawMessage `json:"input_schema"`
+}
+
+type anthropicBlockMessage struct {
+	Role    string              `json:"role"`
+	Content []anthropicReqBlock `json:"content"`
+}
+
+type anthropicReqBlock struct {
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
+	Content   string          `json:"content,omitempty"`
+}
+
+type anthropicToolsRequest struct {
+	Model     string                  `json:"model"`
+	MaxTokens int                     `json:"max_tokens"`
+	System    string                  `json:"system,omitempty"`
+	Messages  []anthropicBlockMessage `json:"messages"`
+	Tools     []anthropicTool         `json:"tools,omitempty"`
+}
+
+type anthropicToolsResponse struct {
+	Content []anthropicRespBlock `json:"content"`
+	Usage   *anthropicUsage      `json:"usage,omitempty"`
+}
+
+type anthropicRespBlock struct {
+	Type  string          `json:"type"`
+	Text  string          `json:"text"`
+	ID    string          `json:"id"`
+	Name  string          `json:"name"`
+	Input json.RawMessage `json:"input"`
+}
+
+func (c *anthropicClient) ChatWithTools(ctx context.Context, messages []ChatMessage, tools []ToolDefinition) (*ChatResult, error) {
+	system, msgs := toAnthropicBlockMessages(messages)
+	reqBody := anthropicToolsRequest{
+		Model:     c.model,
+		MaxTokens: anthropicMaxTokens,
+		System:    system,
+		Messages:  msgs,
 	}
-	req.Header.Set("anthropic-version", anthropicVersion)
-	if c.apiKey != "" {
-		req.Header.Set("x-api-key", c.apiKey)
+	if len(tools) > 0 {
+		reqBody.Tools = toAnthropicTools(tools)
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.postJSON(ctx, c.baseURL+"/v1/messages", c.authHeaders(), reqBody, false)
 	if err != nil {
-		return fmt.Errorf("connecting to LLM: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("LLM returned status %d", resp.StatusCode)
+	var result anthropicToolsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
 	}
-	return nil
+
+	out := &ChatResult{Usage: anthropicUsageToUsage(result.Usage)}
+	var text strings.Builder
+	for _, block := range result.Content {
+		switch block.Type {
+		case "text":
+			text.WriteString(block.Text)
+		case "tool_use":
+			input := block.Input
+			if len(input) == 0 {
+				input = json.RawMessage("{}")
+			}
+			out.ToolCalls = append(out.ToolCalls, ToolCall{
+				ID:        block.ID,
+				Name:      block.Name,
+				Arguments: input,
+			})
+		}
+	}
+	out.Content = text.String()
+	return out, nil
+}
+
+func toAnthropicTools(tools []ToolDefinition) []anthropicTool {
+	out := make([]anthropicTool, 0, len(tools))
+	for _, t := range tools {
+		schema := t.Parameters
+		if len(schema) == 0 {
+			schema = json.RawMessage(`{"type":"object","properties":{}}`)
+		}
+		out = append(out, anthropicTool{
+			Name:        t.Name,
+			Description: t.Description,
+			InputSchema: schema,
+		})
+	}
+	return out
+}
+
+// toAnthropicBlockMessages converts neutral messages into Anthropic's system
+// string plus block-structured messages. Assistant tool calls become tool_use
+// blocks and "tool" role results become tool_result blocks on a user message.
+func toAnthropicBlockMessages(messages []ChatMessage) (string, []anthropicBlockMessage) {
+	var system []string
+	out := make([]anthropicBlockMessage, 0, len(messages))
+
+	for _, m := range messages {
+		switch {
+		case m.Role == "system":
+			system = append(system, m.Content)
+
+		case m.Role == "tool":
+			out = append(out, anthropicBlockMessage{
+				Role: "user",
+				Content: []anthropicReqBlock{{
+					Type:      "tool_result",
+					ToolUseID: m.ToolCallID,
+					Content:   m.Content,
+				}},
+			})
+
+		case m.Role == "assistant" && len(m.ToolCalls) > 0:
+			blocks := make([]anthropicReqBlock, 0, len(m.ToolCalls)+1)
+			if m.Content != "" {
+				blocks = append(blocks, anthropicReqBlock{Type: "text", Text: m.Content})
+			}
+			for _, tc := range m.ToolCalls {
+				input := tc.Arguments
+				if len(input) == 0 {
+					input = json.RawMessage("{}")
+				}
+				blocks = append(blocks, anthropicReqBlock{
+					Type:  "tool_use",
+					ID:    tc.ID,
+					Name:  tc.Name,
+					Input: input,
+				})
+			}
+			out = append(out, anthropicBlockMessage{Role: "assistant", Content: blocks})
+
+		default:
+			role := m.Role
+			if role != "assistant" {
+				role = "user"
+			}
+			out = append(out, anthropicBlockMessage{
+				Role:    role,
+				Content: []anthropicReqBlock{{Type: "text", Text: m.Content}},
+			})
+		}
+	}
+
+	return strings.Join(system, "\n\n"), out
 }
 
 func anthropicUsageToUsage(u *anthropicUsage) *Usage {

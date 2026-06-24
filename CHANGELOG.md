@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Agent tool loop now uses provider-native function-calling** — the autonomous
+  cycle exposes its tools to the model through OpenAI/LiteLLM `tool_calls` and
+  Anthropic `tool_use`/`tool_result` (JSON-Schema tool definitions) instead of the
+  homegrown prompt-embedded `{"tool","params"}` convention. The model can request
+  several tools per turn and their results are threaded back into the conversation,
+  with the legacy prompt-JSON parsing retained only as a fallback for models that
+  ignore native tools. The two provider clients now share one HTTP/SSE transport.
+  No user-facing behavior change. (#57)
 - **Web UI upgraded to React 19 and Tailwind CSS v4** — the desktop/web frontend
   now builds on React 19, Tailwind CSS v4, lucide-react v1, react-markdown 10, and
   tailwind-merge 3, with build tooling on TypeScript 6, Vite 8, ESLint 10, and

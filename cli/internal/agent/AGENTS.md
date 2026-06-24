@@ -13,7 +13,7 @@ and serves a web UI with real-time event streaming.
   tool registry; scheduler, chat, cycle, slash-command exec. Exposes accessors used by `agent/api`
   (`Bus()`, `StreamChat()`, `ExecuteCommand()`, `PublishProgress()`, `ConfigPath()`, `StoredAPIKey()`).
 - `agent/events` — **leaf**: `Event`, `EventRing`, `EventBus` (in-memory SSE pub/sub). Imports `platform` only.
-- `agent/llm` — provider-agnostic chat client (`Chat`, `ChatStream`, `Ping`, `Model`); OpenAI/LiteLLM + Anthropic.
+- `agent/llm` — provider-agnostic chat client (`Chat`, `ChatStream`, `ChatWithTools`, `Ping`, `Model`); OpenAI/LiteLLM + Anthropic.
 - `agent/tools` — `Tool` / `ToolRegistry` + builtins, behind a `Capabilities` interface implemented by `*Agent`
   (avoids a core↔tools cycle).
 - `agent/api` — HTTP REST handlers + `Register(a *agent.Agent, mux *http.ServeMux)`; mounted by `webui` via `RegisterAPI`.
@@ -24,12 +24,19 @@ Notifications moved out to the top-level `notification` concept (`MacNotifier`, 
 ## Architecture
 
 ```
-Timer tick → runAgentCycle → build context → LLM → parse tool calls → execute tools → loop until "done"
+Timer tick → runAgentCycle → build messages + tool catalog → LLM (native tool-calling)
+                → execute returned tool calls → append tool results → loop until no tool calls / "done"
                                                                           ↓
                                                                    EventBus.Publish
                                                                           ↓
                                                                    ServeSSE → browser
 ```
+
+The autonomous loop uses provider-native function-calling: `runAgentCycle` builds a running
+`[]llm.ChatMessage` conversation (system + state) plus a tool catalog from `tools.Registry.Definitions()`,
+then calls `llm.ChatWithTools` each turn, executes every returned tool call, and feeds results back as
+`tool`-role messages until the model stops calling tools or calls `done`. If a model returns plain text
+instead of tool calls, the loop falls back to parsing the legacy prompt-JSON (`{"tool","params"}`) once.
 
 ## Files
 
@@ -38,8 +45,8 @@ Timer tick → runAgentCycle → build context → LLM → parse tool calls → 
 | `agent.go`        | Agent struct, constructor (`New`), status check, LLM wiring                          |
 | `capabilities.go` | Accessors exposed to `agent/tools` and `agent/api` (`Bus`, `ConfigPath`, …)          |
 | `scheduler.go`    | `StartAutonomous(ctx)` — schedule + briefing loops; blocks on `ctx.Done()` (no HTTP) |
-| `cycle.go`        | `runAgentCycle` — context → LLM → tool calls → loop                                  |
-| `think.go`        | LLM reasoning / tool-call parsing                                                    |
+| `cycle.go`        | `runAgentCycle` — native multi-turn tool-calling loop; threads tool results back     |
+| `think.go`        | One `ChatWithTools` turn + token accounting; tool-definition snapshot, arg coercion, prompt-JSON fallback |
 | `context.go` / `prompt.go` | Build system prompt context (state, rules, ack list, briefing schedule)     |
 | `chat.go` / `sessions.go` | `StreamChat` (transport-free), in-memory chat sessions (`"web-default"`)      |
 | `exec.go`         | Slash command execution (/scrape, /status, /stats, /ack, /memory)                   |
@@ -73,7 +80,7 @@ never imports `ui` and `ui` never imports `agent`.
 - `EventBus.Publish` silently drops events on full buffers — consider the EventRing improvement.
 - Two SSE event sources in the frontend were consolidated to a single connection via `useSSE`.
 - `chatSessions` is an in-memory map that never evicts — potential memory leak for long-running agents.
-- LLM response parsing uses regex for tool calls in markdown code blocks — fragile against format changes.
+- Tool calls now arrive via native function-calling; `parseToolCall` (prompt-JSON) survives only as the degraded fallback for models that ignore tools.
 - The `handleRefresh` handler is defined but never registered on the mux.
 
 ## Relations

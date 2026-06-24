@@ -1,13 +1,19 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 )
 
-func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
+// buildAgentMessages seeds the cycle conversation: a system message carrying the
+// assistant rules and the current operational snapshot, plus a kickoff user
+// message. The tool catalog now travels via native function-calling, so it is no
+// longer embedded in the prompt text; tool results are appended to the running
+// conversation across turns instead of being re-rendered each iteration.
+func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 	stateJSON, _ := json.Marshal(state)
 
 	var prompt strings.Builder
@@ -29,13 +35,6 @@ func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
 	prompt.WriteString("\n## Current State\n")
 	prompt.WriteString(string(stateJSON))
 	prompt.WriteString("\n")
-
-	if len(history) > 0 {
-		prompt.WriteString("\n## Actions taken this cycle\n")
-		for _, h := range history {
-			prompt.WriteString("- " + h + "\n")
-		}
-	}
 
 	if acks, err := a.store.Acks.ListActive(); err == nil && len(acks) > 0 {
 		openItems, _ := a.store.Items.QueryOpen("", "", "")
@@ -64,11 +63,10 @@ func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
 		}
 	}
 
-	prompt.WriteString("\n## Available Tools\n")
-	prompt.WriteString(a.tools.Describe())
-	prompt.WriteString("\nRespond with JSON: {\"tool\": \"name\", \"params\": {...}, \"reason\": \"why\"}\n")
-
-	return prompt.String()
+	return []llm.ChatMessage{
+		{Role: "system", Content: prompt.String()},
+		{Role: "user", Content: "Run your cycle now: review the state and call the tools you need. Call done when finished."},
+	}
 }
 
 const agentSystemPrompt = `You are Aide, a personal work assistant. You wake up periodically to check on the user's work state and decide what actions to take.
@@ -102,5 +100,6 @@ DATE RULES (critical — you repeatedly get this wrong, follow EXACTLY):
 - "New items" from diff means DISCOVERED recently (added to a source), NOT scheduled for today. A meeting added today for next week is "added for Fri Jun 12", never "added for today".
 - Before writing any message, re-read each date label and make sure the words match it. Do not use "today/hoje" for anything not labeled TODAY.
 
-Respond ONLY with a single JSON object: {"tool": "name", "params": {...}, "reason": "why"}
-Do not include any other text, explanation, or markdown.`
+TOOLS:
+- Use the provided tools to act. Call one or more tools per turn; their results are returned to you before your next turn.
+- When there is nothing left to do, call done.`
