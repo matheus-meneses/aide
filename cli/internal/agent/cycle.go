@@ -129,17 +129,18 @@ func appendAssistantTurn(messages []llm.ChatMessage, content string, calls []llm
 }
 
 func appendToolResult(messages []llm.ChatMessage, call llm.ToolCall, fallback bool, content string) []llm.ChatMessage {
+	safe := fenceUntrusted(sanitizeUntrusted(content))
 	if fallback {
 		return append(messages, llm.ChatMessage{
 			Role:    "user",
-			Content: fmt.Sprintf("Result of %s: %s", call.Name, content),
+			Content: fmt.Sprintf("Result of %s:\n%s", call.Name, safe),
 		})
 	}
 	return append(messages, llm.ChatMessage{
 		Role:       "tool",
 		ToolCallID: call.ID,
 		Name:       call.Name,
-		Content:    content,
+		Content:    safe,
 	})
 }
 

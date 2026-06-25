@@ -54,7 +54,8 @@ protocol references in [agent/llm/AGENTS.md](llm/AGENTS.md) for the OpenAI, Anth
 | `chat.go` / `sessions.go` | `StreamChat` (transport-free), in-memory chat sessions (`"web-default"`)      |
 | `exec.go`         | Slash command execution (/scrape, /status, /stats, /ack, /memory)                   |
 | `publish.go`      | `PublishProgress` and SSE event emission helpers                                     |
-| `format.go`       | Output formatting helpers                                                            |
+| `format.go`       | Output formatting helpers (`formatItem` sanitizes scraped fields)                   |
+| `guardrail.go`    | Non-overridable untrusted-data guardrail text, fence markers, `fenceUntrusted` / `sanitizeUntrusted` |
 | `version.go`      | Build-time `Version` variable                                                        |
 
 Code that moved out of this directory: `agent/events` (SSE bus), `agent/tools` (registry + builtins +
@@ -77,6 +78,12 @@ never imports `ui` and `ui` never imports `agent`.
   publishes to the event bus for web UI delivery on all platforms.
 - Chat sessions use `"web-default"` as the persistent session ID.
 - Acknowledged alerts (24h window) are included in LLM context to prevent re-notification.
+- **Prompt-injection guardrail (non-overridable):** all scraped/external data injected into LLM prompts — both
+  chat `BuildContext` and the autonomous `buildAgentPrompt` (Current State, Actions, acknowledged titles,
+  previous-session memory) — must be wrapped in `BEGIN/END UNTRUSTED DATA` fences and preceded by
+  `untrustedDataGuardrail`, which is always the highest-priority system text. Scraped fields are run through
+  `sanitizeUntrusted` so an item cannot forge a fence and break out. Any new prompt path that surfaces scraped
+  content must reuse these helpers; do not interpolate raw item text into a prompt.
 
 ## Pitfalls
 

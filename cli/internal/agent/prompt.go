@@ -12,6 +12,8 @@ func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 	stateJSON, _ := json.Marshal(state)
 
 	var prompt strings.Builder
+	prompt.WriteString(untrustedDataGuardrail)
+	prompt.WriteString("\n\n")
 	prompt.WriteString(agentSystemPrompt)
 
 	if profile, err := a.store.Profile.All(); err == nil && len(profile) > 0 {
@@ -20,7 +22,7 @@ func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 
 	if mem := a.getLastMemory(); mem != "" {
 		prompt.WriteString("\n\n## Previous Session\n")
-		prompt.WriteString(mem)
+		prompt.WriteString(sanitizeUntrusted(mem))
 		prompt.WriteString("\n")
 	}
 
@@ -28,8 +30,7 @@ func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 	prompt.WriteString("Items show dates in these same formats. An item whose date equals " + time.Now().Format("2006-01-02") + " (or is labeled TODAY) is happening today. Any other date is NOT today.\n")
 
 	prompt.WriteString("\n## Current State\n")
-	prompt.WriteString(string(stateJSON))
-	prompt.WriteString("\n")
+	prompt.WriteString(fenceUntrusted(sanitizeUntrusted(string(stateJSON))))
 
 	if acks, err := a.store.Acks.ListActive(); err == nil && len(acks) > 0 {
 		openItems, _ := a.store.Items.QueryOpen("", "", "")
@@ -52,9 +53,11 @@ func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 
 		if len(relevant) > 0 {
 			prompt.WriteString("\n## Already Acknowledged (do NOT notify about these)\n")
+			var acked strings.Builder
 			for _, title := range relevant {
-				prompt.WriteString("- " + title + "\n")
+				acked.WriteString("- " + sanitizeUntrusted(title) + "\n")
 			}
+			prompt.WriteString(fenceUntrusted(acked.String()))
 		}
 	}
 
