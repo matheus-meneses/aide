@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Configurable assistant context (user + per-source)** — you can now teach the
+  assistant who you are and how to help. A free-text personal context (e.g.
+  "I'm a tech lead; prioritize incidents") lives in `agent.user_context`, and
+  each source can carry its own guidance via a `context:` field. Both layers are
+  injected into the chat and autonomous prompts as trusted text outside the
+  untrusted-data fence, so they shape responses but can never override the
+  prompt-injection guardrail. Edit them with `aide agent context [text] [--source <name>]`
+  or in the web UI (Agent settings → Your context, and each source's config).
+  The hardcoded company source ordering and per-source score bumps were removed
+  in favor of vendor-neutral ordering. (#53)
+
 ### Changed
 
 - **Agent tool loop now uses provider-native function-calling** — the autonomous

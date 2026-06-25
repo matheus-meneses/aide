@@ -84,6 +84,13 @@ never imports `ui` and `ui` never imports `agent`.
   `untrustedDataGuardrail`, which is always the highest-priority system text. Scraped fields are run through
   `sanitizeUntrusted` so an item cannot forge a fence and break out. Any new prompt path that surfaces scraped
   content must reuse these helpers; do not interpolate raw item text into a prompt.
+- **Configurable context is trusted, but subordinate to the guardrail:** the user context (`agent.user_context`)
+  and per-source guidance (`Source.context`) are gathered by `(*Agent).promptContext()` and rendered by
+  `writeTrustedContext` *outside* the untrusted fence (they are the user's own config, not scraped data). They
+  must never be placed inside a fence, and the guardrail stays the highest-priority system text so context can
+  shape behavior but cannot disable the safety rules.
+- **No vendor/company source names in prompts:** source display ordering uses `orderedSources` (most items first,
+  then alphabetical). Do not reintroduce hardcoded source lists or per-source score bumps in `prioritizeItems`.
 
 ## Pitfalls
 

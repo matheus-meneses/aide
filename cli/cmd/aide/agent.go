@@ -17,6 +17,7 @@ import (
 var (
 	scheduleInterval  string
 	scheduleBriefings string
+	contextSource     string
 )
 
 var agentCmd = &cobra.Command{
@@ -53,15 +54,103 @@ var agentScheduleCmd = &cobra.Command{
 	RunE:  agentScheduleExecute,
 }
 
+var agentContextCmd = &cobra.Command{
+	Use:   "context [text]",
+	Short: "View or edit the context that shapes the assistant",
+	Long: `Manage the free-text context that is injected into the assistant's prompts.
+
+Without arguments it shows the current context. Provide text to set it, or use
+'clear' to remove it. Use --source to target a specific source's guidance
+instead of your personal context.
+
+Examples:
+  aide agent context
+  aide agent context "I'm a tech lead; prioritize incidents and PR reviews."
+  aide agent context --source jira "Only surface tickets assigned to me."
+  aide agent context clear --source jira`,
+	Args: cobra.ArbitraryArgs,
+	RunE: agentContextExecute,
+}
+
 func init() {
 	agentCmd.AddCommand(agentStartCmd)
 	agentCmd.AddCommand(agentStatusCmd)
 	agentCmd.AddCommand(agentAskCmd)
 	agentCmd.AddCommand(agentConfigCmd)
 	agentCmd.AddCommand(agentScheduleCmd)
+	agentCmd.AddCommand(agentContextCmd)
 	agentScheduleCmd.Flags().StringVar(&scheduleInterval, "interval", "", "how often the agent re-collects (e.g. 30m, 1h)")
 	agentScheduleCmd.Flags().StringVar(&scheduleBriefings, "briefings", "", "comma-separated daily briefing times (24h, e.g. 08:00,17:30)")
+	agentContextCmd.Flags().StringVar(&contextSource, "source", "", "target a source's guidance instead of your personal context")
 	rootCmd.AddCommand(agentCmd)
+}
+
+func agentContextExecute(_ *cobra.Command, args []string) error {
+	text := strings.TrimSpace(strings.Join(args, " "))
+
+	if len(args) == 0 {
+		return showContext()
+	}
+
+	if strings.EqualFold(text, "clear") {
+		text = ""
+	}
+
+	if contextSource != "" {
+		if err := provision.SetSourceContext(cfgFile, contextSource, text); err != nil {
+			return err
+		}
+	} else if err := provision.SetUserContext(cfgFile, text); err != nil {
+		return err
+	}
+
+	if text == "" {
+		widgets.PrintSuccess("Context cleared.")
+	} else {
+		widgets.PrintSuccess("Context updated.")
+	}
+	return nil
+}
+
+func showContext() error {
+	snap, err := provision.ConfigSnapshot(cfgFile)
+	if err != nil {
+		return err
+	}
+
+	if contextSource != "" {
+		for _, src := range snap.Sources {
+			if src.Name == contextSource {
+				printContextValue(fmt.Sprintf("Context for source %q", contextSource), src.Context)
+				return nil
+			}
+		}
+		return fmt.Errorf("source %q not configured", contextSource)
+	}
+
+	printContextValue("Your context", snap.Agent.UserContext)
+	var withCtx []provision.SourceSnapshot
+	for _, src := range snap.Sources {
+		if strings.TrimSpace(src.Context) != "" {
+			withCtx = append(withCtx, src)
+		}
+	}
+	if len(withCtx) > 0 {
+		widgets.Println()
+		widgets.Println("Per-source guidance:")
+		for _, src := range withCtx {
+			widgets.Printf("  %s: %s\n", src.Name, src.Context)
+		}
+	}
+	return nil
+}
+
+func printContextValue(label, value string) {
+	if strings.TrimSpace(value) == "" {
+		widgets.Printf("%s: (none)\n", label)
+		return
+	}
+	widgets.Printf("%s:\n%s\n", label, value)
 }
 
 func agentScheduleExecute(cmd *cobra.Command, _ []string) error {

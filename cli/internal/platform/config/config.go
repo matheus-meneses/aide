@@ -26,6 +26,7 @@ type AgentConfig struct {
 	LLMModel      string   `yaml:"llm_model"`
 	LLMURL        string   `yaml:"llm_url"`
 	LLMAPIKey     string   `yaml:"llm_api_key,omitempty"`
+	UserContext   string   `yaml:"user_context,omitempty"`
 }
 
 func (a AgentConfig) RunIntervalDuration() time.Duration {
@@ -72,6 +73,7 @@ type Source struct {
 	Plugin  string         `yaml:"plugin,omitempty"`
 	Enabled bool           `yaml:"enabled"`
 	Config  map[string]any `yaml:"config,omitempty"`
+	Context string         `yaml:"context,omitempty"`
 	TLS     *TLS           `yaml:"tls,omitempty"`
 }
 

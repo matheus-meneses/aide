@@ -20,6 +20,11 @@ func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 		fmt.Fprintf(&prompt, "\n\nYou are assisting %s (%s).", profile["preferred_name"], profile["email"])
 	}
 
+	if pc := a.promptContext(); strings.TrimSpace(pc.User) != "" || len(pc.Sources) > 0 {
+		prompt.WriteString("\n\n")
+		writeTrustedContext(&prompt, pc)
+	}
+
 	if mem := a.getLastMemory(); mem != "" {
 		prompt.WriteString("\n\n## Previous Session\n")
 		prompt.WriteString(sanitizeUntrusted(mem))

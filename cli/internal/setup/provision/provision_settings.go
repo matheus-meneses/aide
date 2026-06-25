@@ -15,6 +15,7 @@ type AgentSnapshot struct {
 	RunInterval   string   `json:"run_interval"`
 	BriefingTimes []string `json:"briefing_times"`
 	HasAPIKey     bool     `json:"has_api_key"`
+	UserContext   string   `json:"user_context"`
 }
 
 // Snapshot is a sanitized view of config.yaml used to prefill the management UI.
@@ -65,6 +66,7 @@ func ConfigSnapshot(cfgPath string) (*Snapshot, error) {
 			RunInterval:   cfg.Agent.RunInterval,
 			BriefingTimes: cfg.Agent.BriefingTimes,
 			HasAPIKey:     hasKey,
+			UserContext:   cfg.Agent.UserContext,
 		},
 		Sources:    sources,
 		Registries: cfg.Registries,
@@ -89,6 +91,17 @@ func SetSchedule(cfgPath string, in ScheduleInput) error {
 	if in.BriefingTimes != nil {
 		cfg.Agent.BriefingTimes = in.BriefingTimes
 	}
+	return cfg.Save(cfgPath)
+}
+
+// SetUserContext writes the user's free-text context block (the "about me /
+// how to help me" layer) to config.yaml. An empty value clears it.
+func SetUserContext(cfgPath, context string) error {
+	cfg, err := config.LoadRaw(cfgPath)
+	if err != nil {
+		return err
+	}
+	cfg.Agent.UserContext = strings.TrimSpace(context)
 	return cfg.Save(cfgPath)
 }
 

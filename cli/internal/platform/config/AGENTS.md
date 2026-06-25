@@ -8,9 +8,9 @@ Loads, validates, and provides typed access to the YAML configuration file (`~/.
 
 - `Config` — Root config struct containing `Settings`, `Team`, `Sources`, and `Agent`.
 - `Settings` — Concurrency, timeout, paths to data/scrapers/python, and global `TLS`.
-- `Source` — Per-source config with `Enabled` flag, opaque `Config map[string]any`, and optional `TLS` override.
+- `Source` — Per-source config with `Enabled` flag, opaque `Config map[string]any`, free-text `Context` (guidance injected into LLM prompts), and optional `TLS` override.
 - `TLS` — `VerifySSL *bool` (nil = unset, so defaults/overrides compose) and `CABundle` PEM path. Set globally under `settings.tls` and/or per source under `sources.<name>.tls`. The `runner` resolves the effective value (flag > per-source > global > secure default).
-- `AgentConfig` — Autonomous agent settings (run interval, briefing times, LLM config).
+- `AgentConfig` — Autonomous agent settings (run interval, briefing times, LLM config, and `UserContext` free-text shaping the assistant).
 - `TeamMember` — Name + aliases for member resolution across sources.
 
 ## Important Invariants

@@ -307,7 +307,7 @@ func (a *Agent) Runner() *runner.Runner {
 func (a *Agent) Ask(ctx context.Context, question string) (string, error) {
 	a.ensureFreshData(ctx)
 
-	sysCtx, err := BuildContext(a.store, a.clock.Now())
+	sysCtx, err := BuildContext(a.store, a.clock.Now(), a.promptContext())
 	if err != nil {
 		return "", fmt.Errorf("building context: %w", err)
 	}

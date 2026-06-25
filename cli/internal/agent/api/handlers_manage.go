@@ -71,6 +71,37 @@ func (h *handlers) handleSetSchedule(w http.ResponseWriter, r *http.Request) {
 	h.respondReload(w)
 }
 
+func (h *handlers) handleSetUserContext(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Context string `json:"context"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	if err := provision.SetUserContext(h.a.ConfigPath(), req.Context); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	h.respondReload(w)
+}
+
+func (h *handlers) handleSetSourceContext(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name    string `json:"name"`
+		Context string `json:"context"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "source name required"})
+		return
+	}
+	if err := provision.SetSourceContext(h.a.ConfigPath(), req.Name, req.Context); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	h.respondReload(w)
+}
+
 func (h *handlers) handleSetSettings(w http.ResponseWriter, r *http.Request) {
 	var in provision.GeneralSettingsInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {

@@ -23,6 +23,7 @@ export interface AgentSnapshot {
   run_interval: string;
   briefing_times: string[] | null;
   has_api_key: boolean;
+  user_context: string;
 }
 
 export interface ConfigSnapshot {
@@ -56,4 +57,8 @@ export function setSchedule(payload: {
   briefing_times: string[];
 }): Promise<void> {
   return postJSON("/api/agent/schedule", payload);
+}
+
+export function setUserContext(context: string): Promise<void> {
+  return postJSON("/api/agent/context", { context });
 }
