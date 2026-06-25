@@ -2,6 +2,7 @@ package agent
 
 import (
 	"aide/cli/internal/agent/events"
+	"aide/cli/internal/agent/llm"
 	"context"
 	"fmt"
 	"strings"
@@ -43,6 +44,9 @@ func (a *Agent) runAgentCycle(ctx context.Context) {
 		alog.Warn("failed to prune acks: %v", err)
 	}
 	state := a.observeState()
+
+	messages := a.buildAgentMessages(state)
+	toolDefs := a.toolDefinitions()
 	var history []string
 
 	for i := 0; i < maxActionsPerCycle; i++ {
@@ -52,36 +56,92 @@ func (a *Agent) runAgentCycle(ctx context.Context) {
 		default:
 		}
 
-		call := a.think(ctx, state, history)
-		if call.Tool == "" || call.Tool == "done" {
-			if call.Reason != "" {
-				alog.Debug("done: %s", call.Reason)
+		result, err := a.think(ctx, messages, toolDefs)
+		if err != nil {
+			alog.Error("LLM error: %v", err)
+			break
+		}
+
+		calls := result.ToolCalls
+		fallback := false
+		if len(calls) == 0 {
+			if fb, ok := fallbackToolCall(result.Content); ok {
+				calls = []llm.ToolCall{fb}
+				fallback = true
+			}
+		}
+
+		if len(calls) == 0 {
+			if strings.TrimSpace(result.Content) != "" {
+				alog.Debug("agent: %s", result.Content)
 			}
 			break
 		}
 
-		alog.Info("action: %s(%v) — %s", call.Tool, call.Params, call.Reason)
+		messages = appendAssistantTurn(messages, result.Content, calls, fallback)
 
-		result, err := a.executeTool(ctx, call.Tool, call.Params)
-		if err != nil {
-			entry := fmt.Sprintf("Called %s -> ERROR: %v", call.Tool, err)
-			history = append(history, entry)
-			alog.Error("tool error: %v", err)
-			if a.bus != nil {
-				a.bus.Publish(events.Event{
-					Type:     "cycle_error",
-					Priority: "silent",
-					Data:     fmt.Sprintf(`{"tool":%q,"error":%q}`, call.Tool, err.Error()),
-				})
+		stop := false
+		for _, call := range calls {
+			if call.Name == "done" {
+				if reason := argString(call.Arguments, "reason"); reason != "" {
+					alog.Debug("done: %s", reason)
+				}
+				stop = true
+				break
 			}
-			continue
+
+			params := argsToParams(call.Arguments)
+			alog.Info("action: %s(%v)", call.Name, params)
+
+			out, execErr := a.executeTool(ctx, call.Name, params)
+			if execErr != nil {
+				history = append(history, fmt.Sprintf("Called %s -> ERROR: %v", call.Name, execErr))
+				alog.Error("tool error: %v", execErr)
+				if a.bus != nil {
+					a.bus.Publish(events.Event{
+						Type:     "cycle_error",
+						Priority: "silent",
+						Data:     fmt.Sprintf(`{"tool":%q,"error":%q}`, call.Name, execErr.Error()),
+					})
+				}
+				messages = appendToolResult(messages, call, fallback, "ERROR: "+execErr.Error())
+				continue
+			}
+
+			history = append(history, fmt.Sprintf("Called %s -> %s", call.Name, out))
+			messages = appendToolResult(messages, call, fallback, out)
 		}
 
-		entry := fmt.Sprintf("Called %s -> %s", call.Tool, result)
-		history = append(history, entry)
+		if stop {
+			break
+		}
 	}
 
 	a.saveMemory(history)
+}
+
+func appendAssistantTurn(messages []llm.ChatMessage, content string, calls []llm.ToolCall, fallback bool) []llm.ChatMessage {
+	msg := llm.ChatMessage{Role: "assistant", Content: content}
+	if !fallback {
+		msg.ToolCalls = calls
+	}
+	return append(messages, msg)
+}
+
+func appendToolResult(messages []llm.ChatMessage, call llm.ToolCall, fallback bool, content string) []llm.ChatMessage {
+	safe := fenceUntrusted(sanitizeUntrusted(content))
+	if fallback {
+		return append(messages, llm.ChatMessage{
+			Role:    "user",
+			Content: fmt.Sprintf("Result of %s:\n%s", call.Name, safe),
+		})
+	}
+	return append(messages, llm.ChatMessage{
+		Role:       "tool",
+		ToolCallID: call.ID,
+		Name:       call.Name,
+		Content:    safe,
+	})
 }
 
 func (a *Agent) saveMemory(history []string) {

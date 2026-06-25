@@ -2,13 +2,17 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
 
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"-"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	Name       string     `json:"name,omitempty"`
 }
 
 type Usage struct {
@@ -17,11 +21,30 @@ type Usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
+type ToolDefinition struct {
+	Name        string
+	Description string
+	Parameters  json.RawMessage
+}
+
+type ToolCall struct {
+	ID        string
+	Name      string
+	Arguments json.RawMessage
+}
+
+type ChatResult struct {
+	Content   string
+	ToolCalls []ToolCall
+	Usage     *Usage
+}
+
 type StreamCallback func(chunk string)
 
 type LLM interface {
 	Chat(ctx context.Context, messages []ChatMessage) (string, *Usage, error)
 	ChatStream(ctx context.Context, messages []ChatMessage, cb StreamCallback) (string, *Usage, error)
+	ChatWithTools(ctx context.Context, messages []ChatMessage, tools []ToolDefinition) (*ChatResult, error)
 	Ping() error
 	Model() string
 }

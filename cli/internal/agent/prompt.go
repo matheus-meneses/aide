@@ -1,13 +1,14 @@
 package agent
 
 import (
+	"aide/cli/internal/agent/llm"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 )
 
-func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
+func (a *Agent) buildAgentMessages(state agentState) []llm.ChatMessage {
 	stateJSON, _ := json.Marshal(state)
 
 	var prompt strings.Builder
@@ -30,15 +31,6 @@ func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
 
 	prompt.WriteString("\n## Current State\n")
 	prompt.WriteString(fenceUntrusted(sanitizeUntrusted(string(stateJSON))))
-
-	if len(history) > 0 {
-		prompt.WriteString("\n## Actions taken this cycle\n")
-		var actions strings.Builder
-		for _, h := range history {
-			actions.WriteString("- " + sanitizeUntrusted(h) + "\n")
-		}
-		prompt.WriteString(fenceUntrusted(actions.String()))
-	}
 
 	if acks, err := a.store.Acks.ListActive(); err == nil && len(acks) > 0 {
 		openItems, _ := a.store.Items.QueryOpen("", "", "")
@@ -69,11 +61,10 @@ func (a *Agent) buildAgentPrompt(state agentState, history []string) string {
 		}
 	}
 
-	prompt.WriteString("\n## Available Tools\n")
-	prompt.WriteString(a.tools.Describe())
-	prompt.WriteString("\nRespond with JSON: {\"tool\": \"name\", \"params\": {...}, \"reason\": \"why\"}\n")
-
-	return prompt.String()
+	return []llm.ChatMessage{
+		{Role: "system", Content: prompt.String()},
+		{Role: "user", Content: "Run your cycle now: review the state and call the tools you need. Call done when finished."},
+	}
 }
 
 const agentSystemPrompt = `You are Aide, a personal work assistant. You wake up periodically to check on the user's work state and decide what actions to take.
@@ -107,5 +98,6 @@ DATE RULES (critical — you repeatedly get this wrong, follow EXACTLY):
 - "New items" from diff means DISCOVERED recently (added to a source), NOT scheduled for today. A meeting added today for next week is "added for Fri Jun 12", never "added for today".
 - Before writing any message, re-read each date label and make sure the words match it. Do not use "today/hoje" for anything not labeled TODAY.
 
-Respond ONLY with a single JSON object: {"tool": "name", "params": {...}, "reason": "why"}
-Do not include any other text, explanation, or markdown.`
+TOOLS:
+- Use the provided tools to act. Call one or more tools per turn; their results are returned to you before your next turn.
+- When there is nothing left to do, call done.`
