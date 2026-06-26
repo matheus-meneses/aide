@@ -91,6 +91,29 @@ func (c *baseClient) get(ctx context.Context, url string, headers map[string]str
 	return nil
 }
 
+func (c *baseClient) getJSON(ctx context.Context, url string, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("connecting to LLM: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		errBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("LLM returned status %d: %s", resp.StatusCode, string(errBody))
+	}
+
+	return resp, nil
+}
+
 func scanSSE(r io.Reader, onData func(data string) error) error {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64*1024), sseBufferLimit)

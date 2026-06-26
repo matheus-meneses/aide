@@ -90,3 +90,15 @@ func NewLLM(provider, baseURL, model, apiKey string) (LLM, error) {
 		return nil, fmt.Errorf("unknown llm provider %q (supported: openai, litellm, anthropic)", provider)
 	}
 }
+
+// ListModels returns the model identifiers advertised by an OpenAI-compatible
+// or LiteLLM endpoint via GET /models. It is unsupported for providers that do
+// not expose that route.
+func ListModels(ctx context.Context, provider, baseURL, apiKey string) ([]string, error) {
+	switch NormalizeProvider(provider) {
+	case ProviderOpenAI, ProviderLiteLLM:
+		return newOpenAIClient(baseURL, "", apiKey).ListModels(ctx)
+	default:
+		return nil, fmt.Errorf("listing models is not supported for provider %q", provider)
+	}
+}

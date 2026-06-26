@@ -63,6 +63,57 @@ func TestOpenAIPostJSONNon200ReturnsError(t *testing.T) {
 	}
 }
 
+func TestListModelsParsesData(t *testing.T) {
+	var gotPath, gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"object":"list","data":[{"id":"gpt-4o-mini"},{"id":""},{"id":"llama3.1"}]}`)
+	}))
+	defer srv.Close()
+
+	models, err := ListModels(context.Background(), "litellm", srv.URL, "secret")
+	if err != nil {
+		t.Fatalf("ListModels: %v", err)
+	}
+	if gotPath != "/models" {
+		t.Fatalf("path = %q, want /models", gotPath)
+	}
+	if gotAuth != "Bearer secret" {
+		t.Fatalf("auth = %q, want Bearer secret", gotAuth)
+	}
+	if len(models) != 2 || models[0] != "gpt-4o-mini" || models[1] != "llama3.1" {
+		t.Fatalf("models = %v, want [gpt-4o-mini llama3.1]", models)
+	}
+}
+
+func TestListModelsUnsupportedProvider(t *testing.T) {
+	_, err := ListModels(context.Background(), "anthropic", "https://api.anthropic.com", "")
+	if err == nil {
+		t.Fatal("expected error for unsupported provider")
+	}
+	if !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("error should explain lack of support: %v", err)
+	}
+}
+
+func TestListModelsNon200ReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, "nope")
+	}))
+	defer srv.Close()
+
+	_, err := ListModels(context.Background(), "openai", srv.URL, "")
+	if err == nil {
+		t.Fatal("expected error on 401")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Fatalf("error should mention status: %v", err)
+	}
+}
+
 func TestOpenAIChatStreamScansSSE(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

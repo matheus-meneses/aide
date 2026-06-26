@@ -195,3 +195,24 @@ func (h *handlers) handleTestConnection(w http.ResponseWriter, r *http.Request) 
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
+
+func (h *handlers) handleListModels(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Provider string `json:"provider"`
+		BaseURL  string `json:"base_url"`
+		APIKey   string `json:"api_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	if req.APIKey == "" {
+		req.APIKey = h.a.StoredAPIKey()
+	}
+	models, err := agent.ListModels(req.Provider, req.BaseURL, req.APIKey)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"models": models})
+}
