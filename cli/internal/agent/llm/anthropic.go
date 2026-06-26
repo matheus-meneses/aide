@@ -181,6 +181,10 @@ func (c *anthropicClient) Ping() error {
 	return c.get(ctx, c.baseURL+"/v1/models", c.authHeaders())
 }
 
+func (c *anthropicClient) ListModels(_ context.Context) ([]string, error) {
+	return nil, fmt.Errorf("listing models is not supported for the Anthropic provider")
+}
+
 type anthropicTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
