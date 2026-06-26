@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Layered system prompt with user-overridable behavior** — the agent's system
+  prompt is now assembled in explicit priority layers (safety guardrail and
+  correctness rules at the top, then role, then overridable default behavior,
+  then the user's own preferences and context). A precedence preamble tells the
+  model that higher layers win and that safety/correctness can never be
+  overridden. New `agent.preferences` let you tune behavior without touching the
+  prompt: notification level (`silent` / `urgent_only` / `normal` / `all`), a max
+  notifications-per-cycle, and a communication `tone`. Edit them with
+  `aide agent prefs --notifications all --tone formal --max-notifications 3`, via
+  `POST /api/agent/preferences`, or in the web UI (Agent settings ->
+  Behavior & context). Safety and the date/tool/link rules stay immutable.
 - **Configurable assistant context (user + per-source)** — you can now teach the
   assistant who you are and how to help. A free-text personal context (e.g.
   "I'm a tech lead; prioritize incidents") lives in `agent.user_context`, and

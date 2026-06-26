@@ -10,7 +10,8 @@ Loads, validates, and provides typed access to the YAML configuration file (`~/.
 - `Settings` — Concurrency, timeout, paths to data/scrapers/python, and global `TLS`.
 - `Source` — Per-source config with `Enabled` flag, opaque `Config map[string]any`, free-text `Context` (guidance injected into LLM prompts), and optional `TLS` override.
 - `TLS` — `VerifySSL *bool` (nil = unset, so defaults/overrides compose) and `CABundle` PEM path. Set globally under `settings.tls` and/or per source under `sources.<name>.tls`. The `runner` resolves the effective value (flag > per-source > global > secure default).
-- `AgentConfig` — Autonomous agent settings (run interval, briefing times, LLM config, and `UserContext` free-text shaping the assistant).
+- `AgentConfig` — Autonomous agent settings (run interval, briefing times, LLM config, `UserContext` free-text, and `Preferences`).
+- `AgentPreferences` — User-tunable behavior overrides (`Notifications` level, `MaxNotificationsPerCycle`, `Tone`). `NotificationLevel()` resolves the default (`urgent_only`); `ValidNotificationLevel` validates writes.
 - `TeamMember` — Name + aliases for member resolution across sources.
 
 ## Important Invariants

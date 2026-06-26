@@ -15,9 +15,12 @@ import (
 )
 
 var (
-	scheduleInterval  string
-	scheduleBriefings string
-	contextSource     string
+	scheduleInterval   string
+	scheduleBriefings  string
+	contextSource      string
+	prefsNotifications string
+	prefsMaxNotifs     int
+	prefsTone          string
 )
 
 var agentCmd = &cobra.Command{
@@ -72,6 +75,21 @@ Examples:
 	RunE: agentContextExecute,
 }
 
+var agentPrefsCmd = &cobra.Command{
+	Use:   "prefs",
+	Short: "View or set agent behavior preferences (notifications, tone)",
+	Long: `View or set the behavior preferences that override the assistant's defaults.
+
+These preferences shape behavior but never the safety guardrail or correctness
+rules. Run without flags to print the current values.
+
+Examples:
+  aide agent prefs
+  aide agent prefs --notifications all --max-notifications 3
+  aide agent prefs --tone formal`,
+	RunE: agentPrefsExecute,
+}
+
 func init() {
 	agentCmd.AddCommand(agentStartCmd)
 	agentCmd.AddCommand(agentStatusCmd)
@@ -79,10 +97,57 @@ func init() {
 	agentCmd.AddCommand(agentConfigCmd)
 	agentCmd.AddCommand(agentScheduleCmd)
 	agentCmd.AddCommand(agentContextCmd)
+	agentCmd.AddCommand(agentPrefsCmd)
 	agentScheduleCmd.Flags().StringVar(&scheduleInterval, "interval", "", "how often the agent re-collects (e.g. 30m, 1h)")
 	agentScheduleCmd.Flags().StringVar(&scheduleBriefings, "briefings", "", "comma-separated daily briefing times (24h, e.g. 08:00,17:30)")
 	agentContextCmd.Flags().StringVar(&contextSource, "source", "", "target a source's guidance instead of your personal context")
+	agentPrefsCmd.Flags().StringVar(&prefsNotifications, "notifications", "", "notification level: silent, urgent_only, normal, all")
+	agentPrefsCmd.Flags().IntVar(&prefsMaxNotifs, "max-notifications", 0, "max notifications per cycle (0 = default)")
+	agentPrefsCmd.Flags().StringVar(&prefsTone, "tone", "", "communication tone, e.g. formal, friendly, terse")
 	rootCmd.AddCommand(agentCmd)
+}
+
+func agentPrefsExecute(cmd *cobra.Command, _ []string) error {
+	snap, err := provision.ConfigSnapshot(cfgFile)
+	if err != nil {
+		return err
+	}
+
+	changed := cmd.Flags().Changed("notifications") ||
+		cmd.Flags().Changed("max-notifications") ||
+		cmd.Flags().Changed("tone")
+
+	if !changed {
+		tone := snap.Agent.Preferences.Tone
+		if tone == "" {
+			tone = "(default)"
+		}
+		widgets.Printf("Notifications:   %s\n", snap.Agent.Preferences.Notifications)
+		widgets.Printf("Max per cycle:   %d\n", snap.Agent.Preferences.MaxNotificationsPerCycle)
+		widgets.Printf("Tone:            %s\n", tone)
+		return nil
+	}
+
+	in := provision.AgentPreferences{
+		Notifications:            snap.Agent.Preferences.Notifications,
+		MaxNotificationsPerCycle: snap.Agent.Preferences.MaxNotificationsPerCycle,
+		Tone:                     snap.Agent.Preferences.Tone,
+	}
+	if cmd.Flags().Changed("notifications") {
+		in.Notifications = prefsNotifications
+	}
+	if cmd.Flags().Changed("max-notifications") {
+		in.MaxNotificationsPerCycle = prefsMaxNotifs
+	}
+	if cmd.Flags().Changed("tone") {
+		in.Tone = prefsTone
+	}
+
+	if err := provision.SetAgentPreferences(cfgFile, in); err != nil {
+		return err
+	}
+	widgets.PrintSuccess("Preferences updated.")
+	return nil
 }
 
 func agentContextExecute(_ *cobra.Command, args []string) error {
