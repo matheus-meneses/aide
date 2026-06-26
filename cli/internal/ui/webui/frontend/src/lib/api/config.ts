@@ -16,6 +16,12 @@ export interface GeneralSettings {
   tls?: TLSSettings | null;
 }
 
+export interface AgentPreferences {
+  notifications: string;
+  max_notifications_per_cycle: number;
+  tone: string;
+}
+
 export interface AgentSnapshot {
   provider: string;
   base_url: string;
@@ -23,6 +29,8 @@ export interface AgentSnapshot {
   run_interval: string;
   briefing_times: string[] | null;
   has_api_key: boolean;
+  user_context: string;
+  preferences: AgentPreferences;
 }
 
 export interface ConfigSnapshot {
@@ -56,4 +64,12 @@ export function setSchedule(payload: {
   briefing_times: string[];
 }): Promise<void> {
   return postJSON("/api/agent/schedule", payload);
+}
+
+export function setUserContext(context: string): Promise<void> {
+  return postJSON("/api/agent/context", { context });
+}
+
+export function setAgentPreferences(payload: AgentPreferences): Promise<void> {
+  return postJSON("/api/agent/preferences", payload);
 }

@@ -24,6 +24,7 @@ import {
   Input,
   Skeleton,
   Switch,
+  Textarea,
   useToast,
 } from "@/components/ui";
 
@@ -350,6 +351,7 @@ function SourceForm({
   const { toast } = useToast();
   const [manifest, setManifest] = useState<api.PluginManifest | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [guidance, setGuidance] = useState(source?.context ?? "");
   const [saving, setSaving] = useState(false);
   const configured = source !== null;
 
@@ -393,6 +395,9 @@ function SourceForm({
       } else {
         await api.addSource({ name: pluginName, config, credentials });
       }
+      if (guidance !== (source?.context ?? "")) {
+        await api.setSourceContext(pluginName, guidance);
+      }
       toast(`Saved ${pluginName}`, "success");
       onDone();
     } catch (e) {
@@ -432,6 +437,18 @@ function SourceForm({
           onChange={(v) => setValues((s) => ({ ...s, [`cred:${c.key}`]: v }))}
         />
       ))}
+      <div className="space-y-1">
+        <label className="text-xs font-medium" htmlFor={`guidance-${pluginName}`}>
+          Guidance for the assistant (optional)
+        </label>
+        <Textarea
+          id={`guidance-${pluginName}`}
+          rows={3}
+          value={guidance}
+          onChange={(e) => setGuidance(e.target.value)}
+          placeholder="e.g. Only surface tickets assigned to me; ignore closed ones."
+        />
+      </div>
       <div className="flex justify-end">
         <Button size="sm" onClick={() => void save()} loading={saving}>
           {configured ? "Save" : "Connect source"}

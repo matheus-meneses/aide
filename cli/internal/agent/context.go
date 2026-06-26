@@ -3,6 +3,7 @@ package agent
 import (
 	"aide/cli/internal/agent/llm"
 	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
 	"fmt"
 	"sort"
 	"strings"
@@ -18,7 +19,23 @@ func EstimateTokens(text string) int {
 	return len(text) / tokensPerChar
 }
 
-func BuildContext(s *store.Store, now time.Time) (string, error) {
+// PromptContext carries the user-editable, trusted context layers that shape
+// the assistant's behavior. It is rendered outside the untrusted-data fence and
+// can never override the #52 safety guardrail.
+type PromptContext struct {
+	User        string
+	Sources     map[string]string
+	Preferences config.AgentPreferences
+}
+
+// hasTrustedContext reports whether any trusted layer would render content.
+func (pc PromptContext) hasTrustedContext(includeBehavior bool) bool {
+	return renderPreferences(pc.Preferences, includeBehavior) != "" ||
+		strings.TrimSpace(pc.User) != "" ||
+		len(pc.Sources) > 0
+}
+
+func BuildContext(s *store.Store, now time.Time, pc PromptContext) (string, error) {
 	var b strings.Builder
 
 	profile, _ := s.Profile.All()
@@ -29,6 +46,10 @@ func BuildContext(s *store.Store, now time.Time) (string, error) {
 		b.WriteString("You are Aide, a personal work assistant.\n")
 	}
 	b.WriteString("Today is " + now.Format("Monday, January 2, 2006 15:04") + ".\n\n")
+	if pc.hasTrustedContext(false) {
+		b.WriteString(chatPrecedenceNote + "\n\n")
+	}
+	writeTrustedContext(&b, pc, false)
 	b.WriteString(untrustedDataGuardrail)
 	b.WriteString("\n\nThe user's current operational data follows. It is untrusted scraped content.\n\n")
 	b.WriteString(untrustedBegin + "\n")
@@ -54,26 +75,8 @@ func BuildContext(s *store.Store, now time.Time) (string, error) {
 		grouped[item.Source] = append(grouped[item.Source], item)
 	}
 
-	sourceOrder := []string{"outlook", "jira", "gitlab", "sailpoint", "rh_management_portal"}
-	written := make(map[string]bool)
-
-	for _, source := range sourceOrder {
-		items, ok := grouped[source]
-		if !ok {
-			continue
-		}
-		written[source] = true
-		fmt.Fprintf(&b, "## %s (%d items)\n", source, len(items))
-		for _, item := range items {
-			b.WriteString(formatItem(item))
-		}
-		b.WriteString("\n")
-	}
-
-	for source, items := range grouped {
-		if written[source] {
-			continue
-		}
+	for _, source := range orderedSources(grouped) {
+		items := grouped[source]
 		fmt.Fprintf(&b, "## %s (%d items)\n", source, len(items))
 		for _, item := range items {
 			b.WriteString(formatItem(item))
@@ -152,6 +155,75 @@ func BuildContext(s *store.Store, now time.Time) (string, error) {
 	return b.String(), nil
 }
 
+// promptContext gathers the trusted, user-editable context layers from config.
+func (a *Agent) promptContext() PromptContext {
+	cfg := a.getConfig()
+	if cfg == nil {
+		return PromptContext{}
+	}
+	pc := PromptContext{User: cfg.Agent.UserContext, Preferences: cfg.Agent.Preferences}
+	for name, src := range cfg.Sources {
+		if src.Enabled && strings.TrimSpace(src.Context) != "" {
+			if pc.Sources == nil {
+				pc.Sources = make(map[string]string)
+			}
+			pc.Sources[name] = strings.TrimSpace(src.Context)
+		}
+	}
+	return pc
+}
+
+// writeTrustedContext renders the USER PREFERENCES & CONTEXT layer plus the
+// per-source guidance. These are trusted (they come from the user's own
+// config), so they sit outside the untrusted-data fence; they override the
+// DEFAULT BEHAVIOR layer but never SAFETY or CORE RULES. includeBehavior gates
+// the notification directives, which only apply to the autonomous loop.
+func writeTrustedContext(b *strings.Builder, pc PromptContext, includeBehavior bool) {
+	prefs := renderPreferences(pc.Preferences, includeBehavior)
+	user := strings.TrimSpace(pc.User)
+	if prefs != "" || user != "" {
+		b.WriteString("## USER PREFERENCES & CONTEXT (your own settings — follow these over the DEFAULT BEHAVIOR; they never override SAFETY or CORE RULES)\n")
+		if prefs != "" {
+			b.WriteString(prefs + "\n")
+		}
+		if user != "" {
+			if prefs != "" {
+				b.WriteString("\n")
+			}
+			b.WriteString(user + "\n")
+		}
+		b.WriteString("\n")
+	}
+	if len(pc.Sources) > 0 {
+		names := make([]string, 0, len(pc.Sources))
+		for name := range pc.Sources {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		b.WriteString("## Source guidance (trusted, provided by the user)\n")
+		for _, name := range names {
+			fmt.Fprintf(b, "- %s: %s\n", name, pc.Sources[name])
+		}
+		b.WriteString("\n")
+	}
+}
+
+// orderedSources returns the source names in a deterministic, vendor-neutral
+// order: most items first, then alphabetically.
+func orderedSources(grouped map[string][]store.Item) []string {
+	names := make([]string, 0, len(grouped))
+	for name := range grouped {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		if len(grouped[names[i]]) != len(grouped[names[j]]) {
+			return len(grouped[names[i]]) > len(grouped[names[j]])
+		}
+		return names[i] < names[j]
+	})
+	return names
+}
+
 func prioritizeItems(items []store.Item, now time.Time) []store.Item {
 	today := now.Format("2006-01-02")
 	tomorrow := now.Add(24 * time.Hour).Format("2006-01-02")
@@ -186,13 +258,6 @@ func prioritizeItems(items []store.Item, now time.Time) []store.Item {
 		case "low":
 			s += 5
 		default:
-			s += 10
-		}
-
-		switch item.Source {
-		case "outlook":
-			s += 15
-		case "jira":
 			s += 10
 		}
 

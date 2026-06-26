@@ -270,6 +270,7 @@ type SourceSnapshot struct {
 	Plugin         string         `json:"plugin,omitempty"`
 	Enabled        bool           `json:"enabled"`
 	Config         map[string]any `json:"config,omitempty"`
+	Context        string         `json:"context,omitempty"`
 	HasCredentials bool           `json:"has_credentials"`
 }
 
@@ -288,6 +289,7 @@ func ListSources(cfgPath string) ([]SourceSnapshot, error) {
 			Plugin:         src.Plugin,
 			Enabled:        src.Enabled,
 			Config:         src.Config,
+			Context:        src.Context,
 			HasCredentials: cred != nil && len(cred.Fields) > 0,
 		})
 	}
@@ -306,6 +308,22 @@ func SetSourceEnabled(cfgPath, name string, enabled bool) error {
 		return fmt.Errorf("source %q not configured", name)
 	}
 	src.Enabled = enabled
+	cfg.Sources[name] = src
+	return cfg.Save(cfgPath)
+}
+
+// SetSourceContext writes free-text guidance for a single source (the
+// per-plugin context layer). An empty value clears it.
+func SetSourceContext(cfgPath, name, context string) error {
+	cfg, err := config.LoadRaw(cfgPath)
+	if err != nil {
+		return err
+	}
+	src, ok := cfg.Sources[name]
+	if !ok {
+		return fmt.Errorf("source %q not configured", name)
+	}
+	src.Context = strings.TrimSpace(context)
 	cfg.Sources[name] = src
 	return cfg.Save(cfgPath)
 }

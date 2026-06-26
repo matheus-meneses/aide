@@ -12,7 +12,7 @@ CLI entrypoint and command definitions using Cobra. Each file defines one or mor
 | `initcmd.go` | `aide init` — setup ~/.aide, extract scrapers, create venv, download registry |
 | `uicmd.go` | `aide ui` — serve the web UI + run the autonomous agent (port 8531, `--no-browser`) |
 | `run.go` | `aide run` — execute scrapers via runner package |
-| `agent.go` | `aide agent start` (headless foreground loop) / `aide agent status` / `aide agent ask` / `aide agent schedule` |
+| `agent.go` | `aide agent start` (headless foreground loop) / `aide agent status` / `aide agent ask` / `aide agent schedule` / `aide agent context` (view/set/clear user + per-source context) / `aide agent prefs` (notification level, max-per-cycle, tone) |
 | `configcmd.go` | `aide config show` / `aide config check` / `aide config set` — display and validate config |
 | `plugincmd.go` | `aide plugin list/install/configure/enable/disable/set/remove/status` + `plugin registry` subtree |
 | `plugincmd_configure.go` | `aide plugin configure` — interactive source setup (settings + credentials) |

@@ -37,7 +37,7 @@ func (a *Agent) StreamChat(ctx context.Context, req ChatRequest, emit func(token
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 
-	sysCtx, err := BuildContext(a.store, a.clock.Now())
+	sysCtx, err := BuildContext(a.store, a.clock.Now(), a.promptContext())
 	if err != nil {
 		return fmt.Errorf("building context: %w", err)
 	}

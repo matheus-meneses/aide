@@ -5,6 +5,7 @@ export interface SourceSnapshot {
   plugin?: string;
   enabled: boolean;
   config?: Record<string, unknown> | null;
+  context?: string;
   has_credentials: boolean;
 }
 
@@ -33,4 +34,8 @@ export function reconfigureSource(payload: SourcePayload): Promise<void> {
 
 export function toggleSource(name: string, enabled: boolean): Promise<void> {
   return postJSON("/api/sources/toggle", { name, enabled });
+}
+
+export function setSourceContext(name: string, context: string): Promise<void> {
+  return postJSON("/api/sources/context", { name, context });
 }

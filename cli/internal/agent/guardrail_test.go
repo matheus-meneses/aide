@@ -81,7 +81,7 @@ func TestBuildContext_GuardrailAndFences(t *testing.T) {
 		t.Fatalf("seeding item: %v", err)
 	}
 
-	out, err := BuildContext(s, time.Now())
+	out, err := BuildContext(s, time.Now(), PromptContext{})
 	if err != nil {
 		t.Fatalf("BuildContext: %v", err)
 	}
