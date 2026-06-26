@@ -14,10 +14,12 @@ type stubLLM struct {
 	always    *llm.ChatResult
 	calls     int
 	lastTools []llm.ToolDefinition
+	chatReply string
+	chatErr   error
 }
 
 func (s *stubLLM) Chat(context.Context, []llm.ChatMessage) (string, *llm.Usage, error) {
-	return "", nil, nil
+	return s.chatReply, nil, s.chatErr
 }
 
 func (s *stubLLM) ChatStream(context.Context, []llm.ChatMessage, llm.StreamCallback) (string, *llm.Usage, error) {

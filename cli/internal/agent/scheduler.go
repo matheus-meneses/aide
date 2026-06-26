@@ -2,6 +2,7 @@ package agent
 
 import (
 	"aide/cli/internal/agent/events"
+	"aide/cli/internal/agent/llm"
 	"context"
 	"fmt"
 	"strconv"
@@ -60,7 +61,7 @@ func (a *Agent) runScheduleLoop(ctx context.Context) {
 // before the in-browser setup wizard has been completed.
 func (a *Agent) llmConfigured() bool {
 	cfg := a.getConfig()
-	return cfg.Agent.LLMModel != "" && cfg.Agent.LLMURL != ""
+	return cfg != nil && cfg.Agent.LLMModel != "" && cfg.Agent.LLMURL != ""
 }
 
 // maybeRunCycle runs an agent cycle when a model is configured, otherwise it
@@ -155,7 +156,7 @@ func (a *Agent) runBriefingScheduler(ctx context.Context) {
 
 			for _, bt := range dueBriefings(now, a.getConfig().Agent.BriefingTimes, firedToday) {
 				firedToday[bt] = true
-				a.publishBriefing()
+				a.publishBriefing(ctx)
 			}
 		}
 	}
@@ -189,7 +190,83 @@ func parseTime(now time.Time, hhmm string) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), h, m, 0, 0, now.Location())
 }
 
-func (a *Agent) publishBriefing() {
+// briefingInstruction asks the model to synthesize the briefing strictly from
+// the context BuildContext already assembled (which carries the untrusted-data
+// guardrail and the date rules), so the synthesized path stays safe.
+const briefingInstruction = "Write my daily briefing now. Using ONLY the data above, produce a concise, " +
+	"prioritized summary: lead with anything urgent or happening TODAY (events first, then " +
+	"high/critical open items), then briefly note what else is open by area. Use short markdown " +
+	"bullets, include [title](url) links where available, and keep it under ~12 lines. If there " +
+	"are no open items and no events today, say it's a clean slate. Do not invent anything or say " +
+	"you will look something up. Follow the CRITICAL DATE RULE."
+
+func (a *Agent) publishBriefing(ctx context.Context) {
+	body := a.briefingBody(ctx)
+
+	if a.bus != nil {
+		a.bus.Publish(events.Event{
+			Type:     "briefing",
+			Priority: "normal",
+			Data:     fmt.Sprintf(`{"title":"Daily Briefing","body":%q}`, body),
+		})
+	}
+
+	if a.notifier != nil {
+		if err := a.notifier.Notify("Daily Briefing", body); err != nil {
+			alog.Warn("briefing notification: %v", err)
+		}
+	}
+
+	a.postToChatAndSSE(body, a.clock.Now().UTC().Format(time.RFC3339))
+}
+
+// briefingBody returns an LLM-synthesized briefing when a model is configured
+// and reachable, and the deterministic template otherwise. Any failure (no
+// model, build error, LLM error, or empty output) falls back deterministically
+// so a briefing always goes out.
+func (a *Agent) briefingBody(ctx context.Context) string {
+	if a.llmConfigured() && a.getLLM() != nil {
+		body, err := a.synthesizeBriefing(ctx)
+		switch {
+		case err != nil:
+			alog.Warn("briefing synthesis failed, using deterministic fallback: %v", err)
+		case strings.TrimSpace(body) == "":
+			alog.Warn("briefing synthesis returned empty output, using deterministic fallback")
+		default:
+			return body
+		}
+	}
+	return a.deterministicBriefing()
+}
+
+func (a *Agent) synthesizeBriefing(ctx context.Context) (string, error) {
+	sysCtx, err := BuildContext(a.store, a.clock.Now(), a.promptContext())
+	if err != nil {
+		return "", fmt.Errorf("building context: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	client := a.getLLM()
+	full, usage, err := client.Chat(ctx, []llm.ChatMessage{
+		{Role: "system", Content: sysCtx},
+		{Role: "user", Content: briefingInstruction},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if usage != nil {
+		if err := a.store.Tokens.Record("briefing", client.Model(), usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens); err != nil {
+			alog.Warn("failed to record briefing token usage: %v", err)
+		}
+	}
+
+	return strings.TrimSpace(full), nil
+}
+
+func (a *Agent) deterministicBriefing() string {
 	counts, _ := a.store.Items.CountOpenBySource()
 	todayEvents, _ := a.store.Items.TodayEvents()
 
@@ -206,20 +283,7 @@ func (a *Agent) publishBriefing() {
 	if total == 0 && len(todayEvents) == 0 {
 		body.WriteString("- No open items or meetings. Clean slate!")
 	}
-
-	if a.bus != nil {
-		a.bus.Publish(events.Event{
-			Type:     "briefing",
-			Priority: "normal",
-			Data:     fmt.Sprintf(`{"title":"Daily Briefing","body":%q}`, body.String()),
-		})
-	}
-
-	if err := a.notifier.Notify("Daily Briefing", body.String()); err != nil {
-		alog.Warn("briefing notification: %v", err)
-	}
-
-	a.postToChatAndSSE(body.String(), a.clock.Now().UTC().Format(time.RFC3339))
+	return body.String()
 }
 
 func (a *Agent) checkIdentityOnStart() {
