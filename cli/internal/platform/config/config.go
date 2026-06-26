@@ -20,13 +20,50 @@ type Config struct {
 }
 
 type AgentConfig struct {
-	RunInterval   string   `yaml:"run_interval"`
-	BriefingTimes []string `yaml:"briefing_times"`
-	LLMProvider   string   `yaml:"llm_provider,omitempty"`
-	LLMModel      string   `yaml:"llm_model"`
-	LLMURL        string   `yaml:"llm_url"`
-	LLMAPIKey     string   `yaml:"llm_api_key,omitempty"`
-	UserContext   string   `yaml:"user_context,omitempty"`
+	RunInterval   string           `yaml:"run_interval"`
+	BriefingTimes []string         `yaml:"briefing_times"`
+	LLMProvider   string           `yaml:"llm_provider,omitempty"`
+	LLMModel      string           `yaml:"llm_model"`
+	LLMURL        string           `yaml:"llm_url"`
+	LLMAPIKey     string           `yaml:"llm_api_key,omitempty"`
+	UserContext   string           `yaml:"user_context,omitempty"`
+	Preferences   AgentPreferences `yaml:"preferences,omitempty"`
+}
+
+// AgentPreferences are user-tunable behavior overrides. They sit in the
+// overridable layer of the system prompt: they can change how the assistant
+// behaves (how loudly it notifies, what tone it uses) but never the safety
+// guardrail or correctness rules.
+type AgentPreferences struct {
+	Notifications            string `yaml:"notifications,omitempty"`
+	MaxNotificationsPerCycle int    `yaml:"max_notifications_per_cycle,omitempty"`
+	Tone                     string `yaml:"tone,omitempty"`
+}
+
+// Notification levels control how eagerly the autonomous agent sends notifications.
+const (
+	NotifyUrgentOnly = "urgent_only" // default: only urgent things
+	NotifySilent     = "silent"      // never notify; activity feed only
+	NotifyNormal     = "normal"      // notify on important changes
+	NotifyAll        = "all"         // notify on all noteworthy changes
+)
+
+// ValidNotificationLevel reports whether level is a recognized notification level.
+func ValidNotificationLevel(level string) bool {
+	switch level {
+	case NotifyUrgentOnly, NotifySilent, NotifyNormal, NotifyAll:
+		return true
+	default:
+		return false
+	}
+}
+
+// NotificationLevel returns the configured level or the default (urgent_only).
+func (p AgentPreferences) NotificationLevel() string {
+	if ValidNotificationLevel(p.Notifications) {
+		return p.Notifications
+	}
+	return NotifyUrgentOnly
 }
 
 func (a AgentConfig) RunIntervalDuration() time.Duration {

@@ -51,6 +51,8 @@ protocol references in [agent/llm/AGENTS.md](llm/AGENTS.md) for the OpenAI, Anth
 | `cycle.go`        | `runAgentCycle` — native multi-turn tool-calling loop; threads tool results back     |
 | `think.go`        | One `ChatWithTools` turn + token accounting; tool-definition snapshot, arg coercion, prompt-JSON fallback |
 | `context.go` / `prompt.go` | Build system prompt context (state, rules, ack list, briefing schedule)     |
+| `prompts.go`      | Loads layered system-prompt segments from embedded `prompts/*.md` (precedence preamble, role, core rules, default behavior, chat note) + `renderPreferences` |
+| `prompts/*.md`    | Static prose for each prompt layer, embedded via `go:embed` (guardrail stays a code constant in `guardrail.go`) |
 | `chat.go` / `sessions.go` | `StreamChat` (transport-free), in-memory chat sessions (`"web-default"`)      |
 | `exec.go`         | Slash command execution (/scrape, /status, /stats, /ack, /memory)                   |
 | `publish.go`      | `PublishProgress` and SSE event emission helpers                                     |
@@ -89,6 +91,14 @@ never imports `ui` and `ui` never imports `agent`.
   `writeTrustedContext` *outside* the untrusted fence (they are the user's own config, not scraped data). They
   must never be placed inside a fence, and the guardrail stays the highest-priority system text so context can
   shape behavior but cannot disable the safety rules.
+- **Layered system prompt (precedence is explicit):** `buildAgentMessages` assembles the system prompt in
+  priority order — L0 SAFETY (`untrustedDataGuardrail`), L1 CORE RULES (`agentCoreRules`: dates/tools/links),
+  L2 ROLE (`agentRolePrompt`), L3 DEFAULT BEHAVIOR (`agentDefaultBehavior`), L4 USER PREFERENCES & CONTEXT
+  (`renderPreferences` + free-text), L5 SOURCE GUIDANCE — preceded by `promptPrecedencePreamble` which states
+  that higher layers win and L0/L1 can never be overridden. Behavior knobs (`agent.preferences`: notification
+  level, max-per-cycle, tone) belong in L3/L4 only; never move notification/tone wording into L0/L1, and never
+  let preferences relax the guardrail or the date/tool/link correctness rules. `maxActionsPerCycle` (tool-call
+  cap) is a fixed safety bound, distinct from the user-tunable notification count.
 - **No vendor/company source names in prompts:** source display ordering uses `orderedSources` (most items first,
   then alphabetical). Do not reintroduce hardcoded source lists or per-source score bumps in `prioritizeItems`.
 

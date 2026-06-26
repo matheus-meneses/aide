@@ -7,6 +7,26 @@ import (
 	"testing"
 )
 
+func TestNotificationLevelDefaultsAndValidation(t *testing.T) {
+	if got := (config.AgentPreferences{}).NotificationLevel(); got != config.NotifyUrgentOnly {
+		t.Fatalf("empty notifications should default to urgent_only, got %q", got)
+	}
+	if got := (config.AgentPreferences{Notifications: "bogus"}).NotificationLevel(); got != config.NotifyUrgentOnly {
+		t.Fatalf("invalid notifications should fall back to urgent_only, got %q", got)
+	}
+	if got := (config.AgentPreferences{Notifications: config.NotifyAll}).NotificationLevel(); got != config.NotifyAll {
+		t.Fatalf("valid notifications should be preserved, got %q", got)
+	}
+	if config.ValidNotificationLevel("bogus") {
+		t.Fatal("bogus level must be invalid")
+	}
+	for _, lvl := range []string{config.NotifySilent, config.NotifyUrgentOnly, config.NotifyNormal, config.NotifyAll} {
+		if !config.ValidNotificationLevel(lvl) {
+			t.Fatalf("%q should be valid", lvl)
+		}
+	}
+}
+
 func TestLoadAppliesDefaults(t *testing.T) {
 	home := testutil.TempAideHome(t)
 	path := testutil.WriteConfig(t, "settings: {}\n")

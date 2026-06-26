@@ -86,6 +86,19 @@ func (h *handlers) handleSetUserContext(w http.ResponseWriter, r *http.Request) 
 	h.respondReload(w)
 }
 
+func (h *handlers) handleSetAgentPreferences(w http.ResponseWriter, r *http.Request) {
+	var in provision.AgentPreferences
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	if err := provision.SetAgentPreferences(h.a.ConfigPath(), in); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	h.respondReload(w)
+}
+
 func (h *handlers) handleSetSourceContext(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name    string `json:"name"`

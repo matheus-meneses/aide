@@ -53,6 +53,7 @@ func Register(a *agent.Agent, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/plugins/uninstall", h.handleUninstallPlugin)
 	mux.HandleFunc("POST /api/agent/schedule", h.handleSetSchedule)
 	mux.HandleFunc("POST /api/agent/context", h.handleSetUserContext)
+	mux.HandleFunc("POST /api/agent/preferences", h.handleSetAgentPreferences)
 	mux.HandleFunc("POST /api/sources/context", h.handleSetSourceContext)
 	mux.HandleFunc("POST /api/settings", h.handleSetSettings)
 	mux.HandleFunc("GET /api/team", h.handleGetTeam)

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"aide/cli/internal/persistence/store"
+	"aide/cli/internal/platform/config"
 	"aide/cli/internal/testutil"
 	"strings"
 	"testing"
@@ -30,7 +31,7 @@ func TestBuildContext_TrustedContextOutsideFence(t *testing.T) {
 		t.Fatalf("BuildContext: %v", err)
 	}
 
-	for _, want := range []string{pc.User, pc.Sources["jira"], "About the user", "Source guidance"} {
+	for _, want := range []string{pc.User, pc.Sources["jira"], "USER PREFERENCES & CONTEXT", "Source guidance"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("context output missing %q\n---\n%s", want, out)
 		}
@@ -55,10 +56,32 @@ func TestBuildContext_NoContextOmitsHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildContext: %v", err)
 	}
-	for _, unwanted := range []string{"About the user", "Source guidance"} {
+	for _, unwanted := range []string{"USER PREFERENCES & CONTEXT", "Source guidance"} {
 		if strings.Contains(out, unwanted) {
 			t.Fatalf("empty context should not render %q", unwanted)
 		}
+	}
+}
+
+func TestBuildContext_AppliesToneButNotNotificationPrefs(t *testing.T) {
+	s := testutil.OpenStore(t)
+
+	pc := PromptContext{
+		Preferences: config.AgentPreferences{
+			Notifications: config.NotifyAll,
+			Tone:          "formal",
+		},
+	}
+	out, err := BuildContext(s, time.Now(), pc)
+	if err != nil {
+		t.Fatalf("BuildContext: %v", err)
+	}
+
+	if !strings.Contains(out, "formal tone") {
+		t.Fatalf("chat context should apply tone preference\n---\n%s", out)
+	}
+	if strings.Contains(out, "all noteworthy") {
+		t.Fatal("chat context must not include notification directives")
 	}
 }
 
