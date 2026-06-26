@@ -37,8 +37,9 @@ func (s *stubLLM) ChatWithTools(_ context.Context, _ []llm.ChatMessage, td []llm
 	return &llm.ChatResult{}, nil
 }
 
-func (s *stubLLM) Ping() error   { return nil }
-func (s *stubLLM) Model() string { return "stub" }
+func (s *stubLLM) ListModels(context.Context) ([]string, error) { return nil, nil }
+func (s *stubLLM) Ping() error                                  { return nil }
+func (s *stubLLM) Model() string                                { return "stub" }
 
 func newLoopTestAgent(t *testing.T, stub llm.LLM, reg *tools.ToolRegistry) *Agent {
 	t.Helper()

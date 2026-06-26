@@ -282,3 +282,30 @@ func (c *openAIClient) Ping() error {
 	defer cancel()
 	return c.get(ctx, c.baseURL+"/models", c.authHeaders())
 }
+
+type oaiModelsResponse struct {
+	Data []struct {
+		ID string `json:"id"`
+	} `json:"data"`
+}
+
+func (c *openAIClient) ListModels(ctx context.Context) ([]string, error) {
+	resp, err := c.getJSON(ctx, c.baseURL+"/models", c.authHeaders())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var parsed oaiModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return nil, fmt.Errorf("decoding models response: %w", err)
+	}
+
+	models := make([]string, 0, len(parsed.Data))
+	for _, m := range parsed.Data {
+		if id := strings.TrimSpace(m.ID); id != "" {
+			models = append(models, id)
+		}
+	}
+	return models, nil
+}

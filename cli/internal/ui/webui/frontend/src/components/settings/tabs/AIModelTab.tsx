@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import * as api from "@/lib/api";
 import { Field } from "@/components/forms/Field";
+import { ModelPicker } from "@/components/forms/ModelPicker";
 import { Button, Label, Select, Skeleton, useToast } from "@/components/ui";
 import { APP_NAME } from "@/lib/brand";
 
@@ -94,7 +95,13 @@ export function AIModelTab() {
       </div>
 
       <Field label="Base URL" value={baseURL} onChange={setBaseURL} />
-      <Field label="Model" value={model} onChange={setModel} placeholder="e.g. gpt-4o-mini" />
+      <ModelPicker
+        provider={provider}
+        baseURL={baseURL}
+        apiKey={apiKey}
+        value={model}
+        onChange={setModel}
+      />
       <Field
         label={`API key${hasKey ? " (leave blank to keep)" : ""}`}
         secret

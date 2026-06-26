@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Model picker for OpenAI-compatible / LiteLLM providers** — the agent config no
+  longer forces you to type the model name by hand. When the provider exposes
+  `GET /models` (OpenAI, LiteLLM, vLLM, Ollama, …), `aide agent config`, the setup
+  wizard, and the AI model settings tab can fetch the advertised models and offer a
+  selectable list, while always falling back to free-text entry when the endpoint is
+  unreachable or returns nothing. A new `POST /api/models` endpoint backs the web UI. (#71)
+
 ### Changed
 
 - **Agent tool loop now uses provider-native function-calling** — the autonomous
