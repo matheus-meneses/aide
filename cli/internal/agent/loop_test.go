@@ -16,9 +16,11 @@ type stubLLM struct {
 	lastTools []llm.ToolDefinition
 	chatReply string
 	chatErr   error
+	lastChat  []llm.ChatMessage
 }
 
-func (s *stubLLM) Chat(context.Context, []llm.ChatMessage) (string, *llm.Usage, error) {
+func (s *stubLLM) Chat(_ context.Context, messages []llm.ChatMessage) (string, *llm.Usage, error) {
+	s.lastChat = messages
 	return s.chatReply, nil, s.chatErr
 }
 

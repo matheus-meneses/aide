@@ -62,3 +62,25 @@ func TestBriefingBodyFallsBackWhenLLMEmpty(t *testing.T) {
 		t.Fatalf("expected deterministic fallback on empty LLM output, got: %q", body)
 	}
 }
+
+func TestSynthesizeBriefingPromptCarriesGuardrails(t *testing.T) {
+	stub := &stubLLM{chatReply: "summary"}
+	a := configuredAgent(t, stub)
+
+	if _, err := a.synthesizeBriefing(context.Background()); err != nil {
+		t.Fatalf("synthesizeBriefing: %v", err)
+	}
+	if len(stub.lastChat) == 0 {
+		t.Fatal("no messages sent to the LLM")
+	}
+
+	system := stub.lastChat[0].Content
+	if !strings.HasPrefix(system, promptPrecedencePreamble) {
+		t.Fatal("system prompt does not lead with the precedence preamble")
+	}
+	for _, want := range []string{agentCoreRules, untrustedDataGuardrail, untrustedBegin} {
+		if !strings.Contains(system, want) {
+			t.Fatalf("system prompt missing a required guardrail segment: %q", want)
+		}
+	}
+}

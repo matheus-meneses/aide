@@ -245,12 +245,17 @@ func (a *Agent) synthesizeBriefing(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("building context: %w", err)
 	}
 
+	// Prepend the immutable SAFETY/precedence + core-rules layer ahead of the
+	// (already guardrailed) context, so even this read-only pass sits under the
+	// same non-overridable rules as the autonomous loop.
+	system := promptPrecedencePreamble + "\n\n" + agentCoreRules + "\n\n" + sysCtx
+
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	client := a.getLLM()
 	full, usage, err := client.Chat(ctx, []llm.ChatMessage{
-		{Role: "system", Content: sysCtx},
+		{Role: "system", Content: system},
 		{Role: "user", Content: briefingInstruction},
 	})
 	if err != nil {
