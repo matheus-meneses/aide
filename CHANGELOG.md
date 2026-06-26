@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Model picker for OpenAI-compatible / LiteLLM providers** — the agent config no
+  longer forces you to type the model name by hand. When the provider exposes
+  `GET /models` (OpenAI, LiteLLM, vLLM, Ollama, …), `aide agent config`, the setup
+  wizard, and the AI model settings tab can fetch the advertised models and offer a
+  selectable list, while always falling back to free-text entry when the endpoint is
+  unreachable or returns nothing. A new `POST /api/models` endpoint backs the web UI. (#71)
 - **Layered system prompt with user-overridable behavior** — the agent's system
   prompt is now assembled in explicit priority layers (safety guardrail and
   correctness rules at the top, then role, then overridable default behavior,

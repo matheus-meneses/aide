@@ -288,6 +288,14 @@ func TestLLM(provider, baseURL, model, apiKey string) error {
 	return nil
 }
 
+// ListModels queries an OpenAI-compatible or LiteLLM endpoint for the models it
+// advertises, so callers can present a picker instead of free-text entry.
+func ListModels(provider, baseURL, apiKey string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return llm.ListModels(ctx, provider, baseURL, apiKey)
+}
+
 func (a *Agent) LLM() llm.LLM {
 	return a.getLLM()
 }

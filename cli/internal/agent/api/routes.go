@@ -46,6 +46,7 @@ func Register(a *agent.Agent, mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/sources/remove", h.handleRemoveSource)
 	mux.HandleFunc("POST /api/llm", h.handleSetLLM)
 	mux.HandleFunc("POST /api/test-connection", h.handleTestConnection)
+	mux.HandleFunc("POST /api/models", h.handleListModels)
 
 	mux.HandleFunc("GET /api/config", h.handleConfigSnapshot)
 	mux.HandleFunc("GET /api/sources", h.handleListSources)

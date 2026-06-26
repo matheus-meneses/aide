@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import * as api from "@/lib/api";
 import { Field } from "@/components/forms/Field";
+import { ModelPicker } from "@/components/forms/ModelPicker";
 import { Button, Label, Select } from "@/components/ui";
 import { APP_NAME } from "@/lib/brand";
 
@@ -100,7 +101,13 @@ export function ProviderStep({ onBack, onNext }: { onBack?: () => void; onNext: 
       </div>
 
       <Field label="Base URL" value={baseURL} onChange={setBaseURL} />
-      <Field label="Model" value={model} onChange={setModel} placeholder="e.g. gpt-4o-mini" />
+      <ModelPicker
+        provider={provider}
+        baseURL={baseURL}
+        apiKey={apiKey}
+        value={model}
+        onChange={setModel}
+      />
       <Field label="API key" secret value={apiKey} onChange={setApiKey} />
 
       {testState === "ok" && (

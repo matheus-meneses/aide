@@ -5,11 +5,15 @@ import (
 	"aide/cli/internal/security/keychain"
 	"aide/cli/internal/setup/provision"
 	"aide/cli/internal/ui/widgets"
+	"context"
 	"strings"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 )
+
+const manualModelEntry = "Other (type the name manually)"
 
 var providerOptions = []struct {
 	id    string
@@ -81,12 +85,13 @@ func agentConfigExecute(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	llmModel := cfg.Agent.LLMModel
-	if err := survey.AskOne(&survey.Input{
-		Message: "Model",
-		Default: llmModel,
-		Help:    "e.g. llama3.1, gpt-4o-mini",
-	}, &llmModel); err != nil {
+	apiKey, err := promptAgentAPIKey(strings.TrimSpace(cfg.Agent.LLMAPIKey))
+	if err != nil {
+		return err
+	}
+
+	llmModel, err := promptModel(provider, llmURL, effectiveAPIKey(apiKey, cfg.Agent.LLMAPIKey), cfg.Agent.LLMModel)
+	if err != nil {
 		return err
 	}
 
@@ -109,11 +114,6 @@ func agentConfigExecute(_ *cobra.Command, _ []string) error {
 		Message: "Daily briefing times (comma-separated, 24h)",
 		Default: briefings,
 	}, &briefings); err != nil {
-		return err
-	}
-
-	apiKey, err := promptAgentAPIKey(strings.TrimSpace(cfg.Agent.LLMAPIKey))
-	if err != nil {
 		return err
 	}
 
@@ -171,6 +171,69 @@ func promptAgentAPIKey(existingPlainKey string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(key), nil
+}
+
+// effectiveAPIKey resolves the key to use when probing the provider for models:
+// a freshly entered key wins, then the keychain, then a legacy plaintext key.
+func effectiveAPIKey(entered, existingPlain string) string {
+	if k := strings.TrimSpace(entered); k != "" {
+		return k
+	}
+	if cred, err := keychain.GetAll("agent"); err == nil {
+		if v, ok := cred.Fields["llm_api_key"]; ok && strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return strings.TrimSpace(existingPlain)
+}
+
+// promptModel offers a list fetched from the provider when reachable, and
+// always falls back to free-text entry.
+func promptModel(provider, baseURL, apiKey, current string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	models, err := llm.ListModels(ctx, provider, baseURL, apiKey)
+	if err != nil || len(models) == 0 {
+		if err != nil {
+			widgets.Println("  Could not list models from the provider (" + err.Error() + "). Enter it manually.")
+		}
+		return promptModelManual(current)
+	}
+
+	options := append(append([]string{}, models...), manualModelEntry)
+	defaultChoice := manualModelEntry
+	for _, m := range models {
+		if m == current {
+			defaultChoice = m
+			break
+		}
+	}
+
+	var chosen string
+	if err := survey.AskOne(&survey.Select{
+		Message: "Model",
+		Options: options,
+		Default: defaultChoice,
+	}, &chosen); err != nil {
+		return "", err
+	}
+	if chosen == manualModelEntry {
+		return promptModelManual(current)
+	}
+	return chosen, nil
+}
+
+func promptModelManual(current string) (string, error) {
+	model := current
+	if err := survey.AskOne(&survey.Input{
+		Message: "Model",
+		Default: model,
+		Help:    "e.g. llama3.1, gpt-4o-mini",
+	}, &model); err != nil {
+		return "", err
+	}
+	return model, nil
 }
 
 func parseBriefingTimes(s string) []string {

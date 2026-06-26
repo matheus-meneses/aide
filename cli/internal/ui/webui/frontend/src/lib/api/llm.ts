@@ -34,3 +34,16 @@ export async function testConnection(payload: LLMPayload): Promise<{ ok: boolean
   });
   return resp.json() as Promise<{ ok: boolean; error?: string }>;
 }
+
+export async function listModels(payload: {
+  provider: string;
+  base_url: string;
+  api_key: string;
+}): Promise<{ models?: string[]; error?: string }> {
+  const resp = await checkedFetch(`${BASE}/api/models`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return resp.json() as Promise<{ models?: string[]; error?: string }>;
+}
