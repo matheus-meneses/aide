@@ -84,6 +84,7 @@ function MainApp() {
   const [lastSeenCount, setLastSeenCount] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [activeSource, setActiveSource] = useState<string | null>(null);
+  const [statusRefreshKey, setStatusRefreshKey] = useState(0);
   const [pendingEvent, setPendingEvent] = useState<AgentEvent | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<TabId>("profile");
@@ -199,6 +200,7 @@ function MainApp() {
         unreadCount={unreadCount}
         activeSource={activeSource}
         onSourceClick={setActiveSource}
+        refreshKey={statusRefreshKey}
         onOpenSettings={() => openSettings()}
         onOpenLogs={isDesktopApp ? openLogs : undefined}
       />
@@ -315,7 +317,11 @@ function MainApp() {
             </button>
           )}
           {activeSource ? (
-            <ItemsView source={activeSource} onClose={() => setActiveSource(null)} />
+            <ItemsView
+              source={activeSource}
+              onClose={() => setActiveSource(null)}
+              onItemDone={() => setStatusRefreshKey((k) => k + 1)}
+            />
           ) : (
             <ChatPanel onConfigure={() => openSettings("agent")} />
           )}

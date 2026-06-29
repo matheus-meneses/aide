@@ -38,6 +38,7 @@ interface Props {
   onSourceClick?: (source: string | null) => void;
   onOpenSettings?: () => void;
   onOpenLogs?: () => void;
+  refreshKey?: number;
 }
 
 export function StatusBar({
@@ -48,6 +49,7 @@ export function StatusBar({
   onSourceClick,
   onOpenSettings,
   onOpenLogs,
+  refreshKey,
 }: Props) {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [statusError, setStatusError] = useState(false);
@@ -93,6 +95,10 @@ export function StatusBar({
       clearInterval(interval);
     };
   }, [loadStatus]);
+
+  useEffect(() => {
+    void loadStatus();
+  }, [refreshKey, loadStatus]);
 
   const toggleDark = () => {
     const next = !dark;

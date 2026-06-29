@@ -1,4 +1,4 @@
-import { BASE, checkedFetch } from "./http";
+import { BASE, checkedFetch, postJSON } from "./http";
 
 export interface ItemData {
   id: number;
@@ -25,4 +25,8 @@ export async function fetchItems(source?: string): Promise<ItemData[]> {
 export async function fetchToday(): Promise<ItemData[]> {
   const resp = await checkedFetch(`${BASE}/api/today`);
   return resp.json() as Promise<ItemData[]>;
+}
+
+export async function markItemDone(fingerprint: string): Promise<void> {
+  await postJSON("/api/items/done", { fingerprint });
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Info, RefreshCw, X } from "lucide-react";
-import { fetchItems } from "@/lib/api";
+import { AlertTriangle, Check, CheckCircle2, Clock, ExternalLink, Info, RefreshCw, X } from "lucide-react";
+import { fetchItems, markItemDone } from "@/lib/api";
 import type { ItemData as Item } from "@/lib/api";
 import { handleExternalClick } from "@/lib/openExternal";
 import { Button, EmptyState, Select, Skeleton, useToast } from "@/components/ui";
@@ -8,6 +8,7 @@ import { Button, EmptyState, Select, Skeleton, useToast } from "@/components/ui"
 interface Props {
   source: string;
   onClose: () => void;
+  onItemDone?: () => void;
 }
 
 const INFO_PRIORITY = { icon: Info, color: "text-info", bg: "bg-info/10" };
@@ -31,7 +32,7 @@ const categoryLabels: Record<string, string> = {
   email: "Email",
 };
 
-export function ItemsView({ source, onClose }: Props) {
+export function ItemsView({ source, onClose, onItemDone }: Props) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +64,20 @@ export function ItemsView({ source, onClose }: Props) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleDone = useCallback(
+    (item: Item) => {
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      markItemDone(item.fingerprint)
+        .then(() => onItemDone?.())
+        .catch((e: unknown) => {
+          const message = e instanceof Error ? e.message : String(e);
+          toast(`Failed to mark done: ${message}`, "error");
+          load();
+        });
+    },
+    [load, onItemDone, toast],
+  );
 
   const grouped = items.reduce<Record<string, Item[]>>((acc, item) => {
     const key =
@@ -174,17 +189,27 @@ export function ItemsView({ source, onClose }: Props) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium leading-tight truncate">{item.title}</p>
-                          {item.link && (
-                            <a
-                              href={item.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => handleExternalClick(e, item.link)}
-                              className="shrink-0 p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent transition-all"
+                          <div className="flex items-center gap-1 shrink-0">
+                            {item.link && (
+                              <a
+                                href={item.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => handleExternalClick(e, item.link)}
+                                className="p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent transition-all"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                              </a>
+                            )}
+                            <button
+                              onClick={() => handleDone(item)}
+                              className="p-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-success/10 transition-all"
+                              title="Mark done"
+                              aria-label="Mark done"
                             >
-                              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                            </a>
-                          )}
+                              <Check className="w-3.5 h-3.5 text-success" />
+                            </button>
+                          </div>
                         </div>
                         {item.detail && (
                           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">

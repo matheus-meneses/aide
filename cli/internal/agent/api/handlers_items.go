@@ -2,6 +2,7 @@ package api
 
 import (
 	"aide/cli/internal/persistence/store"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -79,4 +80,24 @@ func eventPayload(ev store.NextEventInfo) map[string]any {
 
 func (h *handlers) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, h.a.StatusSnapshot())
+}
+
+func (h *handlers) handleMarkItemDone(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Fingerprint string `json:"fingerprint"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Fingerprint == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "fingerprint required"})
+		return
+	}
+	n, err := h.a.Store().Items.MarkDone(req.Fingerprint)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	if n == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "item not found or already closed"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "done"})
 }

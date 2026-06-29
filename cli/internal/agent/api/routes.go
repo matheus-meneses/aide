@@ -14,6 +14,7 @@ func Register(a *agent.Agent, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/notifications", h.handleNotifications)
 	mux.HandleFunc("POST /api/chat", h.handleChat)
 	mux.HandleFunc("GET /api/items", h.handleItems)
+	mux.HandleFunc("POST /api/items/done", h.handleMarkItemDone)
 	mux.HandleFunc("GET /api/today", h.handleToday)
 	mux.HandleFunc("GET /api/events/next", h.handleNextEvent)
 	mux.HandleFunc("GET /api/events/upcoming", h.handleUpcomingEvents)
