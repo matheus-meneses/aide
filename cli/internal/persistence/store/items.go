@@ -39,9 +39,9 @@ func (r *ItemRepo) Upsert(source string, items []Item) (newCount, updatedCount i
 			entry_date = excluded.entry_date,
 			priority = excluded.priority,
 			link = excluded.link,
-			status = 'open',
+			status = CASE WHEN items.status = 'done' THEN 'done' ELSE 'open' END,
 			last_seen_at = excluded.last_seen_at,
-			resolved_at = NULL
+			resolved_at = CASE WHEN items.status = 'done' THEN items.resolved_at ELSE NULL END
 	`)
 	if err != nil {
 		return 0, 0, err
@@ -92,6 +92,20 @@ func (r *ItemRepo) Upsert(source string, items []Item) (newCount, updatedCount i
 	}
 
 	return newCount, updatedCount, tx.Commit()
+}
+
+// MarkDone transitions an open item into the terminal 'done' state. Unlike
+// scrape-driven resolution, 'done' is preserved across future scrapes (see the
+// ON CONFLICT clause in Upsert), so a manually closed item never reappears.
+func (r *ItemRepo) MarkDone(fingerprint string) (int64, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := r.db.Exec(
+		"UPDATE items SET status = 'done', resolved_at = ? WHERE fingerprint = ? AND status = 'open'",
+		now, fingerprint)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func resolveUnseen(tx *sql.Tx, source, now string, seen map[string]bool) error {
